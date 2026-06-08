@@ -614,23 +614,26 @@ function Lightbox({ url, onClose }) {
 }
 
 // ─── BottleImage: cerca, cachea e mostra l'immagine della bottiglia ───────────
-function BottleImage({ wine }) {
+function BottleImage({ wine, active }) {
   const [status, setStatus] = useState("idle"); // idle | loading | found | error
   const [url, setUrl]       = useState(null);
   const [lightbox, setLightbox] = useState(false);
 
   useEffect(() => {
+    // Non fare nulla finché l'utente non ha cliccato la tab Bottiglia
+    if (!active) return;
+
+    // Se già trovata o già fallita nella sessione, non ritentare
+    const cached = imgSessionCache.get(wine.id);
+    if (cached) {
+      if (cached === "NOT_FOUND") { setStatus("error"); return; }
+      setUrl(cached); setStatus("found"); return;
+    }
+
     let cancelled = false;
 
     async function fetchImage() {
-      // ── Step 1: cache in-memory sessione ──────────────────────────────────
-      const cached = imgSessionCache.get(wine.id);
-      if (cached) {
-        if (cached === "NOT_FOUND") { setStatus("error"); return; }
-        setUrl(cached); setStatus("found"); return;
-      }
-
-      // ── Step 2: Supabase ──────────────────────────────────────────────────
+      // ── Step 1: Supabase (già salvata da sessione precedente) ─────────────
       try {
         const row = await sb.getWhere("wine_images", "wine_id", wine.id);
         if (row && row.image_url) {
@@ -640,7 +643,7 @@ function BottleImage({ wine }) {
         }
       } catch (_) { /* tabella non ancora creata: procedi */ }
 
-      // ── Step 3: ricerca immagine via /api/search-image (serverless proxy) ──
+      // ── Step 2: ricerca AI via serverless proxy (solo se non in cache) ────
       if (!cancelled) setStatus("loading");
 
       try {
@@ -673,7 +676,7 @@ function BottleImage({ wine }) {
 
     fetchImage();
     return () => { cancelled = true; };
-  }, [wine.id]);
+  }, [wine.id, active]);
 
   if (status === "idle" || status === "loading") {
     return (
@@ -866,7 +869,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
           {/* ── Contenuto tab BOTTIGLIA ── */}
           {cardTab === "bottiglia" && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
-              <BottleImage wine={wine} />
+              <BottleImage wine={wine} active={cardTab === "bottiglia"} />
             </div>
           )}
 
