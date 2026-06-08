@@ -177,7 +177,8 @@ const WINES_DATA = [
     macerazione: "Macerazione prolungata sulle bucce",
     fermentazione: "In cemento con lieviti indigeni",
     malolattica: "No",
-    note: "Abruzzo. Trebbiano vinificato in orange, vitigno di grande longevità nella versione macerata. Chiusa Grande è riferimento per i vini naturali abruzzesi." },
+    note: "Abruzzo. Trebbiano vinificato in orange, vitigno di grande longevità nella versione macerata. Chiusa Grande è riferimento per i vini naturali abruzzesi.",
+    bevuto: "07/06/2025", notaBevuto: "" },
 
   // ── COLLE MORA ───────────────────────────────────────────────────────────────
   // Fonte: collemora.it, fisarmonza.it | Sagrantino Passito DOCG
@@ -541,11 +542,12 @@ function SwBadge({ type }) {
 }
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineCard({ wine, expanded, onToggle, onBevi }) {
+function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
     <div style={{
@@ -630,10 +632,39 @@ function WineCard({ wine, expanded, onToggle, onBevi }) {
             width: "100%", padding: "10px 16px", borderRadius: 20, border: "none",
             background: M3.primaryContainer, color: M3.onPrimaryContainer,
             fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
-            cursor: "pointer", letterSpacing: 0.1,
+            cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
           }}>
             🍷 Segna come bevuto
           </button>
+
+          {/* Pulsante elimina con conferma inline */}
+          {!confirmDelete ? (
+            <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
+              width: "100%", padding: "9px 16px", borderRadius: 20,
+              border: `1px solid ${M3.error}44`,
+              background: "transparent", color: M3.error,
+              fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
+              cursor: "pointer", letterSpacing: 0.1,
+            }}>
+              🗑 Elimina dalla cantina
+            </button>
+          ) : (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ flex: 1, fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
+                {wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
+              </span>
+              <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }} style={{
+                padding: "7px 14px", borderRadius: 20, border: `1px solid ${M3.outline}`,
+                background: "transparent", color: M3.onSurfaceVariant,
+                fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer",
+              }}>No</button>
+              <button onClick={(e) => { e.stopPropagation(); onElimina(wine); setConfirmDelete(false); }} style={{
+                padding: "7px 14px", borderRadius: 20, border: "none",
+                background: M3.error, color: "#FFFFFF",
+                fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer",
+              }}>Sì, elimina</button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -642,9 +673,84 @@ function WineCard({ wine, expanded, onToggle, onBevi }) {
 
 // ─── Modal: Aggiungi Vino ─────────────────────────────────────────────────────
 function ModalAggiungi({ onSalva, onAnnulla }) {
-  const [modo, setModo] = useState(null); // null | "manuale" | "foto"
+  const [modo, setModo] = useState(null); // null | "manuale" | "foto" | "analisi"
   const [form, setForm] = useState({ produttore: "", vino: "", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", note: "" });
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageBase64, setImageBase64] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
   const fileRef = useRef();
+
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      setImagePreview(dataUrl);
+      // Estrai solo il base64 senza il prefisso data:image/...;base64,
+      setImageBase64(dataUrl.split(",")[1]);
+      setModo("analisi");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAnalizzaEtichetta = async () => {
+    if (!imageBase64) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{
+            role: "user",
+            content: [
+              {
+                type: "image",
+                source: { type: "base64", media_type: "image/jpeg", data: imageBase64 },
+              },
+              {
+                type: "text",
+                text: `Analizza questa etichetta di vino e restituisci SOLO un oggetto JSON con questi campi (nessun testo aggiuntivo, nessun markdown):
+{
+  "produttore": "nome del produttore/cantina",
+  "vino": "nome commerciale del vino",
+  "annata": "anno in formato 4 cifre oppure 'n.d.' se non visibile",
+  "tipologia": "una di: Rosso fermo, Bianco fermo, Orange, Spumante, Spumante rosso, Sidro",
+  "vitigno": "vitigno/i indicati sull'etichetta, oppure '' se non visibile"
+}
+Se un campo non è leggibile, usa stringa vuota. La tipologia deve essere esattamente una delle opzioni date.`,
+              },
+            ],
+          }],
+        }),
+      });
+      const data = await response.json();
+      const text = (data.content || []).map(c => c.text || "").join("").trim();
+      // Pulizia JSON (rimuove eventuali blocchi markdown)
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setForm(prev => ({
+        ...prev,
+        produttore: parsed.produttore || prev.produttore,
+        vino: parsed.vino || prev.vino,
+        annata: parsed.annata || prev.annata,
+        tipologia: Object.keys(TIPO).includes(parsed.tipologia) ? parsed.tipologia : prev.tipologia,
+        vitigno: parsed.vitigno || prev.vitigno,
+      }));
+      setModo("manuale"); // Vai al form con i campi pre-compilati
+    } catch (err) {
+      console.error("AI label error:", err);
+      setAiError("Riconoscimento non riuscito. Puoi compilare manualmente.");
+      setModo("manuale");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const field = (key, label, type = "text", opts = {}) => (
     <div style={{ marginBottom: 12 }}>
@@ -668,6 +774,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
           ➕ Aggiungi vino
         </div>
 
+        {/* ── Scelta modalità ── */}
         {!modo && (
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setModo("manuale")} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
@@ -681,25 +788,60 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
               <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Scatta o carica una foto</div>
             </button>
             <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }}
-              onChange={() => setModo("foto")} />
+              onChange={handleFotoChange} />
           </div>
         )}
 
-        {modo === "foto" && (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🚧</div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 8 }}>Riconoscimento in arrivo</div>
-            <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 20, lineHeight: 1.5 }}>
-              Il riconoscimento automatico dell'etichetta via AI sarà disponibile nella prossima versione. Per ora usa l'inserimento manuale.
-            </div>
-            <button onClick={() => setModo("manuale")} style={{ padding: "10px 24px", borderRadius: 20, border: "none", background: M3.primaryContainer, color: M3.onPrimaryContainer, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-              Inserimento manuale →
-            </button>
+        {/* ── Analisi AI in corso ── */}
+        {modo === "analisi" && (
+          <div style={{ textAlign: "center" }}>
+            {imagePreview && (
+              <img src={imagePreview} alt="Etichetta" style={{ maxHeight: 200, maxWidth: "100%", borderRadius: 12, marginBottom: 16, objectFit: "contain" }} />
+            )}
+            {!aiLoading ? (
+              <>
+                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 8 }}>
+                  Etichetta caricata ✓
+                </div>
+                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 20, lineHeight: 1.5 }}>
+                  Clicca per avviare il riconoscimento automatico con AI.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => { setModo("manuale"); setImagePreview(null); }} style={{ flex: 1, padding: "10px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+                    ← Manuale
+                  </button>
+                  <button onClick={handleAnalizzaEtichetta} style={{ flex: 2, padding: "10px 20px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+                    🤖 Analizza etichetta
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ padding: "24px 0" }}>
+                <div style={{ fontSize: 36, marginBottom: 12, animation: "spin 1s linear infinite" }}>🔍</div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>Analisi AI in corso…</div>
+                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Riconoscimento produttore, vino e annata</div>
+              </div>
+            )}
           </div>
         )}
 
+        {/* ── Form manuale (con eventuali campi pre-compilati da AI) ── */}
         {modo === "manuale" && (
           <>
+            {/* Banner se compilato da AI */}
+            {imagePreview && (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
+                <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>
+                    {aiError ? "⚠️ Riconoscimento parziale" : "🤖 Campi pre-compilati da AI"}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#388E3C", fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, marginTop: 2 }}>
+                    {aiError || "Verifica e correggi i campi se necessario"}
+                  </div>
+                </div>
+              </div>
+            )}
             {field("produttore", "Produttore")}
             {field("vino", "Nome vino")}
             {field("annata", "Annata")}
@@ -713,7 +855,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
                 style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setModo(null)} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>← Indietro</button>
+              <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>← Indietro</button>
               <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
                 style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
                 Salva in cantina
@@ -755,7 +897,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onAggiungi, compact }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onAggiungi, compact }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -807,7 +949,8 @@ function TabLista({ wines, bevuti, onBevi, onAggiungi, compact }) {
         ) : filtered.map(wine => (
           <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
             onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
-            onBevi={onBevi} />
+            onBevi={onBevi}
+            onElimina={onElimina} />
         ))}
       </div>
     </>
@@ -1005,6 +1148,9 @@ export default function Cantina() {
   const [compact, setCompact] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
+  // Stato eliminazione: per vini statici traccia le bottiglie rimosse; per extra_wines l'id eliminato
+  const [bottleOverrides, setBottleOverrides] = useState({}); // { wineId: deltaBottiglie }
+  const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
 
@@ -1016,10 +1162,40 @@ export default function Cantina() {
           sb.get("bevuti"),
           sb.get("extra_wines")
         ]);
-        setBevuti(bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" })));
+
+        // Vini del dataset con campo `bevuto:` già impostato (storico offline)
+        const staticBevuti = WINES_DATA.filter(w => w.bevuto);
+
+        // Costruiamo il set degli id già presenti in Supabase
+        const bevIdsInDb = new Set(bev.map(b => b.wine_id));
+
+        // Sincronizzazione: inserisce i vini statici bevuti che non sono ancora in Supabase
+        const insertPromises = staticBevuti
+          .filter(w => !bevIdsInDb.has(w.id))
+          .map(w => {
+            const uid = w.id * 1000; // uid deterministico per i vini statici
+            return sb.insert("bevuti", { uid, wine_id: w.id, data: w.bevuto, nota: w.notaBevuto || "" })
+              .then(() => ({ uid, id: w.id, data: w.bevuto, nota: w.notaBevuto || "" }));
+          });
+
+        const newlyInserted = await Promise.all(insertPromises);
+
+        // Mappa definitiva dal DB: tutti i bevuti da Supabase
+        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
+
+        // Merge: DB + eventuali appena inseriti (evitando duplicati per id)
+        const allBevutiMap = new Map();
+        bevFromDb.forEach(b => allBevutiMap.set(b.id, b));
+        newlyInserted.forEach(b => { if (b && !allBevutiMap.has(b.id)) allBevutiMap.set(b.id, b); });
+
+        setBevuti(Array.from(allBevutiMap.values()));
         setExtraWines(extra.map(w => ({ ...w, id: w.id, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
       } catch (e) {
         console.error("Errore caricamento dati:", e);
+        // Fallback offline: carica comunque i vini statici bevuti
+        const staticBevuti = WINES_DATA.filter(w => w.bevuto)
+          .map(w => ({ uid: w.id * 1000, id: w.id, data: w.bevuto, nota: w.notaBevuto || "" }));
+        setBevuti(staticBevuti);
       } finally {
         setLoading(false);
       }
@@ -1027,7 +1203,19 @@ export default function Cantina() {
     loadData();
   }, []);
 
-  const allWines = [...WINES_DATA, ...extraWines];
+  const allWines = [...WINES_DATA, ...extraWines]
+    // Applica bottleOverrides ai vini statici
+    .map(w => {
+      if (bottleOverrides[w.id] !== undefined) {
+        return { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] };
+      }
+      return w;
+    })
+    // Filtra vini statici con bottiglie <= 0 e extra_wines eliminati
+    .filter(w => {
+      if (deletedExtraIds.has(w.id)) return false;
+      return w.bottiglie > 0;
+    });
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1041,6 +1229,22 @@ export default function Cantina() {
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  const handleElimina = async (wine) => {
+    const isExtra = extraWines.some(w => w.id === wine.id);
+    if (isExtra) {
+      // Elimina completamente da extra_wines e da Supabase
+      setExtraWines(prev => prev.filter(w => w.id !== wine.id));
+      setDeletedExtraIds(prev => new Set([...prev, wine.id]));
+      await sb.delete("extra_wines", "id", wine.id);
+    } else {
+      // Vino statico: decrementa bottiglie di 1
+      setBottleOverrides(prev => ({
+        ...prev,
+        [wine.id]: (prev[wine.id] || 0) + 1,
+      }));
+    }
+  };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
 
@@ -1091,6 +1295,7 @@ export default function Cantina() {
         ::-webkit-scrollbar { width: 0; height: 0; }
         @keyframes expandIn { from { opacity:0; transform:translateY(-5px) } to { opacity:1; transform:translateY(0) } }
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
+        @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
       `}</style>
 
       {/* ── App Bar M3 Medium (collassante) ── */}
@@ -1130,7 +1335,7 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onAggiungi={() => setShowAggiungi(true)} compact={compact} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onAggiungi={() => setShowAggiungi(true)} compact={compact} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
