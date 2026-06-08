@@ -50,6 +50,16 @@ const sb = {
       method: "DELETE",
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
     });
+  },
+  async patch(table, column, value, data) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
+      method: "PATCH",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) return null;
+    const res = await r.json();
+    return Array.isArray(res) ? res[0] : res;
   }
 };
 
@@ -1642,9 +1652,10 @@ export default function Cantina() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [bev, extra] = await Promise.all([
+        const [bev, extra, overrides] = await Promise.all([
           sb.get("bevuti"),
-          sb.get("extra_wines")
+          sb.get("extra_wines"),
+          sb.get("wine_overrides").catch(() => []), // tabella opzionale, non blocca se assente
         ]);
 
         // Vini del dataset con campo `bevuto:` già impostato (storico offline)
@@ -1658,7 +1669,7 @@ export default function Cantina() {
           .filter(w => !bevIdsInDb.has(w.id))
           .map(w => {
             const uid = w.id * 1000; // uid deterministico per i vini statici
-            return sb.insert("bevuti", { uid, wine_id: w.id, data: w.bevuto, nota: w.notaBevuto || "" })
+            return sb.insert("bevuti", { uid, wine_id: w.id, data: w.bevuto, nota: w.notaBevuto || "", rating: 0 })
               .then(() => ({ uid, id: w.id, data: w.bevuto, nota: w.notaBevuto || "" }));
           });
 
@@ -1674,6 +1685,22 @@ export default function Cantina() {
 
         setBevuti(Array.from(allBevutiMap.values()));
         setExtraWines(extra.map(w => ({ ...w, id: w.id, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
+
+        // Carica i rating salvati nella colonna `rating` della tabella bevuti
+        const ratingsFromDb = {};
+        bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
+        setRatings(ratingsFromDb);
+
+        // Carica wine_overrides per vini statici modificati
+        if (Array.isArray(overrides) && overrides.length > 0) {
+          const ovMap = {};
+          overrides.forEach(o => {
+            const { wine_id, ...fields } = o;
+            ovMap[wine_id] = fields;
+          });
+          setWineOverrides(ovMap);
+        }
+
       } catch (e) {
         console.error("Errore caricamento dati:", e);
         // Fallback offline: carica comunque i vini statici bevuti
@@ -1739,7 +1766,7 @@ export default function Cantina() {
 
   const handleConferma = async (nota, data, rating) => {
     const uid = Date.now();
-    const row = { uid, wine_id: pendingBevi.id, data, nota: nota || "" };
+    const row = { uid, wine_id: pendingBevi.id, data, nota: nota || "", rating: rating || 0 };
     setBevuti(prev => [...prev, { uid, id: pendingBevi.id, data, nota: nota || "" }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [pendingBevi.id]: rating }));
     setPendingBevi(null);
@@ -1777,18 +1804,21 @@ export default function Cantina() {
       setExtraWines(prev => prev.map(w => w.id === wine.id ? updated : w));
       await sb.upsert("extra_wines", { ...updated }, "id");
     } else {
-      // Vino statico: salva le modifiche come override in-memory
-      // (si perde al reload — per persistenza futura serve tabella wine_overrides)
-      setWineOverrides(prev => ({
-        ...prev,
-        [wine.id]: { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) },
-      }));
+      // Vino statico: salva override in memoria e su Supabase (tabella wine_overrides)
+      const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
+      setWineOverrides(prev => ({ ...prev, [wine.id]: fields }));
+      await sb.upsert("wine_overrides", { wine_id: wine.id, ...fields }, "wine_id").catch(console.error);
     }
     setPendingModifica(null);
   };
 
-  const handleRate = (wineId, score) => {
+  const handleRate = async (wineId, score) => {
     setRatings(prev => ({ ...prev, [wineId]: score }));
+    // Aggiorna il rating nella riga bevuti corrispondente
+    const bev = bevuti.find(b => b.id === wineId);
+    if (bev) {
+      await sb.patch("bevuti", "uid", bev.uid, { rating: score }).catch(console.error);
+    }
   };
 
   const totBottiglie = allWines.reduce((a, w) => a + w.bottiglie, 0);
