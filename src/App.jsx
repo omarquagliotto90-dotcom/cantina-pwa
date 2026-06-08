@@ -805,7 +805,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       borderRadius: 12,
       border: expanded ? `1px solid ${t.indicator}55` : `1px solid ${M3.outlineVariant}`,
       borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
-      background: expanded ? M3.surfaceContainerHigh : M3.surface,
+      background: expanded ? "#F4F3EE" : M3.surface,
       overflow: "hidden",
       transition: "box-shadow 0.2s, border-color 0.2s, background 0.2s",
       boxShadow: expanded ? "0 1px 2px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.07)" : "0 1px 2px rgba(0,0,0,0.05)",
@@ -886,9 +886,9 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               {/* Stats row */}
               <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
                 {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
-                  <div key={s.l} style={{ flex: "1 1 70px", background: M3.surfaceVariant, borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
-                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
+                  <div key={s.l} style={{ flex: "1 1 70px", background: "#7A7A72", borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: "#E8D8A0", fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
+                    <div style={{ fontSize: 10, color: "rgba(232,216,160,0.7)", textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
                   </div>
                 ))}
               </div>
@@ -902,11 +902,11 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   { icon: "🔄", label: "Malolattica",   val: wine.malolattica },
                 ].map(s => (
                   <div key={s.label} style={{
-                    background: M3.surface, borderRadius: 12, padding: "11px 12px",
+                    background: "#6B8FA8", borderRadius: 12, padding: "11px 12px",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   }}>
-                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500 }}>{s.icon} {s.label}</div>
-                    <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{s.val}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500 }}>{s.icon} {s.label}</div>
+                    <div style={{ fontSize: 11, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{s.val}</div>
                   </div>
                 ))}
               </div>
@@ -914,24 +914,24 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               {/* Note — Graph Elevated Card M3 full width */}
               {wine.note && (
                 <div style={{
-                  background: M3.surface, borderRadius: 12, padding: "12px 14px", marginBottom: 12,
+                  background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12,
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   borderLeft: `3px solid ${t.indicator}`,
                 }}>
-                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>📝 Note</div>
-                  <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>📝 Note</div>
+                  <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
                 </div>
               )}
 
               {/* Nota degustazione (solo bevuti) */}
               {bevutoInfo?.nota && (
                 <div style={{
-                  background: M3.surface, borderRadius: 12, padding: "12px 14px", marginBottom: 12,
+                  background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12,
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   borderLeft: `3px solid ${M3.primary}`,
                 }}>
-                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, opacity: 0.8 }}>🍷 Nota di degustazione</div>
-                  <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>🍷 Nota di degustazione</div>
+                  <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
                 </div>
               )}
             </>
@@ -948,10 +948,10 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {cardTab === "valutazione" && bevutoInfo && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
               <div style={{
-                background: M3.surface, borderRadius: 12, padding: "20px 16px", textAlign: "center",
+                background: "#6B8FA8", borderRadius: 12, padding: "20px 16px", textAlign: "center",
                 boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
               }}>
-                <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16, fontWeight: 500 }}>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16, fontWeight: 500 }}>
                   La tua valutazione
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 14 }}>
@@ -976,7 +976,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                     );
                   })}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: currentRating ? M3.primary : M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", minHeight: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: currentRating ? "#FFFFFF" : "rgba(255,255,255,0.6)", fontFamily: "'Roboto', sans-serif", minHeight: 20 }}>
                   {currentRating === 0 && "Tocca un calice per valutare"}
                   {currentRating === 1 && "⭐ Deludente"}
                   {currentRating === 2 && "⭐⭐ Nella media"}
@@ -993,7 +993,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             /* M3 Elevated Button — verde (tonal green) */
             <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
               width: "100%", padding: "10px 24px", borderRadius: 20, border: "none",
-              background: "#E8F5E9", color: "#1B5E20",
+              background: "#D4E0D0", color: "#2E4A2E",
               fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
               cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
               boxShadow: "0 1px 2px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)",
@@ -1014,14 +1014,14 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             </div>
           )}
 
-          {/* M3 Filled Button — Modifica dati */}
+          {/* M3 Outlined Button — Modifica dati (outline grigio) */}
           <button onClick={(e) => { e.stopPropagation(); onModifica(wine); }} style={{
-            width: "100%", padding: "10px 24px", borderRadius: 20, border: "none",
-            background: M3.primary, color: "#FFFFFF",
+            width: "100%", padding: "10px 24px", borderRadius: 20,
+            border: `1px solid #B5A898`,
+            background: "transparent", color: M3.onSurface,
             fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
             cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            boxShadow: "0 1px 2px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)",
           }}>
             ✏️ Modifica dati
           </button>
@@ -1030,8 +1030,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {!confirmDelete ? (
             <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
               width: "100%", padding: "10px 24px", borderRadius: 20,
-              border: `1px solid ${M3.error}`,
-              background: "transparent", color: M3.error,
+              border: `1px solid #B0A8C0`,
+              background: "transparent", color: "#B0A8C0",
               fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
               cursor: "pointer", letterSpacing: 0.1,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
