@@ -623,13 +623,14 @@ function BottleImage({ wine }) {
     let cancelled = false;
 
     async function fetchImage() {
+      // ── Step 1: cache in-memory sessione ──────────────────────────────────
       const cached = imgSessionCache.get(wine.id);
       if (cached) {
         if (cached === "NOT_FOUND") { setStatus("error"); return; }
         setUrl(cached); setStatus("found"); return;
       }
 
-      // 1. Prima controlla Supabase
+      // ── Step 2: Supabase ──────────────────────────────────────────────────
       try {
         const row = await sb.getWhere("wine_images", "wine_id", wine.id);
         if (row && row.image_url) {
@@ -637,50 +638,69 @@ function BottleImage({ wine }) {
           if (!cancelled) { setUrl(row.image_url); setStatus("found"); }
           return;
         }
-      } catch (_) { /* tabella non ancora creata: procedi con AI */ }
+      } catch (_) { /* tabella non ancora creata: procedi */ }
 
-      // 2. Cerca con AI + web_search
+      // ── Step 3: ricerca immagine via Anthropic + web_search ───────────────
       if (!cancelled) setStatus("loading");
-      const query = `${wine.produttore} ${wine.vino} bottiglia vino`;
+
       try {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
+        const prompt = `Trova l'URL diretto di un'immagine della bottiglia di questo vino: "${wine.produttore} ${wine.vino}".
+
+Usa web_search per cercare il vino. Guarda i risultati e scegli l'immagine migliore tra le thumbnail o le immagini referenziate nei risultati (vivino.com, tannico.it, wine-searcher.com, o sito del produttore).
+
+Restituisci SOLO l'URL diretto dell'immagine (https://...) senza nessun testo aggiuntivo.
+L'URL deve puntare direttamente a un file immagine (jpg, jpeg, png, webp) o a un'immagine su CDN.
+Se non trovi nulla di affidabile scrivi esattamente: NOT_FOUND`;
+
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 300,
+            model: "claude-sonnet-4-5",
+            max_tokens: 512,
             tools: [{ type: "web_search_20250305", name: "web_search" }],
-            messages: [{
-              role: "user",
-              content: `Trova un URL diretto a un'immagine PNG o JPG della bottiglia di vino: "${query}".
-Cerca immagini del prodotto su siti come vivino.com, wine-searcher.com, tannico.it, callmewine.com o del produttore.
-Restituisci SOLO l'URL diretto dell'immagine (deve terminare in .jpg, .jpeg, .png, .webp o contenere /images/ o simili).
-Nessun testo, nessuna spiegazione: solo l'URL.`,
-            }],
+            messages: [{ role: "user", content: prompt }],
           }),
         });
-        const data = await response.json();
-        const text = (data.content || [])
-          .filter(c => c.type === "text")
-          .map(c => c.text || "")
-          .join("")
-          .trim();
 
-        // Estrai URL dall'output (prendi la prima URL valida trovata)
-        const urlMatch = text.match(/https?:\/\/[^\s"'<>]+(?:\.jpg|\.jpeg|\.png|\.webp|\/image[s]?\/[^\s"'<>]+)/i);
-        const foundUrl = urlMatch ? urlMatch[0].replace(/[.,;)\]]+$/, "") : null;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || res.status);
 
-        if (foundUrl && !cancelled) {
-          imgSessionCache.set(wine.id, foundUrl);
-          // Salva in Supabase (best-effort, ignora errori se tabella assente)
-          sb.upsert("wine_images", { wine_id: wine.id, image_url: foundUrl }, "wine_id").catch(() => {});
-          setUrl(foundUrl);
+        // Estrai il testo finale dalla risposta (può contenere anche tool_use blocks)
+        const textBlocks = (data.content || []).filter(c => c.type === "text");
+        const raw = textBlocks.map(c => c.text || "").join("").trim();
+
+        // Considera NOT_FOUND o risposta vuota
+        if (!raw || raw.toUpperCase().includes("NOT_FOUND")) {
+          imgSessionCache.set(wine.id, "NOT_FOUND");
+          if (!cancelled) setStatus("error");
+          return;
+        }
+
+        // Estrai il primo URL https valido dalla risposta
+        const urlRe = /https:\/\/[^\s"'<>)]+/g;
+        const candidates = [...raw.matchAll(urlRe)].map(m => m[0].replace(/[.,;)\]>]+$/, ""));
+
+        // Preferisci URL con estensione immagine, poi accetta qualsiasi CDN
+        const imgExtRe = /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i;
+        const cdnRe = /\/(image|img|photo|media|cdn|static|assets|upload)\//i;
+        const bestUrl =
+          candidates.find(u => imgExtRe.test(u)) ||
+          candidates.find(u => cdnRe.test(u)) ||
+          candidates[0] ||
+          null;
+
+        if (bestUrl && !cancelled) {
+          imgSessionCache.set(wine.id, bestUrl);
+          sb.upsert("wine_images", { wine_id: wine.id, image_url: bestUrl }, "wine_id").catch(() => {});
+          setUrl(bestUrl);
           setStatus("found");
         } else {
           imgSessionCache.set(wine.id, "NOT_FOUND");
           if (!cancelled) setStatus("error");
         }
       } catch (err) {
+        console.error("BottleImage fetch error:", err);
         imgSessionCache.set(wine.id, "NOT_FOUND");
         if (!cancelled) setStatus("error");
       }
@@ -700,7 +720,7 @@ Nessun testo, nessuna spiegazione: solo l'URL.`,
       }}>
         <div style={{ fontSize: 28, animation: "spin 1.2s linear infinite" }}>🔍</div>
         <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-          Ricerca immagine…
+          Ricerca immagine in corso…
         </div>
       </div>
     );
@@ -732,11 +752,12 @@ Nessun testo, nessuna spiegazione: solo l'URL.`,
           background: M3.surfaceContainerHighest,
           borderRadius: 10, padding: "12px 0", cursor: "zoom-in",
           position: "relative", overflow: "hidden",
+          minHeight: 180,
         }}
       >
         <img
           src={url}
-          alt={`${wine.produttore} ${wine.vino}`}
+          alt={wine.produttore + " " + wine.vino}
           onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
           style={{
             maxHeight: 220, maxWidth: "100%",
@@ -757,7 +778,6 @@ Nessun testo, nessuna spiegazione: solo l'URL.`,
     </>
   );
 }
-
 // ─── Wine Card ────────────────────────────────────────────────────────────────
 function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
@@ -962,7 +982,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-5",
           max_tokens: 1000,
           messages: [{
             role: "user",
