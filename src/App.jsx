@@ -776,7 +776,7 @@ function BottleImage({ wine, active }) {
   );
 }
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
+function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
@@ -910,6 +910,17 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
             cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
           }}>
             🍷 Segna come bevuto
+          </button>
+
+          {/* Pulsante modifica */}
+          <button onClick={(e) => { e.stopPropagation(); onModifica(wine); }} style={{
+            width: "100%", padding: "9px 16px", borderRadius: 20, marginBottom: 8,
+            border: `1px solid ${M3.outlineVariant}`,
+            background: "transparent", color: M3.onSurface,
+            fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
+            cursor: "pointer", letterSpacing: 0.1,
+          }}>
+            ✏️ Modifica dati
           </button>
 
           {/* Pulsante elimina con conferma inline */}
@@ -1117,6 +1128,93 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
   );
 }
 
+// ─── Modal: Modifica dati vino ────────────────────────────────────────────────
+function ModalModifica({ wine, onSalva, onAnnulla }) {
+  const [form, setForm] = useState({
+    produttore:    wine.produttore    || "",
+    vino:          wine.vino          || "",
+    annata:        wine.annata        || "",
+    tipologia:     wine.tipologia     || "Bianco fermo",
+    bottiglie:     wine.bottiglie     ?? 1,
+    prezzo:        wine.prezzo        ?? 0,
+    vitigno:       wine.vitigno       || "",
+    macerazione:   wine.macerazione   || "",
+    fermentazione: wine.fermentazione || "",
+    malolattica:   wine.malolattica   || "",
+    note:          wine.note          || "",
+  });
+
+  const field = (key, label, type = "text", opts = {}) => (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
+      {opts.select ? (
+        <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface }}>
+          {Object.keys(TIPO).map(t => <option key={t}>{t}</option>)}
+        </select>
+      ) : opts.textarea ? (
+        <textarea value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} rows={opts.rows || 3}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 13, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical", lineHeight: 1.5 }} />
+      ) : (
+        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value }))}
+          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
+      )}
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.45)" }} onClick={onAnnulla}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "92vh", overflowY: "auto", padding: "20px 20px 40px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>✏️ Modifica dati</div>
+            <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 2 }}>{wine.produttore} · {wine.vino}</div>
+          </div>
+        </div>
+
+        {/* Sezione: Dati principali */}
+        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>
+          Dati principali
+        </div>
+        {field("produttore",  "Produttore")}
+        {field("vino",        "Nome vino")}
+        {field("annata",      "Annata")}
+        {field("tipologia",   "Tipologia", "text", { select: true })}
+        {field("bottiglie",   "N. bottiglie", "number")}
+        {field("prezzo",      "Prezzo (€/bottiglia)", "number")}
+
+        {/* Sezione: Scheda tecnica */}
+        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
+        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>
+          Scheda tecnica
+        </div>
+        {field("vitigno",       "🍇 Vitigno")}
+        {field("macerazione",   "⏱ Macerazione",   "text", { textarea: true, rows: 2 })}
+        {field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}
+        {field("malolattica",   "🔄 Malolattica")}
+
+        {/* Note */}
+        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
+        {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
+
+        {/* Azioni */}
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+            Annulla
+          </button>
+          <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
+            style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+            💾 Salva modifiche
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal: Segna come bevuto ─────────────────────────────────────────────────
 function ModalBevi({ wine, onConferma, onAnnulla }) {
   const [nota, setNota] = useState("");
@@ -1146,7 +1244,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onElimina, onAggiungi, compact }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -1199,7 +1297,8 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onAggiungi, compact }) {
           <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
             onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
             onBevi={onBevi}
-            onElimina={onElimina} />
+            onElimina={onElimina}
+            onModifica={onModifica} />
         ))}
       </div>
     </>
@@ -1394,12 +1493,14 @@ export default function Cantina() {
   const [extraWines, setExtraWines] = useState([]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
+  const [pendingModifica, setPendingModifica] = useState(null); // wine da modificare
   const [compact, setCompact] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
   // Stato eliminazione: per vini statici traccia le bottiglie rimosse; per extra_wines l'id eliminato
   const [bottleOverrides, setBottleOverrides] = useState({}); // { wineId: deltaBottiglie }
   const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
+  const [wineOverrides, setWineOverrides] = useState({}); // { wineId: { ...fields } } per vini statici modificati
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
 
@@ -1453,6 +1554,11 @@ export default function Cantina() {
   }, []);
 
   const allWines = [...WINES_DATA, ...extraWines]
+    // Applica wineOverrides (modifiche manuali a qualsiasi campo) — precedenza massima
+    .map(w => {
+      if (wineOverrides[w.id]) return { ...w, ...wineOverrides[w.id] };
+      return w;
+    })
     // Applica bottleOverrides ai vini statici
     .map(w => {
       if (bottleOverrides[w.id] !== undefined) {
@@ -1517,6 +1623,33 @@ export default function Cantina() {
     setShowAggiungi(false);
     setTab("lista");
     await sb.insert("extra_wines", row);
+  };
+
+  const handleModifica = (wine) => setPendingModifica(wine);
+
+  const handleSalvaModifica = async (form) => {
+    const wine = pendingModifica;
+    const isExtra = extraWines.some(w => w.id === wine.id);
+
+    if (isExtra) {
+      // Aggiorna extra_wines in memoria e su Supabase
+      const updated = {
+        ...wine, ...form,
+        annata: form.annata || "n.d.",
+        bottiglie: Number(form.bottiglie),
+        prezzo: Number(form.prezzo),
+      };
+      setExtraWines(prev => prev.map(w => w.id === wine.id ? updated : w));
+      await sb.upsert("extra_wines", { ...updated }, "id");
+    } else {
+      // Vino statico: salva le modifiche come override in-memory
+      // (si perde al reload — per persistenza futura serve tabella wine_overrides)
+      setWineOverrides(prev => ({
+        ...prev,
+        [wine.id]: { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) },
+      }));
+    }
+    setPendingModifica(null);
   };
 
   const totBottiglie = allWines.reduce((a, w) => a + w.bottiglie, 0);
@@ -1585,7 +1718,7 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onAggiungi={() => setShowAggiungi(true)} compact={compact} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
@@ -1623,6 +1756,7 @@ export default function Cantina() {
       {/* ── Modals ── */}
       {pendingBevi && <ModalBevi wine={pendingBevi} onConferma={handleConferma} onAnnulla={() => setPendingBevi(null)} />}
       {showAggiungi && <ModalAggiungi onSalva={handleSalva} onAnnulla={() => setShowAggiungi(false)} />}
+      {pendingModifica && <ModalModifica wine={pendingModifica} onSalva={handleSalvaModifica} onAnnulla={() => setPendingModifica(null)} />}
     </div>
   );
 }
