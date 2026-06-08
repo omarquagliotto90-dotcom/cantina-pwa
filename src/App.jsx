@@ -776,16 +776,29 @@ function BottleImage({ wine, active }) {
   );
 }
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
+// bevutoInfo = { data, nota } se il vino è nella tab Bevuti, altrimenti null
+// ratings = Map<wineId, 1-5> (in-memory, condivisa dall'App)
+// onRate(wineId, score) callback per aggiornare il rating
+function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bevutoInfo = null, ratings = {}, onRate }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [cardTab, setCardTab] = useState("scheda"); // "scheda" | "bottiglia"
+
+  // Tabs disponibili: scheda + bottiglia + (valutazione solo se bevuto)
+  const tabs = [
+    { id: "scheda",      label: "📋 Scheda" },
+    { id: "bottiglia",   label: "📷 Bottiglia" },
+    ...(bevutoInfo ? [{ id: "valutazione", label: "⭐ Voto" }] : []),
+  ];
+  const [cardTab, setCardTab] = useState("scheda");
 
   // Reset tab interna quando la card si chiude
-  useEffect(() => { if (!expanded) setCardTab("scheda"); }, [expanded]);
+  useEffect(() => { if (!expanded) { setCardTab("scheda"); setConfirmDelete(false); } }, [expanded]);
+
+  const currentRating = ratings[wine.id] || 0;
+  const [hoverRating, setHoverRating] = useState(0);
 
   return (
     <div style={{
@@ -796,6 +809,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
       transition: "box-shadow 0.2s, border-color 0.2s, background 0.2s",
       boxShadow: expanded ? "0 1px 2px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.07)" : "0 1px 2px rgba(0,0,0,0.05)",
     }}>
+      {/* ── Header (clicca per espandere) ── */}
       <div onClick={onToggle} style={{ display: "flex", alignItems: "stretch", minHeight: 68, cursor: "pointer" }}>
         <div style={{ width: 4, flexShrink: 0, background: expanded ? t.indicator : "transparent", transition: "background 0.2s" }} />
         <div style={{ flex: 1, padding: "11px 12px", minWidth: 0 }}>
@@ -812,28 +826,36 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
               {t.label} {wine.tipologia}
             </span>
             <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
+            {/* Mini rating nel header se il vino è già valutato */}
+            {bevutoInfo && currentRating > 0 && (
+              <span style={{ fontSize: 11, letterSpacing: 1 }}>
+                {"🍷".repeat(currentRating)}{"🩶".repeat(5 - currentRating)}
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", padding: "11px 12px 11px 6px", flexShrink: 0 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>~{totalVal}€</span>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🍾 {wine.bottiglie}</span>
+            {!bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🍾 {wine.bottiglie}</span>}
+            {bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🫗</span>}
             <span style={{ fontSize: 17, color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.25s cubic-bezier(0.2,0,0,1)", display: "block", lineHeight: 1 }}>⌄</span>
           </div>
         </div>
       </div>
 
+      {/* ── Contenuto espanso ── */}
       {expanded && (
         <div style={{ padding: "0 14px 14px", animation: "expandIn 0.22s cubic-bezier(0.2,0,0,1)" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
-          {/* ── Tab switcher Scheda / Bottiglia ── */}
+          {/* ── Tab switcher ── */}
           <div onClick={e => e.stopPropagation()} style={{
             display: "flex", gap: 4, marginBottom: 12,
             background: M3.surfaceContainerHighest,
             borderRadius: 20, padding: 3,
           }}>
-            {[{ id: "scheda", label: "📋 Scheda" }, { id: "bottiglia", label: "📷 Bottiglia" }].map(tab => (
+            {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setCardTab(tab.id)}
@@ -841,44 +863,40 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
                   flex: 1, padding: "6px 0", borderRadius: 16, border: "none",
                   background: cardTab === tab.id ? M3.surface : "transparent",
                   color: cardTab === tab.id ? M3.onSurface : M3.onSurfaceVariant,
-                  fontSize: 12, fontWeight: cardTab === tab.id ? 600 : 400,
+                  fontSize: 11, fontWeight: cardTab === tab.id ? 600 : 400,
                   fontFamily: "'Roboto', sans-serif",
                   cursor: "pointer",
                   boxShadow: cardTab === tab.id ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
                   transition: "all 0.15s",
+                  whiteSpace: "nowrap",
                 }}
               >{tab.label}</button>
             ))}
           </div>
 
-          {/* ── Contenuto tab SCHEDA ── */}
+          {/* ── Tab SCHEDA ── */}
           {cardTab === "scheda" && (
             <>
-              {/* Slow Wine badges */}
               {(cantinaSW || vinoSW) && (
                 <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
                   {cantinaSW && <SwBadge type="chiocciola" />}
                   {vinoSW && <SwBadge type="bottiglia" />}
                 </div>
               )}
-
-              {/* Stats */}
               <div style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
-                {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
+                {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
                   <div key={s.l} style={{ flex: "1 1 70px", background: M3.surfaceVariant, borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
                     <div style={{ fontSize: 10, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Tech grid */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 10 }}>
                 {[
-                  { icon: "🍇", label: "Vitigno", val: wine.vitigno },
-                  { icon: "⏱", label: "Macerazione", val: wine.macerazione },
+                  { icon: "🍇", label: "Vitigno",       val: wine.vitigno },
+                  { icon: "⏱",  label: "Macerazione",   val: wine.macerazione },
                   { icon: "🧪", label: "Fermentazione", val: wine.fermentazione },
-                  { icon: "🔄", label: "Malolattica", val: wine.malolattica },
+                  { icon: "🔄", label: "Malolattica",   val: wine.malolattica },
                 ].map(s => (
                   <div key={s.label} style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "9px 10px" }}>
                     <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 }}>{s.icon} {s.label}</div>
@@ -886,33 +904,97 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
                   </div>
                 ))}
               </div>
-
-              {/* Note */}
-              <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${t.indicator}`, marginBottom: 12 }}>
-                <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>📝 Note</div>
-                <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
-              </div>
+              {wine.note && (
+                <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${t.indicator}`, marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>📝 Note</div>
+                  <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
+                </div>
+              )}
+              {/* Nota degustazione (solo bevuti) */}
+              {bevutoInfo?.nota && (
+                <div style={{ background: M3.primaryContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${M3.primary}`, marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5, opacity: 0.8 }}>🍷 Nota di degustazione</div>
+                  <div style={{ fontSize: 12, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
+                </div>
+              )}
             </>
           )}
 
-          {/* ── Contenuto tab BOTTIGLIA ── */}
+          {/* ── Tab BOTTIGLIA ── */}
           {cardTab === "bottiglia" && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
               <BottleImage wine={wine} active={cardTab === "bottiglia"} />
             </div>
           )}
 
-          {/* ── Azioni (sempre visibili) ── */}
-          <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
-            width: "100%", padding: "10px 16px", borderRadius: 20, border: "none",
-            background: M3.primaryContainer, color: M3.onPrimaryContainer,
-            fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
-            cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
-          }}>
-            🍷 Segna come bevuto
-          </button>
+          {/* ── Tab VALUTAZIONE (solo bevuti) ── */}
+          {cardTab === "valutazione" && bevutoInfo && (
+            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
+              <div style={{ background: M3.surfaceContainer, borderRadius: 12, padding: "20px 16px", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 }}>
+                  La tua valutazione
+                </div>
+                {/* 5 calici interattivi */}
+                <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 14 }}>
+                  {[1, 2, 3, 4, 5].map(n => {
+                    const active = n <= (hoverRating || currentRating);
+                    return (
+                      <button
+                        key={n}
+                        onClick={() => onRate(wine.id, n === currentRating ? 0 : n)}
+                        onMouseEnter={() => setHoverRating(n)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer",
+                          padding: "4px", borderRadius: 8,
+                          fontSize: 30, lineHeight: 1,
+                          filter: active ? "none" : "grayscale(1) opacity(0.35)",
+                          transform: active ? "scale(1.12)" : "scale(1)",
+                          transition: "transform 0.15s, filter 0.15s",
+                        }}
+                        title={`${n} calice${n > 1 ? "i" : ""}`}
+                      >🍷</button>
+                    );
+                  })}
+                </div>
+                {/* Etichetta testuale del punteggio */}
+                <div style={{ fontSize: 13, fontWeight: 500, color: currentRating ? M3.primary : M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", minHeight: 20 }}>
+                  {currentRating === 0 && "Tocca un calice per valutare"}
+                  {currentRating === 1 && "⭐ Deludente"}
+                  {currentRating === 2 && "⭐⭐ Nella media"}
+                  {currentRating === 3 && "⭐⭐⭐ Buono"}
+                  {currentRating === 4 && "⭐⭐⭐⭐ Ottimo"}
+                  {currentRating === 5 && "⭐⭐⭐⭐⭐ Eccellente!"}
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Pulsante modifica */}
+          {/* ── Azione primaria: diversa tra cantina e bevuti ── */}
+          {!bevutoInfo ? (
+            /* Vino in cantina → pulsante "Segna come bevuto" */
+            <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
+              width: "100%", padding: "10px 16px", borderRadius: 20, border: "none",
+              background: M3.primaryContainer, color: M3.onPrimaryContainer,
+              fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
+              cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
+            }}>
+              🍷 Segna come bevuto
+            </button>
+          ) : (
+            /* Vino bevuto → testo statico con data apertura */
+            <div style={{
+              width: "100%", padding: "10px 16px", borderRadius: 20,
+              background: M3.surfaceContainerHighest,
+              fontSize: 13, fontFamily: "'Roboto', sans-serif", color: M3.onSurfaceVariant,
+              textAlign: "center", marginBottom: 8, letterSpacing: 0.1,
+              boxSizing: "border-box",
+            }}>
+              🫗 Bottiglia aperta il <strong style={{ color: M3.onSurface }}>{bevutoInfo.data}</strong>
+            </div>
+          )}
+
+          {/* ── Modifica dati ── */}
           <button onClick={(e) => { e.stopPropagation(); onModifica(wine); }} style={{
             width: "100%", padding: "9px 16px", borderRadius: 20, marginBottom: 8,
             border: `1px solid ${M3.outlineVariant}`,
@@ -923,7 +1005,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
             ✏️ Modifica dati
           </button>
 
-          {/* Pulsante elimina con conferma inline */}
+          {/* ── Elimina con conferma inline ── */}
           {!confirmDelete ? (
             <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
               width: "100%", padding: "9px 16px", borderRadius: 20,
@@ -937,7 +1019,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica }) {
           ) : (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <span style={{ flex: 1, fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-                {wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
+                {bevutoInfo ? "Rimuovi dall'archivio?" : wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
               </span>
               <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }} style={{
                 padding: "7px 14px", borderRadius: 20, border: `1px solid ${M3.outline}`,
@@ -1244,7 +1326,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -1298,7 +1380,9 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
             onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
             onBevi={onBevi}
             onElimina={onElimina}
-            onModifica={onModifica} />
+            onModifica={onModifica}
+            ratings={ratings}
+            onRate={onRate} />
         ))}
       </div>
     </>
@@ -1306,7 +1390,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
 }
 
 // ─── Tab: Bevuti ──────────────────────────────────────────────────────────────
-function TabBevuti({ bevuti, allWines, onRiporta }) {
+function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
   const [expanded, setExpanded] = useState(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
   const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo || 0), 0);
@@ -1323,6 +1407,7 @@ function TabBevuti({ bevuti, allWines, onRiporta }) {
 
   return (
     <div style={{ padding: "12px 16px 100px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Banner riepilogo */}
       <div style={{ background: M3.primaryContainer, borderRadius: 12, padding: "14px 16px", marginBottom: 4 }}>
         <div style={{ fontSize: 11, color: M3.onPrimaryContainer, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginBottom: 6, opacity: 0.8 }}>Archivio degustazioni</div>
         <div style={{ display: "flex", gap: 24 }}>
@@ -1337,40 +1422,23 @@ function TabBevuti({ bevuti, allWines, onRiporta }) {
         </div>
       </div>
 
+      {/* Lista bevuti — usa WineCard identica alla Lista */}
       {[...bevuti].reverse().map(b => {
         const wine = wineMap[b.id];
         if (!wine) return null;
-        const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
-        const isExp = expanded === b.uid;
         return (
-          <div key={b.uid} style={{ borderRadius: 12, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, overflow: "hidden" }}>
-            <div onClick={() => setExpanded(p => p === b.uid ? null : b.uid)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 20, background: t.container, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{t.label}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", letterSpacing: 0.5, textTransform: "uppercase" }}>{wine.produttore}</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.vino}</div>
-                <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 2 }}>Bevuto il {b.data}</div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>~{wine.prezzo}€</span>
-                <span style={{ fontSize: 16, color: M3.onSurfaceVariant, transform: isExp ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>⌄</span>
-              </div>
-            </div>
-            {isExp && (
-              <div style={{ padding: "0 14px 14px", animation: "expandIn 0.2s ease" }}>
-                <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
-                {b.nota && (
-                  <div style={{ background: M3.surfaceContainerHigh, borderRadius: 8, padding: "10px 12px", marginBottom: 10, borderLeft: `3px solid ${t.indicator}` }}>
-                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>📝 Nota</div>
-                    <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{b.nota}</div>
-                  </div>
-                )}
-                <button onClick={() => onRiporta(b.uid)} style={{ width: "100%", padding: "9px 16px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurfaceVariant, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                  ↩ Rimetti in cantina
-                </button>
-              </div>
-            )}
-          </div>
+          <WineCard
+            key={b.uid}
+            wine={wine}
+            expanded={expanded === b.uid}
+            onToggle={() => setExpanded(p => p === b.uid ? null : b.uid)}
+            onBevi={() => {}} /* non usato, sostituito da bevutoInfo */
+            onElimina={() => onRiporta(b.uid)}
+            onModifica={onModifica}
+            bevutoInfo={{ data: b.data, nota: b.nota }}
+            ratings={ratings}
+            onRate={onRate}
+          />
         );
       })}
     </div>
@@ -1501,6 +1569,7 @@ export default function Cantina() {
   const [bottleOverrides, setBottleOverrides] = useState({}); // { wineId: deltaBottiglie }
   const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
   const [wineOverrides, setWineOverrides] = useState({}); // { wineId: { ...fields } } per vini statici modificati
+  const [ratings, setRatings] = useState({}); // { wineId: 0-5 } in-memory
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
 
@@ -1652,6 +1721,10 @@ export default function Cantina() {
     setPendingModifica(null);
   };
 
+  const handleRate = (wineId, score) => {
+    setRatings(prev => ({ ...prev, [wineId]: score }));
+  };
+
   const totBottiglie = allWines.reduce((a, w) => a + w.bottiglie, 0);
   const totValore    = allWines.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
 
@@ -1718,8 +1791,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
