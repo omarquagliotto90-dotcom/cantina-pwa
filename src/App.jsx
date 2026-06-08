@@ -640,55 +640,20 @@ function BottleImage({ wine }) {
         }
       } catch (_) { /* tabella non ancora creata: procedi */ }
 
-      // ── Step 3: ricerca immagine via Anthropic + web_search ───────────────
+      // ── Step 3: ricerca immagine via /api/search-image (serverless proxy) ──
       if (!cancelled) setStatus("loading");
 
       try {
-        const prompt = `Trova l'URL diretto di un'immagine della bottiglia di questo vino: "${wine.produttore} ${wine.vino}".
-
-Usa web_search per cercare il vino. Guarda i risultati e scegli l'immagine migliore tra le thumbnail o le immagini referenziate nei risultati (vivino.com, tannico.it, wine-searcher.com, o sito del produttore).
-
-Restituisci SOLO l'URL diretto dell'immagine (https://...) senza nessun testo aggiuntivo.
-L'URL deve puntare direttamente a un file immagine (jpg, jpeg, png, webp) o a un'immagine su CDN.
-Se non trovi nulla di affidabile scrivi esattamente: NOT_FOUND`;
-
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
+        const res = await fetch("/api/search-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 512,
-            tools: [{ type: "web_search_20250305", name: "web_search" }],
-            messages: [{ role: "user", content: prompt }],
-          }),
+          body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }),
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || res.status);
+        if (!res.ok) throw new Error(data.error || res.status);
 
-        // Estrai il testo finale dalla risposta (può contenere anche tool_use blocks)
-        const textBlocks = (data.content || []).filter(c => c.type === "text");
-        const raw = textBlocks.map(c => c.text || "").join("").trim();
-
-        // Considera NOT_FOUND o risposta vuota
-        if (!raw || raw.toUpperCase().includes("NOT_FOUND")) {
-          imgSessionCache.set(wine.id, "NOT_FOUND");
-          if (!cancelled) setStatus("error");
-          return;
-        }
-
-        // Estrai il primo URL https valido dalla risposta
-        const urlRe = /https:\/\/[^\s"'<>)]+/g;
-        const candidates = [...raw.matchAll(urlRe)].map(m => m[0].replace(/[.,;)\]>]+$/, ""));
-
-        // Preferisci URL con estensione immagine, poi accetta qualsiasi CDN
-        const imgExtRe = /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i;
-        const cdnRe = /\/(image|img|photo|media|cdn|static|assets|upload)\//i;
-        const bestUrl =
-          candidates.find(u => imgExtRe.test(u)) ||
-          candidates.find(u => cdnRe.test(u)) ||
-          candidates[0] ||
-          null;
+        const bestUrl = data.url || null;
 
         if (bestUrl && !cancelled) {
           imgSessionCache.set(wine.id, bestUrl);
@@ -978,40 +943,14 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
     setAiLoading(true);
     setAiError(null);
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/analyze-label", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 1000,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: "image/jpeg", data: imageBase64 },
-              },
-              {
-                type: "text",
-                text: `Analizza questa etichetta di vino e restituisci SOLO un oggetto JSON con questi campi (nessun testo aggiuntivo, nessun markdown):
-{
-  "produttore": "nome del produttore/cantina",
-  "vino": "nome commerciale del vino",
-  "annata": "anno in formato 4 cifre oppure 'n.d.' se non visibile",
-  "tipologia": "una di: Rosso fermo, Bianco fermo, Orange, Spumante, Spumante rosso, Sidro",
-  "vitigno": "vitigno/i indicati sull'etichetta, oppure '' se non visibile"
-}
-Se un campo non è leggibile, usa stringa vuota. La tipologia deve essere esattamente una delle opzioni date.`,
-              },
-            ],
-          }],
-        }),
+        body: JSON.stringify({ imageBase64, mediaType: "image/jpeg" }),
       });
       const data = await response.json();
-      const text = (data.content || []).map(c => c.text || "").join("").trim();
-      // Pulizia JSON (rimuove eventuali blocchi markdown)
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
+      if (!response.ok) throw new Error(data.error || response.status);
+      const parsed = data;
       setForm(prev => ({
         ...prev,
         produttore: parsed.produttore || prev.produttore,
