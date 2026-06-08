@@ -42,14 +42,26 @@ export default async function handler(req, res) {
     const imgExtRe  = /\.(jpg|jpeg|png|webp)(\?.*)?$/i;
     const skipRe    = /logo|icon|banner|avatar|flag|map|chart|graph/i;
 
-    // Parole chiave dal produttore e dal vino (minimo 4 caratteri)
+    // Parole generiche da escludere dalle keyword di rilevanza
+    const genericWords = new Set([
+      "vino","wine","vini","wines","bianco","rosso","nero","rose","rosé",
+      "fermo","frizzante","spumante","secco","dolce","passito","riserva",
+      "bottiglia","bottle","produttore","cantina","azienda","agricola",
+      "agricolo","della","delle","degli","degli","dello","nella","nelle",
+      "anno","annata","vintage","doc","docg","igt","dop","igp","classico"
+    ]);
+
+    // Keyword specifiche: solo parole non generiche con almeno 4 caratteri
     const keywords = `${produttore} ${vino}`
       .toLowerCase()
-      .split(/[\s\-\/=]+/)
-      .filter(w => w.length >= 4);
+      .split(/[\s\-\/=+&@#%*()\[\]{}]+/)
+      .filter(w => w.length >= 4 && !genericWords.has(w));
 
-    // Controlla se un risultato è rilevante: almeno 1 keyword nel titolo o nell'URL
+    console.log("Specific keywords:", keywords);
+
+    // Rilevanza: almeno 1 keyword specifica nel titolo OPPURE nell'URL
     const isRelevant = (img) => {
+      if (keywords.length === 0) return true; // nessuna keyword specifica → accetta tutto
       const haystack = `${(img.title || "")} ${(img.imageUrl || "")}`.toLowerCase();
       return keywords.some(kw => haystack.includes(kw));
     };
@@ -57,7 +69,7 @@ export default async function handler(req, res) {
     const candidates = images.filter(i => !skipRe.test(i.imageUrl));
     const relevant   = candidates.filter(isRelevant);
 
-    // Usa risultati rilevanti se esistono, altrimenti non restituire nulla
+    // Se nessun risultato è rilevante → url null (meglio niente che sbagliato)
     const pool = relevant.length > 0 ? relevant : [];
 
     const best =
