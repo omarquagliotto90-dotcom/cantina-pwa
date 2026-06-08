@@ -680,7 +680,7 @@ function BottleImage({ wine, active }) {
           const res = await fetch("/api/search-image", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }),
+            body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino, annata: wine.annata }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || res.status);
