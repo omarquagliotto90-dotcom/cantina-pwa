@@ -56,6 +56,35 @@ const sb = {
 // ─── Cache in-memory immagini bottiglia (evita rifetch nella stessa sessione) ──
 const imgSessionCache = new Map(); // wine_id → url string | "NOT_FOUND"
 
+// ─── Coda globale per le ricerche immagini (evita rate limit) ─────────────────
+// Le chiamate ad /api/search-image vengono serializzate con un delay tra l'una e l'altra
+const imgQueue = {
+  _running: false,
+  _queue: [],
+  add(fn) {
+    return new Promise((resolve, reject) => {
+      this._queue.push({ fn, resolve, reject });
+      this._run();
+    });
+  },
+  async _run() {
+    if (this._running || this._queue.length === 0) return;
+    this._running = true;
+    const { fn, resolve, reject } = this._queue.shift();
+    try {
+      const result = await fn();
+      resolve(result);
+    } catch (e) {
+      reject(e);
+    } finally {
+      // Pausa di 2 secondi tra una chiamata e l'altra per rispettare il rate limit
+      await new Promise(r => setTimeout(r, 2000));
+      this._running = false;
+      this._run();
+    }
+  }
+};
+
 // ─── M3 Token System (seed: #7B1D1D vinaccia) ────────────────────────────────
 const M3 = {
   primary:                 "#9B3535",
@@ -643,20 +672,20 @@ function BottleImage({ wine, active }) {
         }
       } catch (_) { /* tabella non ancora creata: procedi */ }
 
-      // ── Step 2: ricerca AI via serverless proxy (solo se non in cache) ────
+      // ── Step 2: ricerca AI via serverless proxy (accodata per evitare rate limit) ─
       if (!cancelled) setStatus("loading");
 
       try {
-        const res = await fetch("/api/search-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }),
+        const bestUrl = await imgQueue.add(async () => {
+          const res = await fetch("/api/search-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || res.status);
+          return data.url || null;
         });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || res.status);
-
-        const bestUrl = data.url || null;
 
         if (bestUrl && !cancelled) {
           imgSessionCache.set(wine.id, bestUrl);
