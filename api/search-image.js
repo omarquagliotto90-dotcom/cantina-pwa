@@ -12,7 +12,8 @@ export default async function handler(req, res) {
   if (!produttore || !vino) return res.status(400).json({ error: "produttore e vino richiesti" });
 
   try {
-    const query = `${produttore} ${vino} bottiglia vino`;
+    const annata = req.body.annata || "";
+    const query = `${produttore} ${vino}${annata ? " " + annata : ""} bottiglia vino`;
     console.log("Searching:", query);
 
     const serperRes = await fetch("https://google.serper.dev/images", {
