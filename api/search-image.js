@@ -39,16 +39,34 @@ export default async function handler(req, res) {
 
     const images = data.images || [];
 
-    // Preferisci immagini con estensione esplicita, poi qualsiasi URL
-    const imgExtRe = /\.(jpg|jpeg|png|webp)(\?.*)?$/i;
-    const skipRe   = /logo|icon|banner|avatar|flag|map|chart|graph/i;
+    const imgExtRe  = /\.(jpg|jpeg|png|webp)(\?.*)?$/i;
+    const skipRe    = /logo|icon|banner|avatar|flag|map|chart|graph/i;
+
+    // Parole chiave dal produttore e dal vino (minimo 4 caratteri)
+    const keywords = `${produttore} ${vino}`
+      .toLowerCase()
+      .split(/[\s\-\/=]+/)
+      .filter(w => w.length >= 4);
+
+    // Controlla se un risultato è rilevante: almeno 1 keyword nel titolo o nell'URL
+    const isRelevant = (img) => {
+      const haystack = `${(img.title || "")} ${(img.imageUrl || "")}`.toLowerCase();
+      return keywords.some(kw => haystack.includes(kw));
+    };
+
+    const candidates = images.filter(i => !skipRe.test(i.imageUrl));
+    const relevant   = candidates.filter(isRelevant);
+
+    // Usa risultati rilevanti se esistono, altrimenti non restituire nulla
+    const pool = relevant.length > 0 ? relevant : [];
 
     const best =
-      images.find(i => imgExtRe.test(i.imageUrl) && !skipRe.test(i.imageUrl)) ||
-      images.find(i => !skipRe.test(i.imageUrl)) ||
-      images[0] || null;
+      pool.find(i => imgExtRe.test(i.imageUrl)) ||
+      pool[0] || null;
 
-    const url = best?.imageUrl || null;
+    let url = best?.imageUrl || null;
+    // Forza sempre HTTPS per evitare Mixed Content su pagine sicure
+    if (url) url = url.replace(/^http:\/\//, "https://");
     console.log("Best URL:", url);
 
     return res.status(200).json({ url });
