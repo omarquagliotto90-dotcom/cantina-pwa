@@ -12,6 +12,14 @@ const sb = {
     if (!r.ok) return [];
     return r.json();
   },
+  async getWhere(table, column, value) {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}&limit=1`, {
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" }
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data[0] || null;
+  },
   async insert(table, row) {
     const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -22,6 +30,21 @@ const sb = {
     const data = await r.json();
     return data[0] || null;
   },
+  async upsert(table, row, onConflict) {
+    const qs = onConflict ? `?on_conflict=${onConflict}` : "";
+    const r = await fetch(`${SB_URL}/rest/v1/${table}${qs}`, {
+      method: "POST",
+      headers: {
+        apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation",
+      },
+      body: JSON.stringify(row)
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return Array.isArray(data) ? data[0] : data;
+  },
   async delete(table, column, value) {
     await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
       method: "DELETE",
@@ -29,6 +52,9 @@ const sb = {
     });
   }
 };
+
+// ─── Cache in-memory immagini bottiglia (evita rifetch nella stessa sessione) ──
+const imgSessionCache = new Map(); // wine_id → url string | "NOT_FOUND"
 
 // ─── M3 Token System (seed: #7B1D1D vinaccia) ────────────────────────────────
 const M3 = {
@@ -541,6 +567,197 @@ function SwBadge({ type }) {
   return null;
 }
 
+// ─── Lightbox fullscreen ─────────────────────────────────────────────────────
+function Lightbox({ url, onClose }) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(0,0,0,0.92)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        animation: "fadeIn 0.18s ease",
+        cursor: "zoom-out",
+      }}
+    >
+      <img
+        src={url}
+        alt="Bottiglia ingrandita"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: "90vw", maxHeight: "88vh",
+          objectFit: "contain",
+          borderRadius: 12,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+          cursor: "default",
+        }}
+      />
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute", top: 18, right: 18,
+          width: 40, height: 40, borderRadius: 20,
+          border: "none", background: "rgba(255,255,255,0.15)",
+          color: "#fff", fontSize: 20, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          backdropFilter: "blur(4px)",
+        }}
+      >✕</button>
+    </div>
+  );
+}
+
+// ─── BottleImage: cerca, cachea e mostra l'immagine della bottiglia ───────────
+function BottleImage({ wine }) {
+  const [status, setStatus] = useState("idle"); // idle | loading | found | error
+  const [url, setUrl]       = useState(null);
+  const [lightbox, setLightbox] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchImage() {
+      const cached = imgSessionCache.get(wine.id);
+      if (cached) {
+        if (cached === "NOT_FOUND") { setStatus("error"); return; }
+        setUrl(cached); setStatus("found"); return;
+      }
+
+      // 1. Prima controlla Supabase
+      try {
+        const row = await sb.getWhere("wine_images", "wine_id", wine.id);
+        if (row && row.image_url) {
+          imgSessionCache.set(wine.id, row.image_url);
+          if (!cancelled) { setUrl(row.image_url); setStatus("found"); }
+          return;
+        }
+      } catch (_) { /* tabella non ancora creata: procedi con AI */ }
+
+      // 2. Cerca con AI + web_search
+      if (!cancelled) setStatus("loading");
+      const query = `${wine.produttore} ${wine.vino} bottiglia vino`;
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 300,
+            tools: [{ type: "web_search_20250305", name: "web_search" }],
+            messages: [{
+              role: "user",
+              content: `Trova un URL diretto a un'immagine PNG o JPG della bottiglia di vino: "${query}".
+Cerca immagini del prodotto su siti come vivino.com, wine-searcher.com, tannico.it, callmewine.com o del produttore.
+Restituisci SOLO l'URL diretto dell'immagine (deve terminare in .jpg, .jpeg, .png, .webp o contenere /images/ o simili).
+Nessun testo, nessuna spiegazione: solo l'URL.`,
+            }],
+          }),
+        });
+        const data = await response.json();
+        const text = (data.content || [])
+          .filter(c => c.type === "text")
+          .map(c => c.text || "")
+          .join("")
+          .trim();
+
+        // Estrai URL dall'output (prendi la prima URL valida trovata)
+        const urlMatch = text.match(/https?:\/\/[^\s"'<>]+(?:\.jpg|\.jpeg|\.png|\.webp|\/image[s]?\/[^\s"'<>]+)/i);
+        const foundUrl = urlMatch ? urlMatch[0].replace(/[.,;)\]]+$/, "") : null;
+
+        if (foundUrl && !cancelled) {
+          imgSessionCache.set(wine.id, foundUrl);
+          // Salva in Supabase (best-effort, ignora errori se tabella assente)
+          sb.upsert("wine_images", { wine_id: wine.id, image_url: foundUrl }, "wine_id").catch(() => {});
+          setUrl(foundUrl);
+          setStatus("found");
+        } else {
+          imgSessionCache.set(wine.id, "NOT_FOUND");
+          if (!cancelled) setStatus("error");
+        }
+      } catch (err) {
+        imgSessionCache.set(wine.id, "NOT_FOUND");
+        if (!cancelled) setStatus("error");
+      }
+    }
+
+    fetchImage();
+    return () => { cancelled = true; };
+  }, [wine.id]);
+
+  if (status === "idle" || status === "loading") {
+    return (
+      <div style={{
+        height: 200, borderRadius: 10,
+        background: M3.surfaceContainerHighest,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 10,
+      }}>
+        <div style={{ fontSize: 28, animation: "spin 1.2s linear infinite" }}>🔍</div>
+        <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
+          Ricerca immagine…
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "error" || !url) {
+    return (
+      <div style={{
+        height: 140, borderRadius: 10,
+        background: M3.surfaceContainerHighest,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 8,
+      }}>
+        <div style={{ fontSize: 32 }}>🍾</div>
+        <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
+          Immagine non disponibile
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {lightbox && <Lightbox url={url} onClose={() => setLightbox(false)} />}
+      <div
+        onClick={() => setLightbox(true)}
+        style={{
+          display: "flex", justifyContent: "center", alignItems: "center",
+          background: M3.surfaceContainerHighest,
+          borderRadius: 10, padding: "12px 0", cursor: "zoom-in",
+          position: "relative", overflow: "hidden",
+        }}
+      >
+        <img
+          src={url}
+          alt={`${wine.produttore} ${wine.vino}`}
+          onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
+          style={{
+            maxHeight: 220, maxWidth: "100%",
+            objectFit: "contain",
+            borderRadius: 6,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.12)",
+          }}
+        />
+        <div style={{
+          position: "absolute", bottom: 8, right: 8,
+          background: "rgba(0,0,0,0.45)", borderRadius: 12,
+          padding: "3px 8px", fontSize: 10, color: "#fff",
+          fontFamily: "'Roboto', sans-serif", backdropFilter: "blur(4px)",
+        }}>
+          🔍 Tocca per ingrandire
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Wine Card ────────────────────────────────────────────────────────────────
 function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
@@ -548,6 +765,10 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [cardTab, setCardTab] = useState("scheda"); // "scheda" | "bottiglia"
+
+  // Reset tab interna quando la card si chiude
+  useEffect(() => { if (!expanded) setCardTab("scheda"); }, [expanded]);
 
   return (
     <div style={{
@@ -587,47 +808,84 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina }) {
 
       {expanded && (
         <div style={{ padding: "0 14px 14px", animation: "expandIn 0.22s cubic-bezier(0.2,0,0,1)" }}>
-          <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 12 }} />
+          <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
-          {/* Slow Wine badges */}
-          {(cantinaSW || vinoSW) && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-              {cantinaSW && <SwBadge type="chiocciola" />}
-              {vinoSW && <SwBadge type="bottiglia" />}
+          {/* ── Tab switcher Scheda / Bottiglia ── */}
+          <div onClick={e => e.stopPropagation()} style={{
+            display: "flex", gap: 4, marginBottom: 12,
+            background: M3.surfaceContainerHighest,
+            borderRadius: 20, padding: 3,
+          }}>
+            {[{ id: "scheda", label: "📋 Scheda" }, { id: "bottiglia", label: "📷 Bottiglia" }].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setCardTab(tab.id)}
+                style={{
+                  flex: 1, padding: "6px 0", borderRadius: 16, border: "none",
+                  background: cardTab === tab.id ? M3.surface : "transparent",
+                  color: cardTab === tab.id ? M3.onSurface : M3.onSurfaceVariant,
+                  fontSize: 12, fontWeight: cardTab === tab.id ? 600 : 400,
+                  fontFamily: "'Roboto', sans-serif",
+                  cursor: "pointer",
+                  boxShadow: cardTab === tab.id ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+                  transition: "all 0.15s",
+                }}
+              >{tab.label}</button>
+            ))}
+          </div>
+
+          {/* ── Contenuto tab SCHEDA ── */}
+          {cardTab === "scheda" && (
+            <>
+              {/* Slow Wine badges */}
+              {(cantinaSW || vinoSW) && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                  {cantinaSW && <SwBadge type="chiocciola" />}
+                  {vinoSW && <SwBadge type="bottiglia" />}
+                </div>
+              )}
+
+              {/* Stats */}
+              <div style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
+                {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
+                  <div key={s.l} style={{ flex: "1 1 70px", background: M3.surfaceVariant, borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
+                    <div style={{ fontSize: 17, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
+                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tech grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 10 }}>
+                {[
+                  { icon: "🍇", label: "Vitigno", val: wine.vitigno },
+                  { icon: "⏱", label: "Macerazione", val: wine.macerazione },
+                  { icon: "🧪", label: "Fermentazione", val: wine.fermentazione },
+                  { icon: "🔄", label: "Malolattica", val: wine.malolattica },
+                ].map(s => (
+                  <div key={s.label} style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "9px 10px" }}>
+                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 }}>{s.icon} {s.label}</div>
+                    <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4 }}>{s.val}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Note */}
+              <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${t.indicator}`, marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>📝 Note</div>
+                <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
+              </div>
+            </>
+          )}
+
+          {/* ── Contenuto tab BOTTIGLIA ── */}
+          {cardTab === "bottiglia" && (
+            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
+              <BottleImage wine={wine} />
             </div>
           )}
 
-          {/* Stats */}
-          <div style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
-            {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
-              <div key={s.l} style={{ flex: "1 1 70px", background: M3.surfaceVariant, borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
-                <div style={{ fontSize: 10, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tech grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 10 }}>
-            {[
-              { icon: "🍇", label: "Vitigno", val: wine.vitigno },
-              { icon: "⏱", label: "Macerazione", val: wine.macerazione },
-              { icon: "🧪", label: "Fermentazione", val: wine.fermentazione },
-              { icon: "🔄", label: "Malolattica", val: wine.malolattica },
-            ].map(s => (
-              <div key={s.label} style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "9px 10px" }}>
-                <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 }}>{s.icon} {s.label}</div>
-                <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4 }}>{s.val}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Note */}
-          <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${t.indicator}`, marginBottom: 12 }}>
-            <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>📝 Note</div>
-            <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
-          </div>
-
+          {/* ── Azioni (sempre visibili) ── */}
           <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
             width: "100%", padding: "10px 16px", borderRadius: 20, border: "none",
             background: M3.primaryContainer, color: M3.onPrimaryContainer,
@@ -1296,6 +1554,7 @@ export default function Cantina() {
         @keyframes expandIn { from { opacity:0; transform:translateY(-5px) } to { opacity:1; transform:translateY(0) } }
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
+        @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
       `}</style>
 
       {/* ── App Bar M3 Medium (collassante) ── */}
