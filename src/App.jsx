@@ -108,11 +108,11 @@ const M3 = {
 };
 
 const TIPO = {
-  "Rosso fermo":    { container: "#FFDAD6", onContainer: "#410002", indicator: "#9B3535", label: "🍷" },
-  "Bianco fermo":   { container: "#FBDFA6", onContainer: "#261A00", indicator: "#705C2E", label: "🥂" },
-  "Orange":         { container: "#FFE0B2", onContainer: "#4A2800", indicator: "#E65100", label: "🍊" },
-  "Spumante":       { container: "#D3E4FF", onContainer: "#001C3B", indicator: "#2B5EA7", label: "✨" },
-  "Spumante rosso": { container: "#FFD7F5", onContainer: "#390048", indicator: "#8B2FC9", label: "🫧" },
+  "Rosso fermo":    { container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: "🍷" },  // bordeaux scuro
+  "Bianco fermo":   { container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: "🥂" },  // giallo paglierino
+  "Orange":         { container: "#FFE0B2", onContainer: "#4A2800", indicator: "#E07B20", label: "🍊" },  // arancione caldo
+  "Spumante":       { container: "#FFF8DC", onContainer: "#3A2E00", indicator: "#C9A227", label: "✨" },  // giallo oro
+  "Spumante rosso": { container: "#FFD7F5", onContainer: "#390048", indicator: "#C2415A", label: "🫧" },  // rosso chiaro/rosato
   "Sidro":          { container: "#C8E6C9", onContainer: "#002106", indicator: "#2E7D32", label: "🍐" },
 };
 
@@ -804,6 +804,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
     <div style={{
       borderRadius: 12,
       border: expanded ? `1px solid ${t.indicator}55` : `1px solid ${M3.outlineVariant}`,
+      borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
       background: expanded ? M3.surfaceContainerHigh : M3.surface,
       overflow: "hidden",
       transition: "box-shadow 0.2s, border-color 0.2s, background 0.2s",
@@ -849,26 +850,24 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         <div style={{ padding: "0 14px 14px", animation: "expandIn 0.22s cubic-bezier(0.2,0,0,1)" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
-          {/* ── Tab switcher ── */}
+          {/* ── Tab switcher M3 — stile underline ── */}
           <div onClick={e => e.stopPropagation()} style={{
-            display: "flex", gap: 4, marginBottom: 12,
-            background: M3.surfaceContainerHighest,
-            borderRadius: 20, padding: 3,
+            display: "flex", borderBottom: `1px solid ${M3.outlineVariant}`, marginBottom: 14,
           }}>
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setCardTab(tab.id)}
                 style={{
-                  flex: 1, padding: "6px 0", borderRadius: 16, border: "none",
-                  background: cardTab === tab.id ? M3.surface : "transparent",
-                  color: cardTab === tab.id ? M3.onSurface : M3.onSurfaceVariant,
-                  fontSize: 11, fontWeight: cardTab === tab.id ? 600 : 400,
+                  flex: 1, padding: "8px 4px", border: "none", background: "transparent",
+                  borderBottom: cardTab === tab.id ? `2px solid ${M3.primary}` : "2px solid transparent",
+                  marginBottom: -1,
+                  color: cardTab === tab.id ? M3.primary : M3.onSurfaceVariant,
+                  fontSize: 12, fontWeight: cardTab === tab.id ? 600 : 400,
                   fontFamily: "'Roboto', sans-serif",
-                  cursor: "pointer",
-                  boxShadow: cardTab === tab.id ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
-                  transition: "all 0.15s",
+                  cursor: "pointer", letterSpacing: 0.1,
                   whiteSpace: "nowrap",
+                  transition: "color 0.15s, border-color 0.15s",
                 }}
               >{tab.label}</button>
             ))}
@@ -883,7 +882,9 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   {vinoSW && <SwBadge type="bottiglia" />}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
+
+              {/* Stats row */}
+              <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
                 {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
                   <div key={s.l} style={{ flex: "1 1 70px", background: M3.surfaceVariant, borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
@@ -891,30 +892,46 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   </div>
                 ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 10 }}>
+
+              {/* Tech grid — stile Graph Elevated Card M3 */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 {[
                   { icon: "🍇", label: "Vitigno",       val: wine.vitigno },
                   { icon: "⏱",  label: "Macerazione",   val: wine.macerazione },
                   { icon: "🧪", label: "Fermentazione", val: wine.fermentazione },
                   { icon: "🔄", label: "Malolattica",   val: wine.malolattica },
                 ].map(s => (
-                  <div key={s.label} style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "9px 10px" }}>
-                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 3 }}>{s.icon} {s.label}</div>
-                    <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4 }}>{s.val}</div>
+                  <div key={s.label} style={{
+                    background: M3.surface, borderRadius: 12, padding: "11px 12px",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
+                  }}>
+                    <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500 }}>{s.icon} {s.label}</div>
+                    <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{s.val}</div>
                   </div>
                 ))}
               </div>
+
+              {/* Note — Graph Elevated Card M3 full width */}
               {wine.note && (
-                <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${t.indicator}`, marginBottom: 12 }}>
-                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>📝 Note</div>
+                <div style={{
+                  background: M3.surface, borderRadius: 12, padding: "12px 14px", marginBottom: 12,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
+                  borderLeft: `3px solid ${t.indicator}`,
+                }}>
+                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>📝 Note</div>
                   <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
                 </div>
               )}
+
               {/* Nota degustazione (solo bevuti) */}
               {bevutoInfo?.nota && (
-                <div style={{ background: M3.primaryContainer, borderRadius: 8, padding: "10px 12px", borderLeft: `3px solid ${M3.primary}`, marginBottom: 12 }}>
-                  <div style={{ fontSize: 10, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5, opacity: 0.8 }}>🍷 Nota di degustazione</div>
-                  <div style={{ fontSize: 12, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
+                <div style={{
+                  background: M3.surface, borderRadius: 12, padding: "12px 14px", marginBottom: 12,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
+                  borderLeft: `3px solid ${M3.primary}`,
+                }}>
+                  <div style={{ fontSize: 10, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, opacity: 0.8 }}>🍷 Nota di degustazione</div>
+                  <div style={{ fontSize: 12, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
                 </div>
               )}
             </>
@@ -930,11 +947,13 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {/* ── Tab VALUTAZIONE (solo bevuti) ── */}
           {cardTab === "valutazione" && bevutoInfo && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
-              <div style={{ background: M3.surfaceContainer, borderRadius: 12, padding: "20px 16px", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16 }}>
+              <div style={{
+                background: M3.surface, borderRadius: 12, padding: "20px 16px", textAlign: "center",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
+              }}>
+                <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 16, fontWeight: 500 }}>
                   La tua valutazione
                 </div>
-                {/* 5 calici interattivi */}
                 <div style={{ display: "flex", justifyContent: "center", gap: 10, marginBottom: 14 }}>
                   {[1, 2, 3, 4, 5].map(n => {
                     const active = n <= (hoverRating || currentRating);
@@ -957,7 +976,6 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                     );
                   })}
                 </div>
-                {/* Etichetta testuale del punteggio */}
                 <div style={{ fontSize: 13, fontWeight: 500, color: currentRating ? M3.primary : M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", minHeight: 20 }}>
                   {currentRating === 0 && "Tocca un calice per valutare"}
                   {currentRating === 1 && "⭐ Deludente"}
@@ -970,19 +988,21 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             </div>
           )}
 
-          {/* ── Azione primaria: diversa tra cantina e bevuti ── */}
+          {/* ── Azione primaria ── */}
           {!bevutoInfo ? (
-            /* Vino in cantina → pulsante "Segna come bevuto" */
+            /* M3 Elevated Button — verde (tonal green) */
             <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
-              width: "100%", padding: "10px 16px", borderRadius: 20, border: "none",
-              background: M3.primaryContainer, color: M3.onPrimaryContainer,
+              width: "100%", padding: "10px 24px", borderRadius: 20, border: "none",
+              background: "#E8F5E9", color: "#1B5E20",
               fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
               cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
+              boxShadow: "0 1px 2px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
               🍷 Segna come bevuto
             </button>
           ) : (
-            /* Vino bevuto → testo statico con data apertura */
+            /* Testo statico data apertura */
             <div style={{
               width: "100%", padding: "10px 16px", borderRadius: 20,
               background: M3.surfaceContainerHighest,
@@ -994,25 +1014,27 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             </div>
           )}
 
-          {/* ── Modifica dati ── */}
+          {/* M3 Filled Button — Modifica dati */}
           <button onClick={(e) => { e.stopPropagation(); onModifica(wine); }} style={{
-            width: "100%", padding: "9px 16px", borderRadius: 20, marginBottom: 8,
-            border: `1px solid ${M3.outlineVariant}`,
-            background: "transparent", color: M3.onSurface,
-            fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
-            cursor: "pointer", letterSpacing: 0.1,
+            width: "100%", padding: "10px 24px", borderRadius: 20, border: "none",
+            background: M3.primary, color: "#FFFFFF",
+            fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
+            cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            boxShadow: "0 1px 2px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)",
           }}>
             ✏️ Modifica dati
           </button>
 
-          {/* ── Elimina con conferma inline ── */}
+          {/* M3 Outlined Button — Elimina (outline rosso) */}
           {!confirmDelete ? (
             <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{
-              width: "100%", padding: "9px 16px", borderRadius: 20,
-              border: `1px solid ${M3.error}44`,
+              width: "100%", padding: "10px 24px", borderRadius: 20,
+              border: `1px solid ${M3.error}`,
               background: "transparent", color: M3.error,
-              fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
+              fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif",
               cursor: "pointer", letterSpacing: 0.1,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
               🗑 Elimina dalla cantina
             </button>
@@ -1300,25 +1322,68 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
 // ─── Modal: Segna come bevuto ─────────────────────────────────────────────────
 function ModalBevi({ wine, onConferma, onAnnulla }) {
   const [nota, setNota] = useState("");
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
   if (!wine) return null;
   const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+
+  const labelRating = ["", "Deludente", "Nella media", "Buono", "Ottimo", "Eccellente!"];
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.4)" }} onClick={onAnnulla}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
         <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 20px" }} />
         <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>🍷 Segna come bevuto</div>
         <div style={{ fontSize: 14, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 16 }}>{wine.produttore} · {wine.vino} · {wine.annata}</div>
+
+        {/* Data apertura */}
         <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
           📅 Data apertura: <strong style={{ color: M3.onSurface }}>{today}</strong>
         </div>
+
+        {/* Valutazione */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Valutazione (opzionale)</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+            {[1, 2, 3, 4, 5].map(n => {
+              const active = n <= (hoverRating || rating);
+              return (
+                <button
+                  key={n}
+                  onClick={() => setRating(n === rating ? 0 : n)}
+                  onMouseEnter={() => setHoverRating(n)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    padding: "4px", borderRadius: 8, fontSize: 28, lineHeight: 1,
+                    filter: active ? "none" : "grayscale(1) opacity(0.3)",
+                    transform: active ? "scale(1.15)" : "scale(1)",
+                    transition: "transform 0.15s, filter 0.15s",
+                  }}
+                >🍷</button>
+              );
+            })}
+          </div>
+          <div style={{ textAlign: "center", fontSize: 12, fontWeight: 500, color: rating ? M3.primary : M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", minHeight: 18 }}>
+            {rating ? `${"⭐".repeat(rating)} ${labelRating[rating]}` : "Tocca un calice per valutare"}
+          </div>
+        </div>
+
+        {/* Nota degustazione */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>Nota di degustazione (opzionale)</div>
           <textarea value={nota} onChange={e => setNota(e.target.value)} placeholder="Come ti è sembrato? Abbinamento, occasione…"
             style={{ width: "100%", minHeight: 70, background: M3.surfaceContainerHighest, border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, resize: "vertical", outline: "none" }} />
         </div>
+
+        {/* Azioni — stessa larghezza */}
         <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => onConferma(nota, today)} style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Conferma</button>
+          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+            Annulla
+          </button>
+          <button onClick={() => onConferma(nota, today, rating)} style={{ flex: 1, padding: "11px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+            Conferma
+          </button>
         </div>
       </div>
     </div>
@@ -1672,10 +1737,11 @@ export default function Cantina() {
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
 
-  const handleConferma = async (nota, data) => {
+  const handleConferma = async (nota, data, rating) => {
     const uid = Date.now();
     const row = { uid, wine_id: pendingBevi.id, data, nota: nota || "" };
     setBevuti(prev => [...prev, { uid, id: pendingBevi.id, data, nota: nota || "" }]);
+    if (rating > 0) setRatings(prev => ({ ...prev, [pendingBevi.id]: rating }));
     setPendingBevi(null);
     await sb.insert("bevuti", row);
   };
