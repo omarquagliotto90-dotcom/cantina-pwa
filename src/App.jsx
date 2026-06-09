@@ -798,9 +798,30 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
 
   // Tabs disponibili: scheda + bottiglia + (valutazione solo se bevuto)
   const tabs = [
-    { id: "scheda",      label: "📋 Scheda" },
-    { id: "bottiglia",   label: "📷 Bottiglia" },
-    ...(bevutoInfo ? [{ id: "valutazione", label: "⭐ Voto" }] : []),
+    {
+      id: "scheda", label: "Scheda",
+      icon: (active) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      ),
+    },
+    {
+      id: "bottiglia", label: "Bottiglia",
+      icon: (active) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 001 1h10a1 1 0 001-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/>
+        </svg>
+      ),
+    },
+    ...(bevutoInfo ? [{
+      id: "valutazione", label: "Voto",
+      icon: (active) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill={active ? M3.primary : "none"} stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      ),
+    }] : []),
   ];
   const [cardTab, setCardTab] = useState("scheda");
 
@@ -860,27 +881,37 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         <div style={{ padding: "0 14px 14px", animation: "expandIn 0.22s cubic-bezier(0.2,0,0,1)" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
-          {/* ── Tab switcher M3 — stile underline ── */}
+          {/* ── Tab switcher — pill orizzontale scrollabile stile M3 ── */}
           <div onClick={e => e.stopPropagation()} style={{
-            display: "flex", borderBottom: `1px solid ${M3.outlineVariant}`, marginBottom: 14,
+            display: "flex", gap: 6, marginBottom: 14,
+            overflowX: "auto", scrollbarWidth: "none",
+            background: M3.surfaceContainerHighest,
+            borderRadius: 50, padding: "4px 6px",
           }}>
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setCardTab(tab.id)}
-                style={{
-                  flex: 1, padding: "8px 4px", border: "none", background: "transparent",
-                  borderBottom: cardTab === tab.id ? `2px solid ${M3.primary}` : "2px solid transparent",
-                  marginBottom: -1,
-                  color: cardTab === tab.id ? M3.primary : M3.onSurfaceVariant,
-                  fontSize: 12, fontWeight: cardTab === tab.id ? 600 : 400,
-                  fontFamily: "'Roboto', sans-serif",
-                  cursor: "pointer", letterSpacing: 0.1,
-                  whiteSpace: "nowrap",
-                  transition: "color 0.15s, border-color 0.15s",
-                }}
-              >{tab.label}</button>
-            ))}
+            {tabs.map(tab => {
+              const active = cardTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setCardTab(tab.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: active ? "7px 16px" : "7px 12px",
+                    borderRadius: 50, border: "none", flexShrink: 0,
+                    background: active ? M3.primaryContainer : "transparent",
+                    color: active ? M3.primary : M3.onSurfaceVariant,
+                    fontSize: 13, fontWeight: active ? 600 : 400,
+                    fontFamily: "'Roboto', sans-serif",
+                    cursor: "pointer", letterSpacing: 0.1,
+                    transition: "background 0.18s, color 0.18s, padding 0.18s",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {tab.icon(active)}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* ── Tab SCHEDA ── */}
