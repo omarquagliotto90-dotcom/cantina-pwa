@@ -1493,6 +1493,7 @@ export default function Cantina() {
           fermentazione: w.fermentazione || "—",
           malolattica:  w.malolattica  || "—",
         }));
+        console.log("wines dal DB:", normalizedWines.length, normalizedWines[0]);
         setStaticWines(normalizedWines);
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
         const allBevutiMap = new Map();
