@@ -1461,6 +1461,7 @@ function TabStatistiche({ wines, bevuti }) {
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
   const [bevuti, setBevuti] = useState([]);
+  const [staticWines, setStaticWines] = useState([]);
   const [extraWines, setExtraWines] = useState([]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
@@ -1478,27 +1479,26 @@ export default function Cantina() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [bev, extra, overrides] = await Promise.all([
+        const [wines, bev, extra, overrides] = await Promise.all([
+          fetch(`${SB_URL}/rest/v1/wines?order=id.asc`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" } }).then(r => r.ok ? r.json() : []),
           sb.get("bevuti"),
           sb.get("extra_wines"),
           sb.get("wine_overrides").catch(() => []),
         ]);
-        const staticBevuti = WINES_DATA.filter(w => w.bevuto);
-        const bevIdsInDb = new Set(bev.map(b => b.wine_id));
-        const insertPromises = staticBevuti
-          .filter(w => !bevIdsInDb.has(w.id))
-          .map(w => {
-            const uid = w.id * 1000;
-            return sb.insert("bevuti", { uid, wine_id: w.id, data: w.bevuto, nota: w.notaBevuto || "", rating: 0 })
-              .then(() => ({ uid, id: w.id, data: w.bevuto, nota: w.notaBevuto || "" }));
-          });
-        const newlyInserted = await Promise.all(insertPromises);
+        // Normalizza snake_case → camelCase e valori nulli
+        const normalizedWines = wines.map(w => ({
+          ...w,
+          slowVinoBott: !!w.slow_vino_bott,
+          macerazione:  w.macerazione  || "—",
+          fermentazione: w.fermentazione || "—",
+          malolattica:  w.malolattica  || "—",
+        }));
+        setStaticWines(normalizedWines);
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
         const allBevutiMap = new Map();
         bevFromDb.forEach(b => allBevutiMap.set(b.id, b));
-        newlyInserted.forEach(b => { if (b && !allBevutiMap.has(b.id)) allBevutiMap.set(b.id, b); });
         setBevuti(Array.from(allBevutiMap.values()));
-        setExtraWines(extra.map(w => ({ ...w, id: w.id, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
+        setExtraWines(extra.map(w => ({ ...w, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
         const ratingsFromDb = {};
         bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
         setRatings(ratingsFromDb);
@@ -1509,8 +1509,6 @@ export default function Cantina() {
         }
       } catch (e) {
         console.error("Errore caricamento dati:", e);
-        const staticBevuti = WINES_DATA.filter(w => w.bevuto).map(w => ({ uid: w.id * 1000, id: w.id, data: w.bevuto, nota: w.notaBevuto || "" }));
-        setBevuti(staticBevuti);
       } finally {
         setLoading(false);
       }
@@ -1518,7 +1516,7 @@ export default function Cantina() {
     loadData();
   }, []);
 
-  const allWines = [...WINES_DATA, ...extraWines]
+  const allWines = [...staticWines, ...extraWines]
     .map(w => { if (wineOverrides[w.id]) return { ...w, ...wineOverrides[w.id] }; return w; })
     .map(w => { if (bottleOverrides[w.id] !== undefined) return { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] }; return w; })
     .filter(w => { if (deletedExtraIds.has(w.id)) return false; return w.bottiglie > 0; });
