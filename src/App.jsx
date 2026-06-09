@@ -143,6 +143,48 @@ const SW_VINO_BOTTIGLIA = new Set([
 const hasCantina = (produttore) => SW_CANTINA_CHIOCCIOLA.has(produttore);
 
 // ─── Dataset vini — schede tecniche da fonti ufficiali ───────────────────────
+// ─── Siti web per produttore ─────────────────────────────────────────────────
+// Opzione A: URL ufficiali verificati; null = fallback Google Search
+const PRODUCER_WEBSITES = {
+  "Abbazia di Novacella":     "https://www.kloster-neustift.it/it/cantina/",
+  "Bele Casel":               "https://www.belecasel.com/",
+  "Bertani":                  "https://www.bertani.net/it/vini/",
+  "Biondo Jeo":               null, // piccolo produttore, no sito ufficiale noto
+  "Bresolin":                 null,
+  "Ca' dei Frati":            "https://www.cadeifrati.it/",
+  "Chiusa Grande":            "https://chiusagrande.com/it/",
+  "Colle Mora":               null,
+  "Domaine Potinet-Ampeau":   "https://www.potinet-ampeau.com/",
+  "Fattoria Milziade Antano": "https://www.milziadeantano.it/",
+  "Fontale":                  null,
+  "Francesco Tollador":       null,
+  "Giannitessari":            "https://giannitessari.wine/",
+  "Giulio Pasotti":           null,
+  "Laboratorio Agricolo":     null,
+  "Le Caselle":               null,
+  "Lunaria":                  "https://www.lunariavini.it/",
+  "Maculan":                  "https://www.maculan.net/it/",
+  "Malibràn":                 "https://www.cantinemaLibran.it/",
+  "Miotto":                   "https://www.cantinemiotto.it/",
+  "Movia":                    "https://movia.si/it/",
+  "Occhipinti":               "https://www.agricolaocchipinti.it/",
+  "Peroni Vignaiole":         null,
+  "Pieropan":                 "https://www.pieropan.it/vini",
+  "Pistis Sophia":            "https://pistis-sophia.com/",
+  "Rizzini":                  "https://www.rizzinifranciacorta.it/",
+  "Santoro":                  null,
+  "Tenimenti Grieco":         null,
+};
+
+// Restituisce l'URL del sito (ufficiale o Google Search come fallback)
+function getProducerUrl(produttore, vino, annata) {
+  const official = PRODUCER_WEBSITES[produttore];
+  if (official) return official;
+  // Fallback: Google Search con produttore + vino
+  const query = encodeURIComponent(`${produttore} ${vino}${annata && annata !== "n.d." ? " " + annata : ""} cantina`);
+  return `https://www.google.com/search?q=${query}`;
+}
+
 const WINES_DATA = [
   // ── ABBAZIA DI NOVACELLA ─────────────────────────────────────────────────────
   // Fonte: kloster-neustift.it | Valle Isarco DOC Sylvaner
@@ -785,6 +827,60 @@ function BottleImage({ wine, active }) {
     </>
   );
 }
+// ─── WebsiteView — tab sito web produttore ───────────────────────────────────
+function WebsiteView({ wine }) {
+  const url = getProducerUrl(wine.produttore, wine.vino, wine.annata);
+  const isOfficial = !!PRODUCER_WEBSITES[wine.produttore];
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  return (
+    <div style={{ borderRadius: 12, overflow: "hidden", background: M3.surfaceContainerHighest }}>
+      {/* Barra URL */}
+      <div style={{ padding: "8px 12px", background: M3.surfaceContainer, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${M3.outlineVariant}` }}>
+        <div style={{ flex: 1, fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {isOfficial ? "🌐" : "🔍"} {url.replace("https://", "").replace("http://", "").split("/")[0]}
+        </div>
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, color: M3.primary, fontFamily: "'Roboto', sans-serif", textDecoration: "none", flexShrink: 0, fontWeight: 500 }}>
+          Apri ↗
+        </a>
+      </div>
+
+      {/* iframe */}
+      {!error ? (
+        <div style={{ position: "relative", height: 380 }}>
+          {!loaded && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🌐</div>
+              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
+            </div>
+          )}
+          <iframe
+            src={url}
+            title={`Sito ${wine.produttore}`}
+            onLoad={() => setLoaded(true)}
+            onError={() => { setError(true); setLoaded(true); }}
+            style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: loaded ? 1 : 0, transition: "opacity 0.3s" }}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          />
+        </div>
+      ) : (
+        <div style={{ height: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 20 }}>
+          <div style={{ fontSize: 36 }}>🔒</div>
+          <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>
+            Il sito non può essere incorporato
+          </div>
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            style={{ padding: "9px 20px", borderRadius: 20, background: M3.primary, color: M3.onPrimary, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
+            Apri in Safari ↗
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Wine Card ────────────────────────────────────────────────────────────────
 // bevutoInfo = { data, nota } se il vino è nella tab Bevuti, altrimenti null
 // ratings = Map<wineId, 1-5> (in-memory, condivisa dall'App)
@@ -811,6 +907,16 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       icon: (active) => (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 001 1h10a1 1 0 001-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/>
+        </svg>
+      ),
+    },
+    {
+      id: "website", label: "Web",
+      icon: (active) => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
         </svg>
       ),
     },
@@ -984,6 +1090,13 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {cardTab === "bottiglia" && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
               <BottleImage wine={wine} active={cardTab === "bottiglia"} />
+            </div>
+          )}
+
+          {/* ── Tab WEBSITE ── */}
+          {cardTab === "website" && (
+            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
+              <WebsiteView wine={wine} />
             </div>
           )}
 
