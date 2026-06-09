@@ -1967,8 +1967,6 @@ export default function Cantina() {
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null); // wine da modificare
   const [compact, setCompact] = useState(false);
-  const [barHidden, setBarHidden] = useState(false);
-  const [barFilled, setBarFilled] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
   // Stato eliminazione: per vini statici traccia le bottiglie rimosse; per extra_wines l'id eliminato
@@ -1977,6 +1975,7 @@ export default function Cantina() {
   const [wineOverrides, setWineOverrides] = useState({}); // { wineId: { ...fields } } per vini statici modificati
   const [ratings, setRatings] = useState({}); // { wineId: 0-5 } in-memory
   const scrollRef = useRef(null);
+  const barRef = useRef(null);
   const lastScrollY = useRef(0);
 
   // ── Carica dati da Supabase all'avvio ──
@@ -2066,20 +2065,34 @@ export default function Cantina() {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    const bar = barRef.current;
+    if (!el || !bar) return;
+
+    const BAR_H = bar.offsetHeight || 64;
+
     const onScroll = () => {
       const y = el.scrollTop;
-      const goingDown = y > lastScrollY.current;
-      // barFilled: color fill appena si scolla (> 4px)
-      setBarFilled(y > 4);
-      // barHidden: nasconde su scroll down, ricompare su scroll up
-      setBarHidden(goingDown && y > 60);
-      // compact: ancora usato dalle tab (FilterChip ecc.)
+      const dy = y - lastScrollY.current;
+
+      // ── Movimento barra via DOM diretto (nessun re-render) ──
+      // Legge il translateY corrente dal style inline
+      const curTY = parseFloat(bar.dataset.ty || "0");
+      // Sposta proporzionalmente allo scroll, clampato tra -BAR_H e 0
+      const nextTY = Math.min(0, Math.max(-BAR_H, curTY - dy));
+      bar.dataset.ty = String(nextTY);
+      bar.style.transform = `translateY(${nextTY}px)`;
+
+      // Color fill: appena si scolla > 4px (indipendentemente dalla direzione)
+      bar.style.background = y > 4 ? M3.surfaceContainer : M3.surface;
+
+      // React state: solo per compact (usato dai figli) e FAB
+      const goingDown = dy > 0;
       setCompact(y > 40);
-      // FAB: visibile su scroll up o vicino alla cima
       setFabVisible(!goingDown || y < 60);
+
       lastScrollY.current = y;
     };
+
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
@@ -2211,53 +2224,51 @@ export default function Cantina() {
         .m3-stagger-5 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 200ms both; }
       `}</style>
 
-      {/* ── App Bar M3 Top — fixed, slide-out on scroll down ── */}
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0,
-        zIndex: 30,
-        paddingTop: "env(safe-area-inset-top)",
-        // Color fill su scroll, nessun drop shadow (spec M3)
-        background: barFilled ? M3.surfaceContainer : M3.surface,
-        transition: "background 0.25s cubic-bezier(0.2,0,0,1), transform 0.3s cubic-bezier(0.2,0,0,1)",
-        // Slide-out su scroll down, ricompare su scroll up
-        transform: barHidden ? "translateY(-100%)" : "translateY(0)",
-      }}>
-        {/* Unica riga: titolo allineato a sinistra + pill a destra */}
+      {/* ── App Bar M3 Top ──
+           position: sticky top:0 → rimane nel flusso, non soffre di overflow:hidden
+           transform e background manipolati direttamente via barRef nello scroll handler
+           (zero re-render = animazione fluida frame-by-frame)                        ── */}
+      <div
+        ref={barRef}
+        data-ty="0"
+        style={{
+          position: "sticky", top: 0,
+          zIndex: 30,
+          flexShrink: 0,
+          paddingTop: "env(safe-area-inset-top)",
+          background: M3.surface,
+          // transition SOLO per background (colore fill), NON per transform
+          transition: "background 0.25s cubic-bezier(0.2,0,0,1)",
+          willChange: "transform",
+        }}
+      >
         <div style={{
           display: "flex", alignItems: "center",
-          height: 64,
-          padding: "0 16px",
-          gap: 12,
+          height: 64, padding: "0 16px", gap: 12,
         }}>
-          {/* Titolo "La Mia Cantina" — headline large M3 */}
+          {/* Titolo */}
           <div style={{
             flex: 1,
             fontSize: 22, fontWeight: 400,
             color: M3.onSurface,
             fontFamily: "'Roboto', sans-serif",
-            letterSpacing: -0.3,
-            lineHeight: 1,
+            letterSpacing: -0.3, lineHeight: 1,
           }}>
             La Mia Cantina
           </div>
 
-          {/* Pill bottiglie/valore — allineata verticalmente al titolo */}
+          {/* Pill bottiglie / valore */}
           <div style={{
             padding: "0 12px", height: 28, borderRadius: 14,
-            background: M3.primaryContainer,
-            color: M3.onPrimaryContainer,
+            background: M3.primaryContainer, color: M3.onPrimaryContainer,
             display: "flex", alignItems: "center", gap: 5,
             fontSize: 12, fontWeight: 500,
-            fontFamily: "'Roboto', sans-serif",
-            flexShrink: 0,
+            fontFamily: "'Roboto', sans-serif", flexShrink: 0,
           }}>
             🍾 {totBottiglie} · ~{totValore}€
           </div>
         </div>
       </div>
-
-      {/* Spacer per compensare la barra fixed (64px + safe-area) */}
-      <div style={{ flexShrink: 0, height: "calc(64px + env(safe-area-inset-top))" }} />
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
