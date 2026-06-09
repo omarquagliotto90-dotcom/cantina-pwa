@@ -1,3 +1,4 @@
+// v0.3 — data-driven
 import { useState, useRef, useEffect } from "react";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
