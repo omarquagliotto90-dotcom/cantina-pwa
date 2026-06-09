@@ -109,6 +109,8 @@ const M3 = {
   onSurface:               "#201A19",
   surfaceVariant:          "#F5DEDD",
   onSurfaceVariant:        "#534341",
+  surfaceContainerLowest:  "#FFFFFF",
+  surfaceContainerLow:     "#F0E9E8",   // Elevated Card container
   surfaceContainer:        "#F5EDEC",
   surfaceContainerHigh:    "#EFE7E6",
   surfaceContainerHighest: "#E9E1E0",
@@ -1758,11 +1760,25 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 7, padding: compact ? "4px 16px 6px" : "0 16px 8px", overflowX: "auto", scrollbarWidth: "none" }}>
+      {/* ── Stat cards — M3 Elevated Card (Level 1) ── */}
+      <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px", overflowX: "auto", scrollbarWidth: "none" }}>
         {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Valore", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
-          <div key={s.l} style={{ flex: "0 0 auto", background: M3.surfaceContainer, borderRadius: 10, padding: compact ? "5px 12px" : "8px 14px", textAlign: "center", minWidth: 68, transition: "padding 0.3s" }}>
-            <div style={{ fontSize: compact ? 13 : 15, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
-            <div style={{ fontSize: 9, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
+          <div key={s.l} style={{
+            flex: "0 0 auto",
+            // M3 Elevated Card: containerColor = surfaceContainerLow
+            background: M3.surfaceContainerLow,
+            // M3 Elevation Level 1: shadow a due livelli
+            boxShadow: "0px 1px 2px rgba(0,0,0,0.30), 0px 1px 3px 1px rgba(0,0,0,0.15)",
+            // M3 shape.corner.medium = 12dp
+            borderRadius: 12,
+            border: "none",
+            padding: compact ? "6px 14px" : "10px 16px",
+            textAlign: "center",
+            minWidth: 72,
+            transition: "padding 0.3s cubic-bezier(0.2,0,0,1), box-shadow 0.2s cubic-bezier(0.2,0,0,1)",
+          }}>
+            <div style={{ fontSize: compact ? 13 : 16, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.2 }}>{s.v}</div>
+            <div style={{ fontSize: 9, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginTop: 2, fontWeight: 500 }}>{s.l}</div>
           </div>
         ))}
       </div>
