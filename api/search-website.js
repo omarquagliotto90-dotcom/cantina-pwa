@@ -1,29 +1,47 @@
 // api/search-website.js
-// Cerca il sito ufficiale di un produttore/vino via Serper.dev
-// Esclude aggregatori e ritorna il primo URL rilevante
+// Cerca il sito ufficiale di un produttore via Serper.dev
+// Priorità: 1) sito ufficiale  2) Instagram  3) Google Search fallback
 
 const EXCLUDE_DOMAINS = [
   "vivino.com", "wine-searcher.com", "winesearcher.com", "tannico.it",
   "callmewine.com", "winemag.it", "decanter.com", "wine-spectator.com",
-  "italianavini.it", "amazon.com", "amazon.it", "enoteca", "shop.",
+  "italianavini.it", "amazon.com", "amazon.it",
   "signorvino.com", "vino.com", "diemmevini.com", "trovaprezzi.it",
-  "wikipedia.org", "tripadvisor.com", "instagram.com", "facebook.com",
+  "wikipedia.org", "tripadvisor.com", "facebook.com",
   "youtube.com", "slowfood.it", "gamberorosso.it", "winetourism.com",
-  "cellartracker.com", "ratemywine", "dispensa", "eataly", "acquista",
-  "comprare", "prezzo", "offerta", "scontato", "etilika", "intravino.com",
+  "cellartracker.com", "ratemywine", "eataly", "etilika", "intravino.com",
+  "enoteca", "shop.", "acquista", "comprare", "prezzo", "offerta", "scontato",
+  "divinegolositatoscane", "italysfinestwines", "winealchemy", "bowlerwine",
+  "florwine", "vinonews24", "winemag", "italvinus", "sorgentedelvino",
 ];
 
 function isOfficialSite(url, produttore) {
   const lower = url.toLowerCase();
-  // Escludi domini aggregatori
   if (EXCLUDE_DOMAINS.some(d => lower.includes(d))) return false;
-  // Preferisci URL che contengono parole chiave del produttore
+  // Instagram escluso da questo check — gestito separatamente
+  if (lower.includes("instagram.com")) return false;
   const keywords = produttore.toLowerCase()
     .replace(/[àáâãäå]/g, "a").replace(/[èéêë]/g, "e")
     .replace(/[ìíîï]/g, "i").replace(/[òóôõö]/g, "o")
     .replace(/[ùúûü]/g, "u").replace(/[^a-z0-9\s]/g, "")
     .split(" ").filter(w => w.length > 3);
   return keywords.some(k => lower.includes(k));
+}
+
+function isAggregator(url) {
+  return EXCLUDE_DOMAINS.some(d => url.toLowerCase().includes(d));
+}
+
+function normalizeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const cleanPath = parsed.pathname.replace(/\/$/, "");
+    const genericPaths = ["/it", "/en", "/home", "/index", "/chi-siamo", "/about"];
+    if (genericPaths.includes(cleanPath) || cleanPath === "") {
+      return `${parsed.protocol}//${parsed.host}/`;
+    }
+  } catch {}
+  return url;
 }
 
 export default async function handler(req, res) {
@@ -36,49 +54,50 @@ export default async function handler(req, res) {
   if (!SERPER_KEY) return res.status(500).json({ error: "SERPER_API_KEY not set" });
 
   try {
-    // Query principale: sito ufficiale del produttore
     const query = `${produttore} cantina vino sito ufficiale`;
-
     const response = await fetch("https://google.serper.dev/search", {
       method: "POST",
-      headers: {
-        "X-API-KEY": SERPER_KEY,
-        "Content-Type": "application/json",
-      },
+      headers: { "X-API-KEY": SERPER_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ q: query, gl: "it", hl: "it", num: 10 }),
     });
 
     const data = await response.json();
     const organic = data.organic || [];
 
-    // 1° tentativo: URL ufficiale (contiene nome produttore, non è aggregatore)
+    // ── 1° tentativo: sito ufficiale con parole chiave produttore ──
     let found = organic.find(r => isOfficialSite(r.link, produttore));
 
-    // 2° tentativo: qualsiasi risultato non-aggregatore
+    // ── 2° tentativo: qualsiasi risultato non-aggregatore e non-Instagram ──
     if (!found) {
-      found = organic.find(r => !EXCLUDE_DOMAINS.some(d => r.link.toLowerCase().includes(d)));
+      found = organic.find(r =>
+        !isAggregator(r.link) && !r.link.toLowerCase().includes("instagram.com")
+      );
     }
 
-    // 3° fallback: Google Search con produttore + vino
+    // ── 3° tentativo: Instagram (solo se non c'è nulla di meglio) ──
+    if (!found) {
+      const igResult = organic.find(r => r.link.toLowerCase().includes("instagram.com"));
+      if (igResult) {
+        return res.json({
+          url: igResult.link,
+          source: "instagram",
+          title: igResult.title,
+        });
+      }
+    }
+
+    // ── 4° fallback: Google Search ──
     if (!found) {
       const q = encodeURIComponent(`${produttore} ${vino || ""} cantina`);
       return res.json({ url: `https://www.google.com/search?q=${q}`, source: "fallback" });
     }
 
-    // Normalizza URL: prendi solo il dominio root se è una pagina profonda inutile
-    let url = found.link;
-    try {
-      const parsed = new URL(url);
-      // Se il path è solo "/" o vuoto, usa la home
-      const cleanPath = parsed.pathname.replace(/\/$/, "");
-      // Se il path contiene parole generiche di navigazione, usa la home
-      const genericPaths = ["/it", "/en", "/home", "/index", "/chi-siamo", "/about"];
-      if (genericPaths.includes(cleanPath) || cleanPath === "") {
-        url = `${parsed.protocol}//${parsed.host}/`;
-      }
-    } catch {}
+    return res.json({
+      url: normalizeUrl(found.link),
+      source: "serper",
+      title: found.title,
+    });
 
-    return res.json({ url, source: "serper", title: found.title });
   } catch (err) {
     console.error("search-website error:", err);
     const q = encodeURIComponent(`${produttore} ${vino || ""} cantina sito ufficiale`);
