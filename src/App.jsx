@@ -495,8 +495,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   useEffect(() => {
     if (expanded && cardRef.current) {
       const t = setTimeout(() => {
-        cardRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 80);
+        cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 320);
       return () => clearTimeout(t);
     }
   }, [expanded]);
