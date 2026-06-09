@@ -478,6 +478,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [closing, setClosing] = useState(false);
   const cardRef = useRef(null);
 
   const tabs = [
@@ -488,11 +489,21 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   ];
   const [cardTab, setCardTab] = useState("scheda");
 
+  const prevExpandedRef = useRef(expanded);
   useEffect(() => {
-    if (!expanded) { setCardTab("scheda"); setConfirmDelete(false); }
-  }, [expanded]);
+    const wasExpanded = prevExpandedRef.current;
+    prevExpandedRef.current = expanded;
 
-  useEffect(() => {
+    if (!expanded && wasExpanded) {
+      setClosing(true);
+      const t = setTimeout(() => {
+        setClosing(false);
+        setCardTab("scheda");
+        setConfirmDelete(false);
+      }, 260);
+      return () => clearTimeout(t);
+    }
+
     if (expanded && cardRef.current) {
       const t = setTimeout(() => {
         cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -551,8 +562,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       </div>
 
       {/* ── Contenuto espanso ── */}
-      {expanded && (
-        <div className="m3-expand-content" style={{ padding: "0 14px 14px" }}>
+      {(expanded || closing) && (
+        <div className={closing ? "m3-closing" : "m3-expand-content"} style={{ padding: "0 14px 14px" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
           {/* Tab switcher */}
@@ -965,14 +976,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
           </div>
         ) : filtered.map(wine => (
           <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
-            onToggle={() => {
-              if (expanded !== null && expanded !== wine.id) {
-                setExpanded(null);
-                setTimeout(() => setExpanded(wine.id), 50);
-              } else {
-                setExpanded(p => p === wine.id ? null : wine.id);
-              }
-            }}
+            onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica}
             ratings={ratings} onRate={onRate} />
         ))}
@@ -1017,14 +1021,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         if (!wine) return null;
         return (
           <WineCard key={b.uid} wine={wine} expanded={expanded === b.uid}
-            onToggle={() => {
-              if (expanded !== null && expanded !== b.uid) {
-                setExpanded(null);
-                setTimeout(() => setExpanded(b.uid), 50);
-              } else {
-                setExpanded(p => p === b.uid ? null : b.uid);
-              }
-            }}
+            onToggle={() => setExpanded(p => p === b.uid ? null : b.uid)}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             bevutoInfo={{ data: b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate} />
@@ -1317,8 +1314,13 @@ export default function Cantina() {
           from { opacity: 0; transform: translateY(-8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes m3ContentOut {
+          from { opacity: 1; transform: translateY(0); }
+          to   { opacity: 0; transform: translateY(-8px); }
+        }
         @keyframes m3FadeIn { from { opacity: 0; } to { opacity: 1; } }
         .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
+        .m3-closing { animation: m3ContentOut 260ms cubic-bezier(0.2, 0, 0, 1) both; overflow: hidden; }
         .m3-stagger-1 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
         .m3-stagger-2 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
         .m3-stagger-3 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
