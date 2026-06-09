@@ -965,7 +965,14 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
           </div>
         ) : filtered.map(wine => (
           <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
-            onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
+            onToggle={() => {
+              if (expanded !== null && expanded !== wine.id) {
+                setExpanded(null);
+                requestAnimationFrame(() => setExpanded(wine.id));
+              } else {
+                setExpanded(p => p === wine.id ? null : wine.id);
+              }
+            }}
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica}
             ratings={ratings} onRate={onRate} />
         ))}
@@ -1010,7 +1017,14 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         if (!wine) return null;
         return (
           <WineCard key={b.uid} wine={wine} expanded={expanded === b.uid}
-            onToggle={() => setExpanded(p => p === b.uid ? null : b.uid)}
+            onToggle={() => {
+              if (expanded !== null && expanded !== b.uid) {
+                setExpanded(null);
+                requestAnimationFrame(() => setExpanded(b.uid));
+              } else {
+                setExpanded(p => p === b.uid ? null : b.uid);
+              }
+            }}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             bevutoInfo={{ data: b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate} />
