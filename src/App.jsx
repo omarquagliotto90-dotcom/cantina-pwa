@@ -968,7 +968,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
             onToggle={() => {
               if (expanded !== null && expanded !== wine.id) {
                 setExpanded(null);
-                requestAnimationFrame(() => setExpanded(wine.id));
+                setTimeout(() => setExpanded(wine.id), 50);
               } else {
                 setExpanded(p => p === wine.id ? null : wine.id);
               }
@@ -1020,7 +1020,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
             onToggle={() => {
               if (expanded !== null && expanded !== b.uid) {
                 setExpanded(null);
-                requestAnimationFrame(() => setExpanded(b.uid));
+                setTimeout(() => setExpanded(b.uid), 50);
               } else {
                 setExpanded(p => p === b.uid ? null : b.uid);
               }
