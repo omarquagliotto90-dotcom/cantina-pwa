@@ -576,29 +576,20 @@ const WINES_DATA = [
     note: "Molise DOC. Tintilia: vitigno autoctono molisano quasi estinto, recuperato negli anni 2000. Vigna a 200 m s.l.m. Colore rubino intenso, tannini eleganti, finale speziato. Rarità assoluta nel panorama enologico italiano." },
 ];
 
-// ─── Filter Chip M3 — spec-compliant ─────────────────────────────────────────
-// Stati: enabled (non selezionato) | selected+hovered | pressed
-// Ref: https://m3.material.io/components/chips/specs
-//
-// Tokens M3 Filter Chip:
-//   height: 32dp | shape: corner.small 8dp
-//   enabled:  border 1px outline, bg transparent, label onSurfaceVariant
-//   selected: bg container-tipologia (hovered = container + state-layer 8%)
-//             border none, label onContainer, leading checkmark SVG
-//   pressed:  state-layer 12% + scale(0.95) via @keyframes chipPress
+// ─── Filter Chip M3 ───────────────────────────────────────────────────────────
+// selected  → "Filled Elevated": bg container tipologia + shadow L1, no border
+// unselected → "Outlined":       bg transparent, border 1px outline, no shadow
+// pressed   → scale(0.94) + state layer 8% (stesso del selected)
 function FilterChip({ label, active, onClick }) {
   const t = TIPO[label];
   const [pressed, setPressed] = useState(false);
 
-  // Colori base per il chip
-  const bgColor   = active ? (t?.container || M3.secondaryContainer) : "transparent";
-  const textColor = active ? (t?.onContainer || M3.onSecondaryContainer) : M3.onSurfaceVariant;
-  // State layer "hovered" per lo stato selected: onContainer al 8%
-  // Simuliamo lo stato hovered come colore di default del selected (spec M3)
-  // aggiungendo direttamente il layer già nel background per il selected
-  const stateLayerColor = active
-    ? (t?.onContainer || M3.onSecondaryContainer)
-    : M3.onSurfaceVariant;
+  const bgColor    = active ? (t?.container || M3.secondaryContainer) : "transparent";
+  const textColor  = active ? (t?.onContainer || M3.onSecondaryContainer) : M3.onSurfaceVariant;
+  // Elevation L1 solo per il chip selezionato (Filled Elevated)
+  const shadow     = active
+    ? "0px 1px 2px rgba(0,0,0,0.30), 0px 1px 3px 1px rgba(0,0,0,0.15)"
+    : "none";
 
   return (
     <button
@@ -610,55 +601,56 @@ function FilterChip({ label, active, onClick }) {
         position: "relative",
         display: "inline-flex", alignItems: "center", gap: 6,
         height: 32,
-        // Padding M3: con leading icon 8px sx / 16px dx; senza icona 16px entrambi
+        // M3: con leading icon → 8px sx / 16px dx; senza → 16px entrambi
         padding: active ? "0 16px 0 8px" : "0 16px",
         borderRadius: 8,
+        // Outlined se non selezionato, nessun bordo se selezionato
         border: active ? "none" : `1px solid ${M3.outline}`,
         background: bgColor,
+        boxShadow: pressed ? "none" : shadow,
         color: textColor,
         fontSize: 14, fontFamily: "'Roboto', sans-serif", fontWeight: 500,
         letterSpacing: 0.1, cursor: "pointer", whiteSpace: "nowrap",
         flexShrink: 0, overflow: "hidden",
-        // Transizione fluida tra stati
-        transition: "background 200ms cubic-bezier(0.2,0,0,1), color 200ms cubic-bezier(0.2,0,0,1), border 200ms cubic-bezier(0.2,0,0,1), transform 100ms cubic-bezier(0.2,0,0,1), padding 200ms cubic-bezier(0.2,0,0,1)",
-        // Animazione pressed: scale + state layer
         transform: pressed ? "scale(0.94)" : "scale(1)",
-        animation: pressed ? "chipPress 150ms cubic-bezier(0.2,0,0,1) forwards" : "none",
+        transition: [
+          "background 200ms cubic-bezier(0.2,0,0,1)",
+          "color 200ms cubic-bezier(0.2,0,0,1)",
+          "border 200ms cubic-bezier(0.2,0,0,1)",
+          "box-shadow 200ms cubic-bezier(0.2,0,0,1)",
+          "transform 120ms cubic-bezier(0.2,0,0,1)",
+          "padding 200ms cubic-bezier(0.2,0,0,1)",
+        ].join(", "),
         outline: "none",
       }}
     >
-      {/* State layer overlay — hovered (selected) 8% / pressed 12% */}
+      {/* State layer: visibile solo al pressed (8%) */}
       <span style={{
         position: "absolute", inset: 0, borderRadius: 8,
-        background: stateLayerColor,
-        opacity: pressed ? 0.12 : active ? 0.08 : 0,
-        transition: "opacity 200ms cubic-bezier(0.2,0,0,1)",
+        background: textColor,
+        opacity: pressed ? 0.08 : 0,
+        transition: "opacity 120ms cubic-bezier(0.2,0,0,1)",
         pointerEvents: "none",
       }} />
 
-      {/* Leading checkmark SVG (solo quando selezionato) — M3 Done icon 18px */}
+      {/* Leading checkmark SVG — visibile solo se selezionato */}
       {active && (
-        <svg
-          width="18" height="18" viewBox="0 0 24 24"
-          fill="none"
-          stroke={textColor}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        <svg width="18" height="18" viewBox="0 0 24 24"
+          fill="none" stroke={textColor} strokeWidth="2.5"
+          strokeLinecap="round" strokeLinejoin="round"
           style={{ flexShrink: 0, position: "relative", zIndex: 1 }}
         >
           <polyline points="20 6 9 17 4 12" />
         </svg>
       )}
 
-      {/* Emoji tipologia (solo chip "Tutti" non ha t) */}
+      {/* Emoji tipologia (assente per "Tutti") */}
       {t && (
         <span style={{ fontSize: 13, lineHeight: 1, position: "relative", zIndex: 1 }}>
           {t.label}
         </span>
       )}
 
-      {/* Label */}
       <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
     </button>
   );
@@ -1760,22 +1752,20 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         </div>
       )}
 
-      {/* ── Stat cards — M3 Elevated Card (Level 1) ── */}
+      {/* ── Stat cards — M3 Filled Card ── */}
       <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px", overflowX: "auto", scrollbarWidth: "none" }}>
         {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Valore", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
           <div key={s.l} style={{
             flex: "0 0 auto",
-            // M3 Elevated Card: containerColor = surfaceContainerLow
-            background: M3.surfaceContainerLow,
-            // M3 Elevation Level 1: shadow a due livelli
-            boxShadow: "0px 1px 2px rgba(0,0,0,0.30), 0px 1px 3px 1px rgba(0,0,0,0.15)",
-            // M3 shape.corner.medium = 12dp
-            borderRadius: 12,
+            // M3 Filled Card: containerColor = surfaceContainerHighest, elevation 0
+            background: M3.surfaceContainerHighest,
+            boxShadow: "none",
             border: "none",
+            borderRadius: 12,
             padding: compact ? "6px 14px" : "10px 16px",
             textAlign: "center",
             minWidth: 72,
-            transition: "padding 0.3s cubic-bezier(0.2,0,0,1), box-shadow 0.2s cubic-bezier(0.2,0,0,1)",
+            transition: "padding 0.3s cubic-bezier(0.2,0,0,1)",
           }}>
             <div style={{ fontSize: compact ? 13 : 16, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.2 }}>{s.v}</div>
             <div style={{ fontSize: 9, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginTop: 2, fontWeight: 500 }}>{s.l}</div>
