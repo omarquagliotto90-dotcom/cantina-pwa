@@ -1176,8 +1176,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
             {/* Mini rating nel header se il vino è già valutato */}
             {bevutoInfo && currentRating > 0 && (
-              <span style={{ fontSize: 11, letterSpacing: 1 }}>
-  [...Array(5)].map((_, i) => <span key={i} style={{opacity: i < currentRating ? 1 : 0.25, display:"inline-flex"}}>{IC.wineglass}</span>)
+              <span style={{ fontSize: 11, letterSpacing: 1, display: "inline-flex", gap: 2 }}>
+                {[...Array(5)].map((_, i) => <span key={i} style={{opacity: i < currentRating ? 1 : 0.25, display:"inline-flex"}}>{IC.wineglass}</span>)}
               </span>
             )}
           </div>
