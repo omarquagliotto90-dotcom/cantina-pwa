@@ -838,7 +838,9 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
       background: expanded ? "#F4F3EE" : M3.surface,
       overflow: "hidden",
-      transition: "box-shadow 0.2s, border-color 0.2s, background 0.2s",
+      transition: expanded
+        ? "border-color 300ms cubic-bezier(0.2,0,0,1), background 300ms cubic-bezier(0.2,0,0,1), border-left-width 300ms cubic-bezier(0.2,0,0,1), box-shadow 300ms cubic-bezier(0.2,0,0,1)"
+        : "border-color 250ms cubic-bezier(0.3,0,1,1), background 200ms cubic-bezier(0.3,0,1,1), border-left-width 250ms cubic-bezier(0.3,0,1,1), box-shadow 200ms cubic-bezier(0.3,0,1,1)",
       boxShadow: expanded ? "0 1px 2px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.07)" : "0 1px 2px rgba(0,0,0,0.05)",
     }}>
       {/* ── Header (clicca per espandere) ── */}
@@ -871,18 +873,18 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             {!bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🍾 {wine.bottiglie}</span>}
             {bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🫗</span>}
-            <span style={{ fontSize: 17, color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.25s cubic-bezier(0.2,0,0,1)", display: "block", lineHeight: 1 }}>⌄</span>
+            <span style={{ fontSize: 17, color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 300ms cubic-bezier(0.2,0,0,1)", display: "block", lineHeight: 1 }}>⌄</span>
           </div>
         </div>
       </div>
 
       {/* ── Contenuto espanso ── */}
       {expanded && (
-        <div style={{ padding: "0 14px 14px", animation: "expandIn 0.22s cubic-bezier(0.2,0,0,1)" }}>
+        <div className="m3-expand-content" style={{ padding: "0 14px 14px" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
-          {/* ── Tab switcher — pill orizzontale scrollabile stile M3 ── */}
-          <div onClick={e => e.stopPropagation()} style={{
+          {/* Tab switcher — stagger 1 */}
+          <div className="m3-stagger-1" onClick={e => e.stopPropagation()} style={{
             display: "flex", gap: 6, marginBottom: 14,
             overflowX: "auto", scrollbarWidth: "none",
             background: M3.surfaceContainerHighest,
@@ -918,14 +920,14 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {cardTab === "scheda" && (
             <>
               {(cantinaSW || vinoSW) && (
-                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                <div className="m3-stagger-2" style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
                   {cantinaSW && <SwBadge type="chiocciola" />}
                   {vinoSW && <SwBadge type="bottiglia" />}
                 </div>
               )}
 
               {/* Stats row */}
-              <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
+              <div className="m3-stagger-2" style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
                 {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
                   <div key={s.l} style={{ flex: "1 1 70px", background: "#7A7A72", borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#E8D8A0", fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
@@ -935,7 +937,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               </div>
 
               {/* Tech grid — stile Graph Elevated Card M3 */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div className="m3-stagger-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 {[
                   { icon: "🍇", label: "Vitigno",       val: wine.vitigno },
                   { icon: "⏱",  label: "Macerazione",   val: wine.macerazione },
@@ -954,7 +956,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
 
               {/* Note — Graph Elevated Card M3 full width */}
               {wine.note && (
-                <div style={{
+                <div className="m3-stagger-4" style={{
                   background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12,
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   borderLeft: `3px solid ${t.indicator}`,
@@ -1030,6 +1032,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           )}
 
           {/* ── Azione primaria ── */}
+          <div className="m3-stagger-4">
           {!bevutoInfo ? (
             /* M3 Elevated Button — verde (tonal green) */
             <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{
@@ -1096,6 +1099,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               }}>Sì, elimina</button>
             </div>
           )}
+          </div>{/* end m3-stagger-4 actions */}
         </div>
       )}
     </div>
@@ -1882,6 +1886,23 @@ export default function Cantina() {
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
+        /* M3 expand & collapse */
+        @keyframes m3ContentIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes m3FadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        .m3-expand-content {
+          animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both;
+        }
+        .m3-stagger-1 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
+        .m3-stagger-2 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
+        .m3-stagger-3 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
+        .m3-stagger-4 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 160ms both; }
+        .m3-stagger-5 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 200ms both; }
       `}</style>
 
       {/* ── App Bar M3 Medium (collassante) ── */}
