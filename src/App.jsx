@@ -848,10 +848,12 @@ function WebsiteView({ wine }) {
     return () => { cancelled = true; };
   }, [wine.produttore]);
 
-  // Timeout: se dopo 5s l'iframe è ancora "loading" → probabile blocco
+  // Timeout più aggressivo: 3s → blocked
+  // onLoad si triggera anche quando il browser mostra la pagina di errore,
+  // quindi proviamo a leggere il contenuto dell'iframe per capire se è vuoto
   useEffect(() => {
     if (status !== "loading") return;
-    const t = setTimeout(() => setStatus(s => s === "loading" ? "blocked" : s), 5000);
+    const t = setTimeout(() => setStatus(s => s === "loading" ? "blocked" : s), 3000);
     return () => clearTimeout(t);
   }, [status, url]);
 
@@ -962,7 +964,21 @@ function WebsiteView({ wine }) {
             key={url}
             src={url}
             title={`Sito ${wine.produttore}`}
-            onLoad={() => setStatus(s => s === "loading" ? "ok" : s)}
+            onLoad={(e) => {
+              try {
+                // Prova a leggere il contenuto: se bloccato, lancia eccezione (cross-origin)
+                const doc = e.target.contentDocument || e.target.contentWindow?.document;
+                const body = doc?.body?.innerText || "";
+                const title = doc?.title || "";
+                // Pagina vuota o errore browser → blocked
+                if (!body && !title) { setStatus("blocked"); return; }
+                setStatus(s => s === "loading" ? "ok" : s);
+              } catch {
+                // Cross-origin o errore di accesso → il sito è stato caricato correttamente
+                // (i siti legittimi che bloccano iframe non permettono accesso al DOM)
+                setStatus(s => s === "loading" ? "ok" : s);
+              }
+            }}
             onError={() => setStatus("blocked")}
             style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: status === "ok" ? 1 : 0, transition: "opacity 0.3s" }}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
