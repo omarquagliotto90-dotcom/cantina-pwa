@@ -1975,7 +1975,6 @@ export default function Cantina() {
   const [wineOverrides, setWineOverrides] = useState({}); // { wineId: { ...fields } } per vini statici modificati
   const [ratings, setRatings] = useState({}); // { wineId: 0-5 } in-memory
   const scrollRef = useRef(null);
-  const barRef = useRef(null);
   const lastScrollY = useRef(0);
 
   // ── Carica dati da Supabase all'avvio ──
@@ -2065,32 +2064,14 @@ export default function Cantina() {
 
   useEffect(() => {
     const el = scrollRef.current;
-    const bar = barRef.current;
-    if (!el || !bar) return;
-
+    if (!el) return;
     const onScroll = () => {
       const y = el.scrollTop;
-      const dy = y - lastScrollY.current;
-      const BAR_H = bar.offsetHeight;
-
-      // marginTop negativo: porta la barra fuori schermo verso l'alto.
-      // Funziona dentro flex-column con overflow:hidden perché marginTop
-      // modifica il layout flex direttamente — nessun clipping.
-      const curOffset = parseFloat(bar.dataset.offset || "0");
-      const nextOffset = Math.min(0, Math.max(-BAR_H, curOffset - dy));
-      bar.dataset.offset = String(nextOffset);
-      bar.style.marginTop = `${nextOffset}px`;
-
-      // Color fill senza shadow (spec M3 Top App Bar)
-      bar.style.background = y > 4 ? M3.surfaceContainer : M3.surface;
-
-      // React state solo per compact (figli) e FAB
+      const goingDown = y > lastScrollY.current;
       setCompact(y > 40);
-      setFabVisible(dy <= 0 || y < 60);
-
+      setFabVisible(!goingDown || y < 60);
       lastScrollY.current = y;
     };
-
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
@@ -2216,20 +2197,14 @@ export default function Cantina() {
         .m3-stagger-5 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 200ms both; }
       `}</style>
 
-      {/* ── App Bar — flex item diretto, marginTop negativo la spinge fuori schermo ──
-          marginTop è l'unica proprietà che funziona dentro un flex-column con overflow:hidden:
-          non richiede position speciale, non viene clippata, il flex si aggiusta di conseguenza. ── */}
-      <div
-        ref={barRef}
-        data-offset="0"
-        style={{
-          flexShrink: 0,
-          zIndex: 20,
-          paddingTop: "env(safe-area-inset-top)",
-          background: M3.surface,
-          marginTop: 0,
-        }}
-      >
+      {/* ── App Bar — fissa, nel flusso normale ── */}
+      <div style={{
+        flexShrink: 0,
+        zIndex: 20,
+        paddingTop: "env(safe-area-inset-top)",
+        background: compact ? M3.surfaceContainer : M3.surface,
+        transition: "background 0.25s cubic-bezier(0.2,0,0,1)",
+      }}>
         <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 16px", gap: 12 }}>
           <div style={{ flex: 1, fontSize: 22, fontWeight: 400, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.3, lineHeight: 1 }}>
             La Mia Cantina
