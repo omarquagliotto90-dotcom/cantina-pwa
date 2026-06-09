@@ -1752,19 +1752,19 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         </div>
       )}
 
-      {/* ── Stat cards — M3 Filled Card ── */}
-      <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px", overflowX: "auto", scrollbarWidth: "none" }}>
+      {/* ── Stat cards — M3 Filled Card, allineate e distribuite su tutta la larghezza ── */}
+      <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px" }}>
         {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Valore", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
           <div key={s.l} style={{
-            flex: "0 0 auto",
+            flex: 1,
             // M3 Filled Card: containerColor = surfaceContainerHighest, elevation 0
             background: M3.surfaceContainerHighest,
             boxShadow: "none",
             border: "none",
             borderRadius: 12,
-            padding: compact ? "6px 14px" : "10px 16px",
+            padding: compact ? "6px 4px" : "10px 4px",
             textAlign: "center",
-            minWidth: 72,
+            minWidth: 0,
             transition: "padding 0.3s cubic-bezier(0.2,0,0,1)",
           }}>
             <div style={{ fontSize: compact ? 13 : 16, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.2 }}>{s.v}</div>
