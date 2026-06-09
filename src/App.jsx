@@ -1044,6 +1044,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {/* Tab switcher — stagger 1 */}
           <div className="m3-stagger-1" onClick={e => e.stopPropagation()} style={{
             display: "flex", gap: 6, marginBottom: 14,
+            justifyContent: "center",
             overflowX: "auto", scrollbarWidth: "none",
             background: M3.surfaceContainerHighest,
             borderRadius: 50, padding: "4px 6px",
