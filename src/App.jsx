@@ -130,6 +130,49 @@ const TIPO = {
 
 const FILTERS = ["Tutti", "Rosso fermo", "Bianco fermo", "Orange", "Spumante", "Spumante rosso", "Sidro"];
 
+// ─── Icone SVG M3 — flat, stroke 2px, 24×24 viewBox ─────────────────────────
+const IC = {
+  // Navigazione
+  lista:    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  bevuti:   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3l4 8 5-5 1 12H6L7 8l5 5z"/><line x1="6" y1="21" x2="18" y2="21"/></svg>,
+  stats:    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  // Azioni card
+  chevronDown: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+  search:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  close:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  add:      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  edit:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  trash:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  save:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+  arrowBack:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  openIn:   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
+  camera:   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+  ai:       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L9 9H2l5.5 4-2 7L12 16l6.5 4-2-7L22 9h-7z"/></svg>,
+  calendar: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  // Scheda tecnica
+  grape:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="10" r="2"/><circle cx="12" cy="7" r="2"/><circle cx="16" cy="10" r="2"/><circle cx="10" cy="14" r="2"/><circle cx="14" cy="14" r="2"/><circle cx="12" cy="18" r="2"/><path d="M12 5V3"/></svg>,
+  timer:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14 15"/><path d="M9 3h6"/><path d="M12 3v2"/></svg>,
+  flask:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6"/><path d="M10 3v7l-4 8a1 1 0 0 0 .9 1.5h10.2a1 1 0 0 0 .9-1.5l-4-8V3"/></svg>,
+  sync:     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.8-3.3L23 10"/><path d="M20.5 15a9 9 0 0 1-14.8 3.3L1 14"/></svg>,
+  notes:    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+  // Vino / bevuto
+  wineglass:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>,
+  wineglassFull:<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><path d="M9 8h6" strokeWidth="3"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>,
+  bottle:   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg>,
+  // Badge Slow Wine
+  eco:      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 22c1-4 4-8 10-10C18 10 22 6 22 2c-4 0-8 4-10 10C10 6 6 2 2 2c0 4 4 8 10 10"/></svg>,
+  verified: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>,
+  // Globe / Instagram
+  globe:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  instagram:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.5" fill="currentColor"/></svg>,
+  // Spinner (loading)
+  spinner:  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.3"/><path d="M12 2v4"/></svg>,
+  // Rating
+  star:     (filled) => <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+};
+
+
+
 // ─── Slow Wine 2025 premi ─────────────────────────────────────────────────────
 // chiocciola: premio alla cantina | bottiglia: premio al vino specifico
 const SW_CANTINA_CHIOCCIOLA = new Set([
@@ -644,12 +687,7 @@ function FilterChip({ label, active, onClick }) {
         </svg>
       )}
 
-      {/* Emoji tipologia (assente per "Tutti") */}
-      {t && (
-        <span style={{ fontSize: 13, lineHeight: 1, position: "relative", zIndex: 1 }}>
-          {t.label}
-        </span>
-      )}
+
 
       <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
     </button>
@@ -663,14 +701,16 @@ function SwBadge({ type }) {
       fontSize: 13, background: "#E8F5E9", color: "#2E7D32",
       padding: "1px 6px", borderRadius: 4, fontWeight: 600,
       fontFamily: "'Roboto', sans-serif", letterSpacing: 0.1,
-    }}>🐌 Chiocciola</span>
+      display: "inline-flex", alignItems: "center", gap: 4,
+    }}><span style={{ color: "#2E7D32", display: "flex" }}>{IC.eco}</span>Chiocciola</span>
   );
   if (type === "bottiglia") return (
     <span title="Vino premiato Slow Wine 2025" style={{
       fontSize: 13, background: "#E3F2FD", color: "#0D47A1",
       padding: "1px 6px", borderRadius: 4, fontWeight: 600,
       fontFamily: "'Roboto', sans-serif", letterSpacing: 0.1,
-    }}>🍾 Slow Wine</span>
+      display: "inline-flex", alignItems: "center", gap: 4,
+    }}><span style={{ color: "#0D47A1", display: "flex" }}>{IC.verified}</span>Slow Wine</span>
   );
   return null;
 }
@@ -716,7 +756,7 @@ function Lightbox({ url, onClose }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           backdropFilter: "blur(4px)",
         }}
-      >✕</button>
+      ><span style={{display:"flex"}}>{IC.close}</span></button>
     </div>
   );
 }
@@ -794,7 +834,7 @@ function BottleImage({ wine, active }) {
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", gap: 10,
       }}>
-        <div style={{ fontSize: 28, animation: "spin 1.2s linear infinite" }}>🔍</div>
+        <div style={{ animation: "spin 1.2s linear infinite", color: M3.onSurfaceVariant }}>{IC.search}</div>
         <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
           Ricerca immagine in corso…
         </div>
@@ -810,7 +850,7 @@ function BottleImage({ wine, active }) {
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", gap: 8,
       }}>
-        <div style={{ fontSize: 32 }}>🍾</div>
+        <div style={{ color: M3.onSurfaceVariant, opacity: 0.5 }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg></div>
         <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
           Immagine non disponibile
         </div>
@@ -922,9 +962,9 @@ function WebsiteView({ wine }) {
   const isInstagram = source === "instagram";
 
   const sourceIcon = status === "searching" ? null
-    : isInstagram ? "📸"
-    : isGoogle ? "🔍"
-    : "🌐";
+    : isInstagram ? IC.instagram
+    : isGoogle ? IC.search
+    : IC.globe;
 
   const sourceLabel = status === "searching" ? "🔍 Ricerca in corso…"
     : isInstagram ? `📸 ${domain}`
@@ -941,7 +981,7 @@ function WebsiteView({ wine }) {
         {url && (
           <a href={url} target="_blank" rel="noopener noreferrer"
             style={{ fontSize: 11, color: M3.primary, fontFamily: "'Roboto', sans-serif", textDecoration: "none", flexShrink: 0, fontWeight: 500 }}>
-            Apri ↗
+            <span style={{display:"flex",alignItems:"center",gap:4}}>Apri {IC.openIn}</span>
           </a>
         )}
       </div>
@@ -950,7 +990,7 @@ function WebsiteView({ wine }) {
         {/* Ricerca in corso */}
         {status === "searching" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 3 }}>
-            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🔍</div>
+            <div style={{ animation: "spin 1s linear infinite", color: M3.onSurfaceVariant, display:"flex" }}>{IC.search}</div>
             <div style={{ fontSize: 13, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Ricerca sito ufficiale…</div>
             <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.produttore}</div>
           </div>
@@ -958,7 +998,7 @@ function WebsiteView({ wine }) {
         {/* Caricamento iframe */}
         {status === "loading" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 2 }}>
-            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>{sourceIcon || "🌐"}</div>
+            <div style={{ animation: "spin 1s linear infinite", color: M3.onSurfaceVariant, display:"flex" }}>{IC.globe}</div>
             <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
           </div>
         )}
@@ -969,7 +1009,7 @@ function WebsiteView({ wine }) {
             {/* Hero area — gradiente con iniziale produttore */}
             <div style={{ flex: "0 0 160px", background: `linear-gradient(135deg, ${M3.primaryContainer} 0%, ${M3.surfaceVariant} 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative" }}>
               <div style={{ width: 64, height: 64, borderRadius: 32, background: M3.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: M3.onPrimary, fontFamily: "'Roboto', sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                {isInstagram ? "📸" : wine.produttore.charAt(0).toUpperCase()}
+                {isInstagram ? IC.instagram : wine.produttore.charAt(0).toUpperCase()}
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", padding: "0 16px" }}>
                 {wine.produttore}
@@ -997,7 +1037,7 @@ function WebsiteView({ wine }) {
                   fontFamily: "'Roboto', sans-serif", textDecoration: "none",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
                 }}>
-                  {isInstagram ? "📸 Apri su Instagram" : "🌐 Apri il sito"} ↗
+                  <span style={{display:"flex",alignItems:"center",gap:6}}>{isInstagram ? IC.instagram : IC.globe}{isInstagram ? "Apri su Instagram" : "Apri il sito"}{IC.openIn}</span>
                 </a>
               )}
 
@@ -1012,7 +1052,7 @@ function WebsiteView({ wine }) {
                   fontSize: 13, fontWeight: 400,
                   fontFamily: "'Roboto', sans-serif", textDecoration: "none",
                 }}>
-                  🔍 Cerca su Google
+                  <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.search} Cerca su Google</span>
                 </a>
               )}
             </div>
@@ -1123,11 +1163,11 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         <div style={{ flex: 1, padding: "11px 12px", minWidth: 0 }}>
           <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 1 }}>
             {wine.produttore}
-            {cantinaSW && <span style={{ marginLeft: 5, fontSize: 12 }}>🐌</span>}
+            {cantinaSW && <span style={{ marginLeft: 4, color: "#2E7D32", display:"inline-flex", verticalAlign:"middle" }}>{IC.eco}</span>}
           </div>
           <div style={{ fontSize: 15, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, lineHeight: 1.3, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {wine.vino}
-            {vinoSW && <span style={{ marginLeft: 5, fontSize: 12 }}>🍾</span>}
+            {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display:"inline-flex", verticalAlign:"middle" }}>{IC.verified}</span>}
           </div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
             <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500 }}>
@@ -1137,7 +1177,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             {/* Mini rating nel header se il vino è già valutato */}
             {bevutoInfo && currentRating > 0 && (
               <span style={{ fontSize: 11, letterSpacing: 1 }}>
-                {"🍷".repeat(currentRating)}{"🩶".repeat(5 - currentRating)}
+  [...Array(5)].map((_, i) => <span key={i} style={{opacity: i < currentRating ? 1 : 0.25, display:"inline-flex"}}>{IC.wineglass}</span>)
               </span>
             )}
           </div>
@@ -1145,9 +1185,9 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", padding: "11px 12px 11px 6px", flexShrink: 0 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>~{totalVal}€</span>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            {!bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🍾 {wine.bottiglie}</span>}
-            {bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>🫗</span>}
-            <span style={{ fontSize: 17, color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 300ms cubic-bezier(0.2,0,0,1)", display: "block", lineHeight: 1 }}>⌄</span>
+            {!bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", gap: 3 }}>{IC.bottle} {wine.bottiglie}</span>}
+            {bevutoInfo && <span style={{ color: M3.onSurfaceVariant, display: "flex", alignItems: "center" }}>{IC.wineglassFull}</span>}
+            <span style={{ color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 300ms cubic-bezier(0.2,0,0,1)", display: "flex", alignItems: "center" }}>{IC.chevronDown}</span>
           </div>
         </div>
       </div>
@@ -1214,16 +1254,16 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               {/* Tech grid — stile Graph Elevated Card M3 */}
               <div className="m3-stagger-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 {[
-                  { icon: "🍇", label: "Vitigno",       val: wine.vitigno },
-                  { icon: "⏱",  label: "Macerazione",   val: wine.macerazione },
-                  { icon: "🧪", label: "Fermentazione", val: wine.fermentazione },
-                  { icon: "🔄", label: "Malolattica",   val: wine.malolattica },
+                  { icon: IC.grape, label: "Vitigno",       val: wine.vitigno },
+                  { icon: IC.timer, label: "Macerazione",   val: wine.macerazione },
+                  { icon: IC.flask, label: "Fermentazione", val: wine.fermentazione },
+                  { icon: IC.sync, label: "Malolattica",   val: wine.malolattica },
                 ].map(s => (
                   <div key={s.label} style={{
                     background: "#6B8FA8", borderRadius: 12, padding: "11px 12px",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   }}>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500 }}>{s.icon} {s.label}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{s.icon}<span>{s.label}</span></div>
                     <div style={{ fontSize: 11, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{s.val}</div>
                   </div>
                 ))}
@@ -1236,7 +1276,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   borderLeft: `3px solid ${t.indicator}`,
                 }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>📝 Note</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.notes}<span>Note</span></div>
                   <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
                 </div>
               )}
@@ -1248,7 +1288,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)",
                   borderLeft: `3px solid ${M3.primary}`,
                 }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500 }}>🍷 Nota di degustazione</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.wineglass}<span>Nota di degustazione</span></div>
                   <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
                 </div>
               )}
@@ -1297,17 +1337,17 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                           transition: "transform 0.15s, filter 0.15s",
                         }}
                         title={`${n} calice${n > 1 ? "i" : ""}`}
-                      >🍷</button>
+                      >{IC.wineglass}</button>
                     );
                   })}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: currentRating ? "#FFFFFF" : "rgba(255,255,255,0.6)", fontFamily: "'Roboto', sans-serif", minHeight: 20 }}>
                   {currentRating === 0 && "Tocca un calice per valutare"}
-                  {currentRating === 1 && "⭐ Deludente"}
-                  {currentRating === 2 && "⭐⭐ Nella media"}
-                  {currentRating === 3 && "⭐⭐⭐ Buono"}
-                  {currentRating === 4 && "⭐⭐⭐⭐ Ottimo"}
-                  {currentRating === 5 && "⭐⭐⭐⭐⭐ Eccellente!"}
+                  {currentRating === 1 && "Deludente"}
+                  {currentRating === 2 && "Nella media"}
+                  {currentRating === 3 && "Buono"}
+                  {currentRating === 4 && "Ottimo"}
+                  {currentRating === 5 && "Eccellente!"}
                 </div>
               </div>
             </div>
@@ -1325,7 +1365,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               boxShadow: "0 1px 2px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
-              🍷 Segna come bevuto
+              <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.wineglass} Segna come bevuto</span>
             </button>
           ) : (
             /* Testo statico data apertura */
@@ -1349,7 +1389,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             cursor: "pointer", letterSpacing: 0.1, marginBottom: 8,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
-            ✏️ Modifica dati
+            <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.edit} Modifica dati</span>
           </button>
 
           {/* M3 Outlined Button — Elimina (outline rosso) */}
@@ -1362,7 +1402,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               cursor: "pointer", letterSpacing: 0.1,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}>
-              🗑 Elimina dalla cantina
+              <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.trash} Elimina dalla cantina</span>
             </button>
           ) : (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1462,19 +1502,19 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "90vh", overflowY: "auto", padding: "20px 20px 36px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
         <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
         <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 20 }}>
-          ➕ Aggiungi vino
+          <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
         </div>
 
         {/* ── Scelta modalità ── */}
         {!modo && (
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setModo("manuale")} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>✏️</div>
+              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.edit}</div>
               <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Inserimento manuale</div>
               <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Compila i campi a mano</div>
             </button>
             <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
+              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.camera}</div>
               <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Foto etichetta</div>
               <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Scatta o carica una foto</div>
             </button>
@@ -1502,13 +1542,13 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
                     ← Manuale
                   </button>
                   <button onClick={handleAnalizzaEtichetta} style={{ flex: 2, padding: "10px 20px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                    🤖 Analizza etichetta
+                    <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.ai} Analizza etichetta</span>
                   </button>
                 </div>
               </>
             ) : (
               <div style={{ padding: "24px 0" }}>
-                <div style={{ fontSize: 36, marginBottom: 12, animation: "spin 1s linear infinite" }}>🔍</div>
+                <div style={{ marginBottom: 12, color: M3.primary, animation: "spin 1s linear infinite" }}>{IC.ai}</div>
                 <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>Analisi AI in corso…</div>
                 <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Riconoscimento produttore, vino e annata</div>
               </div>
@@ -1546,7 +1586,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
                 style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>← Indietro</button>
+              <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}><span style={{display:"flex",alignItems:"center",gap:6}}>{IC.arrowBack} Indietro</span></button>
               <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
                 style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
                 Salva in cantina
@@ -1601,7 +1641,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>✏️ Modifica dati</div>
+            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", display:"flex", alignItems:"center", gap:8 }}>{IC.edit} Modifica dati</div>
             <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 2 }}>{wine.produttore} · {wine.vino}</div>
           </div>
         </div>
@@ -1638,7 +1678,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
           </button>
           <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
             style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-            💾 Salva modifiche
+            <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.save} Salva modifiche</span>
           </button>
         </div>
       </div>
@@ -1660,12 +1700,12 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.4)" }} onClick={onAnnulla}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
         <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 20px" }} />
-        <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>🍷 Segna come bevuto</div>
+        <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 4, display:"flex", alignItems:"center", gap:8 }}>{IC.wineglass} Segna come bevuto</div>
         <div style={{ fontSize: 14, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 16 }}>{wine.produttore} · {wine.vino} · {wine.annata}</div>
 
         {/* Data apertura */}
         <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-          📅 Data apertura: <strong style={{ color: M3.onSurface }}>{today}</strong>
+          <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.calendar} Data apertura: <strong style={{ color: M3.onSurface }}>{today}</strong></span>
         </div>
 
         {/* Valutazione */}
@@ -1687,12 +1727,12 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
                     transform: active ? "scale(1.15)" : "scale(1)",
                     transition: "transform 0.15s, filter 0.15s",
                   }}
-                >🍷</button>
+                >{IC.wineglass}</button>
               );
             })}
           </div>
           <div style={{ textAlign: "center", fontSize: 12, fontWeight: 500, color: rating ? M3.primary : M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", minHeight: 18 }}>
-            {rating ? `${"⭐".repeat(rating)} ${labelRating[rating]}` : "Tocca un calice per valutare"}
+            {rating ? `${labelRating[rating]}` : "Tocca un calice per valutare"}
           </div>
         </div>
 
@@ -1739,10 +1779,10 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     <>
       <div style={{ padding: "6px 16px 4px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, background: M3.surfaceContainerHighest, borderRadius: 28, padding: "7px 14px", height: compact ? 34 : 38, transition: "height 0.3s" }}>
-          <span style={{ fontSize: 14, color: M3.onSurfaceVariant }}>🔍</span>
+          <span style={{ color: M3.onSurfaceVariant, display:"flex" }}>{IC.search}</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cerca produttore, vino, vitigno…"
             style={{ flex: 1, background: "none", border: "none", fontSize: 14, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }} />
-          {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: M3.onSurfaceVariant, fontSize: 15 }}>✕</button>}
+          {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: M3.onSurfaceVariant, fontSize: 15 }}><span style={{display:"flex"}}>{IC.close}</span></button>}
         </div>
       </div>
 
@@ -1776,7 +1816,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
       <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "0 16px 100px" }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "48px 20px", color: M3.onSurfaceVariant }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🔍</div>
+            <div style={{ marginBottom: 10, color: M3.onSurfaceVariant, opacity:0.5 }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
             <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface }}>Nessun vino trovato</div>
           </div>
         ) : filtered.map(wine => (
@@ -1802,7 +1842,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   if (bevuti.length === 0) {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, color: M3.onSurfaceVariant }}>
-        <div style={{ fontSize: 56, marginBottom: 16 }}>🫗</div>
+        <div style={{ marginBottom: 16, color: M3.onSurfaceVariant, opacity:0.4 }}><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><path d="M9 8h6" strokeWidth="3"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
         <div style={{ fontSize: 18, fontWeight: 500, color: M3.onSurface, marginBottom: 8 }}>Nessun vino bevuto</div>
         <div style={{ fontSize: 14, textAlign: "center", lineHeight: 1.5 }}>Quando segni un vino come bevuto, apparirà qui con data e note.</div>
       </div>
@@ -1899,7 +1939,7 @@ function TabStatistiche({ wines, bevuti }) {
 
       <Card>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 32 }}>🐌</div>
+          <div style={{ color: "#2E7D32" }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 22c1-4 4-8 10-10C18 10 22 6 22 2c-4 0-8 4-10 10C10 6 6 2 2 2c0 4 4 8 10 10"/></svg></div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>{swCount} bottiglie</div>
             <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>da cantine premiate Slow Wine 2025</div>
@@ -1932,9 +1972,9 @@ function TabStatistiche({ wines, bevuti }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                 <span style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {hasCantina(prod) ? "🐌 " : ""}{prod}
+                  {prod}
                 </span>
-                <span style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", flexShrink: 0, marginLeft: 6 }}>{count} 🍾</span>
+                <span style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", flexShrink: 0, marginLeft: 6 }}>{count}</span>
               </div>
               <div style={{ height: 6, background: M3.surfaceContainerHighest, borderRadius: 3, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${(count / maxProd) * 100}%`, background: M3.primary, borderRadius: 3 }} />
@@ -2156,15 +2196,15 @@ export default function Cantina() {
 
   if (loading) return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: M3.surface, gap: 16 }}>
-      <div style={{ fontSize: 48 }}>🍷</div>
+      <div style={{ color: M3.primary, animation: "spin 1.2s linear infinite" }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
       <div style={{ fontSize: 16, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Carico la cantina…</div>
     </div>
   );
 
   const NAV = [
-    { id: "lista",       icon: "📋", label: "Lista" },
-    { id: "bevuti",      icon: "🫗",  label: "Bevuti", badge: bevuti.length },
-    { id: "statistiche", icon: "📊", label: "Statistiche" },
+    { id: "lista",       icon: IC.lista,  label: "Lista" },
+    { id: "bevuti",      icon: IC.bevuti, label: "Bevuti", badge: bevuti.length },
+    { id: "statistiche", icon: IC.stats,  label: "Statistiche" },
   ];
 
   return (
@@ -2210,7 +2250,7 @@ export default function Cantina() {
             La Mia Cantina
           </div>
           <div style={{ padding: "0 12px", height: 28, borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer, display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", flexShrink: 0 }}>
-            🍾 {totBottiglie} · ~{totValore}€
+            <span style={{display:"flex",alignItems:"center",gap:5}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg> {totBottiglie} · ~{totValore}€</span>
           </div>
         </div>
       </div>
@@ -2226,7 +2266,7 @@ export default function Cantina() {
       {tab === "lista" && (
         <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 20, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
           <button onClick={() => setShowAggiungi(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)" }}>
-            <span style={{ fontSize: 18 }}>+</span> Aggiungi vino
+            <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
           </button>
         </div>
       )}
