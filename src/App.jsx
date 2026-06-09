@@ -900,20 +900,60 @@ function WebsiteView({ wine }) {
             <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
           </div>
         )}
-        {/* Bloccato */}
+        {/* Bloccato → card anteprima ricca */}
         {status === "blocked" && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, background: M3.surfaceContainerHighest, zIndex: 2, borderRadius: "0 0 12px 12px" }}>
-            <div style={{ fontSize: 36 }}>🔒</div>
-            <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>
-              {isInstagram ? "Instagram non permette la visualizzazione incorporata" : "Il sito non permette la visualizzazione incorporata"}
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: M3.surfaceContainerHighest, zIndex: 2, borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+
+            {/* Hero area — gradiente con iniziale produttore */}
+            <div style={{ flex: "0 0 160px", background: `linear-gradient(135deg, ${M3.primaryContainer} 0%, ${M3.surfaceVariant} 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 32, background: M3.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: M3.onPrimary, fontFamily: "'Roboto', sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                {isInstagram ? "📸" : wine.produttore.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", padding: "0 16px" }}>
+                {wine.produttore}
+              </div>
+              <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
+                {domain}
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{domain}</div>
-            {url && (
-              <a href={url} target="_blank" rel="noopener noreferrer"
-                style={{ padding: "10px 24px", borderRadius: 20, background: isInstagram ? "#E1306C" : M3.primary, color: "#FFFFFF", fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
-                {isInstagram ? "📸 Apri su Instagram ↗" : "Apri in Safari ↗"}
-              </a>
-            )}
+
+            {/* Info area */}
+            <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, justifyContent: "center" }}>
+              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textAlign: "center", lineHeight: 1.5 }}>
+                {isInstagram
+                  ? "Questo produttore è presente su Instagram."
+                  : "Il sito non può essere visualizzato incorporato per motivi di sicurezza."}
+              </div>
+
+              {/* Pulsante principale */}
+              {url && (
+                <a href={url} target="_blank" rel="noopener noreferrer" style={{
+                  display: "block", textAlign: "center",
+                  padding: "11px 24px", borderRadius: 20,
+                  background: isInstagram ? "#E1306C" : M3.primary,
+                  color: "#FFFFFF", fontSize: 14, fontWeight: 500,
+                  fontFamily: "'Roboto', sans-serif", textDecoration: "none",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                }}>
+                  {isInstagram ? "📸 Apri su Instagram" : "🌐 Apri il sito"} ↗
+                </a>
+              )}
+
+              {/* Se non è Instagram, offri anche ricerca Google */}
+              {!isInstagram && url && (
+                <a href={`https://www.google.com/search?q=${encodeURIComponent(wine.produttore + " " + wine.vino)}`}
+                  target="_blank" rel="noopener noreferrer" style={{
+                  display: "block", textAlign: "center",
+                  padding: "9px 24px", borderRadius: 20,
+                  border: `1px solid ${M3.outlineVariant}`,
+                  background: "transparent", color: M3.onSurfaceVariant,
+                  fontSize: 13, fontWeight: 400,
+                  fontFamily: "'Roboto', sans-serif", textDecoration: "none",
+                }}>
+                  🔍 Cerca su Google
+                </a>
+              )}
+            </div>
           </div>
         )}
         {/* iframe */}
