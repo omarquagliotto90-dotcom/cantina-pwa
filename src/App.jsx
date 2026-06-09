@@ -797,6 +797,7 @@ function BottleImage({ wine, active }) {
 // ─── WebsiteView — tab sito web produttore ───────────────────────────────────
 function WebsiteView({ wine }) {
   const [url, setUrl] = useState(null);
+  const [source, setSource] = useState(null); // "serper"|"instagram"|"fallback"
   const [status, setStatus] = useState("searching"); // "searching"|"loading"|"ok"|"blocked"
 
   useEffect(() => {
@@ -807,16 +808,16 @@ function WebsiteView({ wine }) {
 
       // 1. Cache in-memory
       if (websiteCache[key]) {
-        if (!cancelled) { setUrl(websiteCache[key]); setStatus("loading"); }
+        if (!cancelled) { setUrl(websiteCache[key].url); setSource(websiteCache[key].source); setStatus("loading"); }
         return;
       }
 
       // 2. Cache Supabase
       try {
-        const rows = await sb.get(`wine_websites?produttore=eq.${encodeURIComponent(key)}&select=url`);
+        const rows = await sb.get(`wine_websites?produttore=eq.${encodeURIComponent(key)}&select=url,source`);
         if (rows?.length > 0 && rows[0].url) {
-          websiteCache[key] = rows[0].url;
-          if (!cancelled) { setUrl(rows[0].url); setStatus("loading"); }
+          websiteCache[key] = { url: rows[0].url, source: rows[0].source };
+          if (!cancelled) { setUrl(rows[0].url); setSource(rows[0].source); setStatus("loading"); }
           return;
         }
       } catch {}
@@ -830,17 +831,19 @@ function WebsiteView({ wine }) {
         });
         const data = await res.json();
         const found = data.url || getGoogleFallback(wine.produttore, wine.vino);
-        websiteCache[key] = found;
-        sb.upsert("wine_websites", { produttore: key, url: found, source: data.source || "serper" }, "produttore").catch(() => {});
-        if (!cancelled) { setUrl(found); setStatus("loading"); }
+        const src = data.source || "serper";
+        websiteCache[key] = { url: found, source: src };
+        sb.upsert("wine_websites", { produttore: key, url: found, source: src }, "produttore").catch(() => {});
+        if (!cancelled) { setUrl(found); setSource(src); setStatus("loading"); }
       } catch {
         const fallback = getGoogleFallback(wine.produttore, wine.vino);
-        if (!cancelled) { setUrl(fallback); setStatus("loading"); }
+        if (!cancelled) { setUrl(fallback); setSource("fallback"); setStatus("loading"); }
       }
     }
 
     setStatus("searching");
     setUrl(null);
+    setSource(null);
     findWebsite();
     return () => { cancelled = true; };
   }, [wine.produttore]);
@@ -853,14 +856,25 @@ function WebsiteView({ wine }) {
   }, [status, url]);
 
   const domain = url ? url.replace("https://", "").replace("http://", "").split("/")[0] : "";
-  const isGoogle = url?.includes("google.com/search");
+  const isGoogle = source === "fallback";
+  const isInstagram = source === "instagram";
+
+  const sourceIcon = status === "searching" ? null
+    : isInstagram ? "📸"
+    : isGoogle ? "🔍"
+    : "🌐";
+
+  const sourceLabel = status === "searching" ? "🔍 Ricerca in corso…"
+    : isInstagram ? `📸 ${domain}`
+    : isGoogle ? `🔍 ${domain}`
+    : `🌐 ${domain}`;
 
   return (
     <div style={{ borderRadius: 12, overflow: "hidden", background: M3.surfaceContainerHighest }}>
       {/* Barra URL */}
       <div style={{ padding: "8px 12px", background: M3.surfaceContainer, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${M3.outlineVariant}` }}>
         <div style={{ flex: 1, fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {status === "searching" ? "🔍 Ricerca in corso…" : `${isGoogle ? "🔍" : "🌐"} ${domain}`}
+          {sourceLabel}
         </div>
         {url && (
           <a href={url} target="_blank" rel="noopener noreferrer"
@@ -882,7 +896,7 @@ function WebsiteView({ wine }) {
         {/* Caricamento iframe */}
         {status === "loading" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 2 }}>
-            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🌐</div>
+            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>{sourceIcon || "🌐"}</div>
             <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
           </div>
         )}
@@ -890,12 +904,14 @@ function WebsiteView({ wine }) {
         {status === "blocked" && (
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, background: M3.surfaceContainerHighest, zIndex: 2, borderRadius: "0 0 12px 12px" }}>
             <div style={{ fontSize: 36 }}>🔒</div>
-            <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>Il sito non permette la visualizzazione incorporata</div>
+            <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>
+              {isInstagram ? "Instagram non permette la visualizzazione incorporata" : "Il sito non permette la visualizzazione incorporata"}
+            </div>
             <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{domain}</div>
             {url && (
               <a href={url} target="_blank" rel="noopener noreferrer"
-                style={{ padding: "10px 24px", borderRadius: 20, background: M3.primary, color: M3.onPrimary, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
-                Apri in Safari ↗
+                style={{ padding: "10px 24px", borderRadius: 20, background: isInstagram ? "#E1306C" : M3.primary, color: "#FFFFFF", fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
+                {isInstagram ? "📸 Apri su Instagram ↗" : "Apri in Safari ↗"}
               </a>
             )}
           </div>
