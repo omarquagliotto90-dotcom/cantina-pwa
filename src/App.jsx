@@ -169,6 +169,8 @@ const IC = {
   spinner:  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" opacity="0.3"/><path d="M12 2v4"/></svg>,
   // Rating
   star:     (filled) => <svg width="14" height="14" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  // Tipologia spumante: bottiglia + calice + stelle (come immagine allegata)
+  spumante: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2h6v4l2 3v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9l2-3V2z"/><line x1="5" y1="9" x2="13" y2="9"/><path d="M17 7c0 2.5-2 4-2 4h4s-2-1.5-2-4z"/><line x1="17" y1="11" x2="17" y2="17"/><line x1="15" y1="17" x2="19" y2="17"/><line x1="20" y1="4" x2="21" y2="3"/><line x1="22" y1="6" x2="23" y2="6"/><line x1="20" y1="8" x2="21" y2="9"/></svg>,
 };
 
 
@@ -689,12 +691,40 @@ function FilterChip({ label, active, onClick }) {
 
 
 
+      {/* Icona tipologia — SVG per spumanti, emoji per gli altri */}
+      {t && (
+        <span style={{ display: "inline-flex", alignItems: "center", position: "relative", zIndex: 1 }}>
+          <TipoLabel tipo={label} size={13} />
+        </span>
+      )}
+
       <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
     </button>
   );
 }
 
-// ─── Slow Wine Badge ──────────────────────────────────────────────────────────
+// Helper: icona per tipologia — SVG per spumanti, emoji per gli altri
+function TipoLabel({ tipo, size = 13 }) {
+  if (tipo === "Spumante" || tipo === "Spumante rosso") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 2h6v4l2 3v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9l2-3V2z"/>
+        <line x1="5" y1="9" x2="13" y2="9"/>
+        <path d="M17 7c0 2.5-2 4-2 4h4s-2-1.5-2-4z"/>
+        <line x1="17" y1="11" x2="17" y2="17"/>
+        <line x1="15" y1="17" x2="19" y2="17"/>
+        <line x1="20" y1="4" x2="21" y2="3"/>
+        <line x1="22" y1="6" x2="23" y2="5"/>
+        <line x1="20" y1="8" x2="21" y2="9"/>
+      </svg>
+    );
+  }
+  const t = TIPO[tipo];
+  if (!t?.label) return null;
+  return <span style={{ fontSize: size, lineHeight: 1 }}>{t.label}</span>;
+}
+
+
 function SwBadge({ type }) {
   if (type === "chiocciola") return (
     <span title="Cantina premiata Slow Wine 2025" style={{
@@ -1170,8 +1200,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display:"inline-flex", verticalAlign:"middle" }}>{IC.verified}</span>}
           </div>
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500 }}>
-              {t.label} {wine.tipologia}
+            <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
+              <TipoLabel tipo={wine.tipologia} size={13} /> {wine.tipologia}
             </span>
             <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
             {/* Mini rating nel header se il vino è già valutato */}
