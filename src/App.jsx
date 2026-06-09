@@ -574,24 +574,90 @@ const WINES_DATA = [
     note: "Molise DOC. Tintilia: vitigno autoctono molisano quasi estinto, recuperato negli anni 2000. Vigna a 200 m s.l.m. Colore rubino intenso, tannini eleganti, finale speziato. Rarità assoluta nel panorama enologico italiano." },
 ];
 
-// ─── Filter Chip M3 ───────────────────────────────────────────────────────────
+// ─── Filter Chip M3 — spec-compliant ─────────────────────────────────────────
+// Stati: enabled (non selezionato) | selected+hovered | pressed
+// Ref: https://m3.material.io/components/chips/specs
+//
+// Tokens M3 Filter Chip:
+//   height: 32dp | shape: corner.small 8dp
+//   enabled:  border 1px outline, bg transparent, label onSurfaceVariant
+//   selected: bg container-tipologia (hovered = container + state-layer 8%)
+//             border none, label onContainer, leading checkmark SVG
+//   pressed:  state-layer 12% + scale(0.95) via @keyframes chipPress
 function FilterChip({ label, active, onClick }) {
   const t = TIPO[label];
+  const [pressed, setPressed] = useState(false);
+
+  // Colori base per il chip
+  const bgColor   = active ? (t?.container || M3.secondaryContainer) : "transparent";
+  const textColor = active ? (t?.onContainer || M3.onSecondaryContainer) : M3.onSurfaceVariant;
+  // State layer "hovered" per lo stato selected: onContainer al 8%
+  // Simuliamo lo stato hovered come colore di default del selected (spec M3)
+  // aggiungendo direttamente il layer già nel background per il selected
+  const stateLayerColor = active
+    ? (t?.onContainer || M3.onSecondaryContainer)
+    : M3.onSurfaceVariant;
+
   return (
-    <button onClick={onClick} style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
-      height: 32, padding: active ? "0 12px 0 8px" : "0 12px",
-      borderRadius: 8,
-      border: active ? "none" : `1px solid ${M3.outline}`,
-      background: active ? (t?.container || M3.secondaryContainer) : "transparent",
-      color: active ? (t?.onContainer || M3.onSecondaryContainer) : M3.onSurfaceVariant,
-      fontSize: 14, fontFamily: "'Roboto', sans-serif", fontWeight: 500,
-      letterSpacing: 0.1, cursor: "pointer", whiteSpace: "nowrap",
-      transition: "all 0.15s", flexShrink: 0,
-    }}>
-      {active && <span style={{ fontSize: 13 }}>✓ </span>}
-      {t && <span style={{ fontSize: 13 }}>{t.label} </span>}
-      {label}
+    <button
+      onClick={onClick}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      style={{
+        position: "relative",
+        display: "inline-flex", alignItems: "center", gap: 6,
+        height: 32,
+        // Padding M3: con leading icon 8px sx / 16px dx; senza icona 16px entrambi
+        padding: active ? "0 16px 0 8px" : "0 16px",
+        borderRadius: 8,
+        border: active ? "none" : `1px solid ${M3.outline}`,
+        background: bgColor,
+        color: textColor,
+        fontSize: 14, fontFamily: "'Roboto', sans-serif", fontWeight: 500,
+        letterSpacing: 0.1, cursor: "pointer", whiteSpace: "nowrap",
+        flexShrink: 0, overflow: "hidden",
+        // Transizione fluida tra stati
+        transition: "background 200ms cubic-bezier(0.2,0,0,1), color 200ms cubic-bezier(0.2,0,0,1), border 200ms cubic-bezier(0.2,0,0,1), transform 100ms cubic-bezier(0.2,0,0,1), padding 200ms cubic-bezier(0.2,0,0,1)",
+        // Animazione pressed: scale + state layer
+        transform: pressed ? "scale(0.94)" : "scale(1)",
+        animation: pressed ? "chipPress 150ms cubic-bezier(0.2,0,0,1) forwards" : "none",
+        outline: "none",
+      }}
+    >
+      {/* State layer overlay — hovered (selected) 8% / pressed 12% */}
+      <span style={{
+        position: "absolute", inset: 0, borderRadius: 8,
+        background: stateLayerColor,
+        opacity: pressed ? 0.12 : active ? 0.08 : 0,
+        transition: "opacity 200ms cubic-bezier(0.2,0,0,1)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Leading checkmark SVG (solo quando selezionato) — M3 Done icon 18px */}
+      {active && (
+        <svg
+          width="18" height="18" viewBox="0 0 24 24"
+          fill="none"
+          stroke={textColor}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ flexShrink: 0, position: "relative", zIndex: 1 }}
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+
+      {/* Emoji tipologia (solo chip "Tutti" non ha t) */}
+      {t && (
+        <span style={{ fontSize: 13, lineHeight: 1, position: "relative", zIndex: 1 }}>
+          {t.label}
+        </span>
+      )}
+
+      {/* Label */}
+      <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
     </button>
   );
 }
@@ -2108,6 +2174,11 @@ export default function Cantina() {
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
+        @keyframes chipPress {
+          0%   { transform: scale(1); }
+          40%  { transform: scale(0.94); }
+          100% { transform: scale(0.97); }
+        }
         /* M3 expand & collapse */
         @keyframes m3ContentIn {
           from { opacity: 0; transform: translateY(-8px); }
