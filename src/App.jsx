@@ -2068,27 +2068,25 @@ export default function Cantina() {
     const bar = barRef.current;
     if (!el || !bar) return;
 
-    const BAR_H = bar.offsetHeight || 64;
-
     const onScroll = () => {
       const y = el.scrollTop;
       const dy = y - lastScrollY.current;
+      const BAR_H = bar.offsetHeight;
 
-      // ── Movimento barra via DOM diretto (nessun re-render) ──
-      // Legge il translateY corrente dal style inline
-      const curTY = parseFloat(bar.dataset.ty || "0");
-      // Sposta proporzionalmente allo scroll, clampato tra -BAR_H e 0
-      const nextTY = Math.min(0, Math.max(-BAR_H, curTY - dy));
-      bar.dataset.ty = String(nextTY);
-      bar.style.transform = `translateY(${nextTY}px)`;
+      // marginTop negativo: porta la barra fuori schermo verso l'alto.
+      // Funziona dentro flex-column con overflow:hidden perché marginTop
+      // modifica il layout flex direttamente — nessun clipping.
+      const curOffset = parseFloat(bar.dataset.offset || "0");
+      const nextOffset = Math.min(0, Math.max(-BAR_H, curOffset - dy));
+      bar.dataset.offset = String(nextOffset);
+      bar.style.marginTop = `${nextOffset}px`;
 
-      // Color fill: appena si scolla > 4px (indipendentemente dalla direzione)
+      // Color fill senza shadow (spec M3 Top App Bar)
       bar.style.background = y > 4 ? M3.surfaceContainer : M3.surface;
 
-      // React state: solo per compact (usato dai figli) e FAB
-      const goingDown = dy > 0;
+      // React state solo per compact (figli) e FAB
       setCompact(y > 40);
-      setFabVisible(!goingDown || y < 60);
+      setFabVisible(dy <= 0 || y < 60);
 
       lastScrollY.current = y;
     };
@@ -2205,18 +2203,12 @@ export default function Cantina() {
           40%  { transform: scale(0.94); }
           100% { transform: scale(0.97); }
         }
-        /* M3 expand & collapse */
         @keyframes m3ContentIn {
           from { opacity: 0; transform: translateY(-8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes m3FadeIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-        .m3-expand-content {
-          animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both;
-        }
+        @keyframes m3FadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
         .m3-stagger-1 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
         .m3-stagger-2 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
         .m3-stagger-3 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
@@ -2224,47 +2216,25 @@ export default function Cantina() {
         .m3-stagger-5 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 200ms both; }
       `}</style>
 
-      {/* ── App Bar M3 Top ──
-           position: sticky top:0 → rimane nel flusso, non soffre di overflow:hidden
-           transform e background manipolati direttamente via barRef nello scroll handler
-           (zero re-render = animazione fluida frame-by-frame)                        ── */}
+      {/* ── App Bar — flex item diretto, marginTop negativo la spinge fuori schermo ──
+          marginTop è l'unica proprietà che funziona dentro un flex-column con overflow:hidden:
+          non richiede position speciale, non viene clippata, il flex si aggiusta di conseguenza. ── */}
       <div
         ref={barRef}
-        data-ty="0"
+        data-offset="0"
         style={{
-          position: "sticky", top: 0,
-          zIndex: 30,
           flexShrink: 0,
+          zIndex: 20,
           paddingTop: "env(safe-area-inset-top)",
           background: M3.surface,
-          // transition SOLO per background (colore fill), NON per transform
-          transition: "background 0.25s cubic-bezier(0.2,0,0,1)",
-          willChange: "transform",
+          marginTop: 0,
         }}
       >
-        <div style={{
-          display: "flex", alignItems: "center",
-          height: 64, padding: "0 16px", gap: 12,
-        }}>
-          {/* Titolo */}
-          <div style={{
-            flex: 1,
-            fontSize: 22, fontWeight: 400,
-            color: M3.onSurface,
-            fontFamily: "'Roboto', sans-serif",
-            letterSpacing: -0.3, lineHeight: 1,
-          }}>
+        <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 16px", gap: 12 }}>
+          <div style={{ flex: 1, fontSize: 22, fontWeight: 400, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.3, lineHeight: 1 }}>
             La Mia Cantina
           </div>
-
-          {/* Pill bottiglie / valore */}
-          <div style={{
-            padding: "0 12px", height: 28, borderRadius: 14,
-            background: M3.primaryContainer, color: M3.onPrimaryContainer,
-            display: "flex", alignItems: "center", gap: 5,
-            fontSize: 12, fontWeight: 500,
-            fontFamily: "'Roboto', sans-serif", flexShrink: 0,
-          }}>
+          <div style={{ padding: "0 12px", height: 28, borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer, display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", flexShrink: 0 }}>
             🍾 {totBottiglie} · ~{totValore}€
           </div>
         </div>
@@ -2287,14 +2257,7 @@ export default function Cantina() {
       )}
 
       {/* ── Navigation Bar M3 ── */}
-      <div style={{
-        background: M3.surfaceContainer, flexShrink: 0,
-        borderTop: `1px solid ${M3.outlineVariant}`,
-        display: "flex", alignItems: "flex-start", justifyContent: "space-around",
-        paddingTop: 10,
-        paddingBottom: "env(safe-area-inset-bottom)",
-        zIndex: 10,
-      }}>
+      <div style={{ background: M3.surfaceContainer, flexShrink: 0, borderTop: `1px solid ${M3.outlineVariant}`, display: "flex", alignItems: "flex-start", justifyContent: "space-around", paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 10 }}>
         {NAV.map(nav => (
           <div key={nav.id} onClick={() => setTab(nav.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
             <div style={{ position: "relative" }}>
