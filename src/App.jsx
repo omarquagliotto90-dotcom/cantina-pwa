@@ -472,7 +472,7 @@ function WebsiteView({ wine }) {
 }
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bevutoInfo = null, ratings = {}, onRate }) {
+function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bevutoInfo = null, ratings = {}, onRate, cardRefCallback }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
@@ -495,6 +495,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
     prevExpandedRef.current = expanded;
 
     if (!expanded && wasExpanded) {
+      // Animazione di chiusura
       setClosing(true);
       const t = setTimeout(() => {
         setClosing(false);
@@ -503,20 +504,13 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       }, 260);
       return () => clearTimeout(t);
     }
-
-    if (expanded && cardRef.current) {
-      const t = setTimeout(() => {
-        cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }, 320);
-      return () => clearTimeout(t);
-    }
   }, [expanded]);
 
   const currentRating = ratings[wine.id] || 0;
   const [hoverRating, setHoverRating] = useState(0);
 
   return (
-    <div ref={cardRef} style={{
+    <div ref={el => { cardRef.current = el; if (cardRefCallback) cardRefCallback(el); }} style={{
       borderRadius: 12,
       border: expanded ? `1px solid ${t.indicator}55` : `1px solid ${M3.outlineVariant}`,
       borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
@@ -928,10 +922,41 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, scrollRef }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const cardRefs = useRef({});
+
+  const handleToggle = (wineId) => {
+    // Stessa card: chiudi semplicemente
+    if (expanded === wineId) { setExpanded(null); return; }
+
+    // Nessuna card aperta: apri direttamente
+    if (expanded === null) { setExpanded(wineId); return; }
+
+    // C'è una card aperta diversa: coordina scroll + chiusura + apertura
+    const container = scrollRef?.current;
+    const targetRef = cardRefs.current[wineId];
+    if (!container || !targetRef) { setExpanded(wineId); return; }
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetRef.getBoundingClientRect();
+    const targetScrollTop = container.scrollTop + targetRect.top - containerRect.top - 16;
+    const distance = Math.abs(targetScrollTop - container.scrollTop);
+
+    // Stima durata scroll: ~0.8ms per pixel, min 200ms, max 600ms
+    const scrollDuration = Math.min(600, Math.max(200, distance * 0.8));
+
+    // Chiudi la card corrente
+    setExpanded(null);
+
+    // Avvia scroll manuale verso la nuova card
+    container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+
+    // Dopo che scroll + chiusura sono completati, espandi la nuova
+    setTimeout(() => setExpanded(wineId), scrollDuration + 80);
+  };
 
   const bevutiIds = new Set(bevuti.map(b => b.id));
   const filtered = wines
@@ -976,7 +1001,8 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
           </div>
         ) : filtered.map(wine => (
           <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
-            onToggle={() => setExpanded(p => p === wine.id ? null : wine.id)}
+            onToggle={() => handleToggle(wine.id)}
+            cardRefCallback={el => { if (el) cardRefs.current[wine.id] = el; }}
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica}
             ratings={ratings} onRate={onRate} />
         ))}
@@ -986,9 +1012,29 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
 }
 
 // ─── Tab: Bevuti ──────────────────────────────────────────────────────────────
-function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
+function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, scrollRef }) {
   const [expanded, setExpanded] = useState(null);
+  const cardRefs = useRef({});
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
+
+  const handleToggle = (uid) => {
+    if (expanded === uid) { setExpanded(null); return; }
+    if (expanded === null) { setExpanded(uid); return; }
+
+    const container = scrollRef?.current;
+    const targetRef = cardRefs.current[uid];
+    if (!container || !targetRef) { setExpanded(uid); return; }
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetRef.getBoundingClientRect();
+    const targetScrollTop = container.scrollTop + targetRect.top - containerRect.top - 16;
+    const distance = Math.abs(targetScrollTop - container.scrollTop);
+    const scrollDuration = Math.min(600, Math.max(200, distance * 0.8));
+
+    setExpanded(null);
+    container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+    setTimeout(() => setExpanded(uid), scrollDuration + 80);
+  };
   const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo || 0), 0);
 
   if (bevuti.length === 0) {
@@ -1021,7 +1067,8 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         if (!wine) return null;
         return (
           <WineCard key={b.uid} wine={wine} expanded={expanded === b.uid}
-            onToggle={() => setExpanded(p => p === b.uid ? null : b.uid)}
+            onToggle={() => handleToggle(b.uid)}
+            cardRefCallback={el => { if (el) cardRefs.current[b.uid] = el; }}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             bevutoInfo={{ data: b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate} />
@@ -1340,8 +1387,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
