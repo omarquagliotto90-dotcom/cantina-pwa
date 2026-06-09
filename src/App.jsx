@@ -143,46 +143,13 @@ const SW_VINO_BOTTIGLIA = new Set([
 const hasCantina = (produttore) => SW_CANTINA_CHIOCCIOLA.has(produttore);
 
 // ─── Dataset vini — schede tecniche da fonti ufficiali ───────────────────────
-// ─── Siti web per produttore ─────────────────────────────────────────────────
-// Opzione A: URL ufficiali verificati; null = fallback Google Search
-const PRODUCER_WEBSITES = {
-  "Abbazia di Novacella":     "https://www.kloster-neustift.it/it/cantina/",
-  "Bele Casel":               "https://www.belecasel.com/",
-  "Bertani":                  "https://www.bertani.net/it/vini/",
-  "Biondo Jeo":               null, // piccolo produttore, no sito ufficiale noto
-  "Bresolin":                 null,
-  "Ca' dei Frati":            "https://www.cadeifrati.it/",
-  "Chiusa Grande":            "https://chiusagrande.com/it/",
-  "Colle Mora":               null,
-  "Domaine Potinet-Ampeau":   "https://www.potinet-ampeau.com/",
-  "Fattoria Milziade Antano": "https://www.milziadeantano.it/",
-  "Fontale":                  null,
-  "Francesco Tollador":       null,
-  "Giannitessari":            "https://giannitessari.wine/",
-  "Giulio Pasotti":           null,
-  "Laboratorio Agricolo":     null,
-  "Le Caselle":               null,
-  "Lunaria":                  "https://www.lunariavini.it/",
-  "Maculan":                  "https://www.maculan.net/it/",
-  "Malibràn":                 "https://www.cantinemaLibran.it/",
-  "Miotto":                   "https://www.cantinemiotto.it/",
-  "Movia":                    "https://movia.si/it/",
-  "Occhipinti":               "https://www.agricolaocchipinti.it/",
-  "Peroni Vignaiole":         null,
-  "Pieropan":                 "https://www.pieropan.it/vini",
-  "Pistis Sophia":            "https://pistis-sophia.com/",
-  "Rizzini":                  "https://www.rizzinifranciacorta.it/",
-  "Santoro":                  null,
-  "Tenimenti Grieco":         null,
-};
+// ─── Siti web produttori — cache in-memory (persistita su Supabase wine_websites) ──
+// Non più URL hardcoded: ricerca live via /api/search-website
+const websiteCache = {}; // { produttore: { url, source } }
 
-// Restituisce l'URL del sito (ufficiale o Google Search come fallback)
-function getProducerUrl(produttore, vino, annata) {
-  const official = PRODUCER_WEBSITES[produttore];
-  if (official) return official;
-  // Fallback: Google Search con produttore + vino
-  const query = encodeURIComponent(`${produttore} ${vino}${annata && annata !== "n.d." ? " " + annata : ""} cantina`);
-  return `https://www.google.com/search?q=${query}`;
+function getGoogleFallback(produttore, vino) {
+  const q = encodeURIComponent(`${produttore} ${vino || ""} cantina sito ufficiale`);
+  return `https://www.google.com/search?q=${q}`;
 }
 
 const WINES_DATA = [
@@ -829,54 +796,123 @@ function BottleImage({ wine, active }) {
 }
 // ─── WebsiteView — tab sito web produttore ───────────────────────────────────
 function WebsiteView({ wine }) {
-  const url = getProducerUrl(wine.produttore, wine.vino, wine.annata);
-  const isOfficial = !!PRODUCER_WEBSITES[wine.produttore];
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
+  const [url, setUrl] = useState(null);
+  const [status, setStatus] = useState("searching"); // "searching"|"loading"|"ok"|"blocked"
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function findWebsite() {
+      const key = wine.produttore;
+
+      // 1. Cache in-memory
+      if (websiteCache[key]) {
+        if (!cancelled) { setUrl(websiteCache[key]); setStatus("loading"); }
+        return;
+      }
+
+      // 2. Cache Supabase
+      try {
+        const rows = await sb.get(`wine_websites?produttore=eq.${encodeURIComponent(key)}&select=url`);
+        if (rows?.length > 0 && rows[0].url) {
+          websiteCache[key] = rows[0].url;
+          if (!cancelled) { setUrl(rows[0].url); setStatus("loading"); }
+          return;
+        }
+      } catch {}
+
+      // 3. Ricerca live via /api/search-website
+      try {
+        const res = await fetch("/api/search-website", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }),
+        });
+        const data = await res.json();
+        const found = data.url || getGoogleFallback(wine.produttore, wine.vino);
+        websiteCache[key] = found;
+        sb.upsert("wine_websites", { produttore: key, url: found, source: data.source || "serper" }, "produttore").catch(() => {});
+        if (!cancelled) { setUrl(found); setStatus("loading"); }
+      } catch {
+        const fallback = getGoogleFallback(wine.produttore, wine.vino);
+        if (!cancelled) { setUrl(fallback); setStatus("loading"); }
+      }
+    }
+
+    setStatus("searching");
+    setUrl(null);
+    findWebsite();
+    return () => { cancelled = true; };
+  }, [wine.produttore]);
+
+  // Timeout: se dopo 5s l'iframe è ancora "loading" → probabile blocco
+  useEffect(() => {
+    if (status !== "loading") return;
+    const t = setTimeout(() => setStatus(s => s === "loading" ? "blocked" : s), 5000);
+    return () => clearTimeout(t);
+  }, [status, url]);
+
+  const domain = url ? url.replace("https://", "").replace("http://", "").split("/")[0] : "";
+  const isGoogle = url?.includes("google.com/search");
 
   return (
     <div style={{ borderRadius: 12, overflow: "hidden", background: M3.surfaceContainerHighest }}>
       {/* Barra URL */}
       <div style={{ padding: "8px 12px", background: M3.surfaceContainer, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${M3.outlineVariant}` }}>
         <div style={{ flex: 1, fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {isOfficial ? "🌐" : "🔍"} {url.replace("https://", "").replace("http://", "").split("/")[0]}
+          {status === "searching" ? "🔍 Ricerca in corso…" : `${isGoogle ? "🔍" : "🌐"} ${domain}`}
         </div>
-        <a href={url} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11, color: M3.primary, fontFamily: "'Roboto', sans-serif", textDecoration: "none", flexShrink: 0, fontWeight: 500 }}>
-          Apri ↗
-        </a>
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: M3.primary, fontFamily: "'Roboto', sans-serif", textDecoration: "none", flexShrink: 0, fontWeight: 500 }}>
+            Apri ↗
+          </a>
+        )}
       </div>
 
-      {/* iframe */}
-      {!error ? (
-        <div style={{ position: "relative", height: 380 }}>
-          {!loaded && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
-              <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🌐</div>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
-            </div>
-          )}
+      <div style={{ position: "relative", height: 380 }}>
+        {/* Ricerca in corso */}
+        {status === "searching" && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 3 }}>
+            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🔍</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Ricerca sito ufficiale…</div>
+            <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.produttore}</div>
+          </div>
+        )}
+        {/* Caricamento iframe */}
+        {status === "loading" && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 2 }}>
+            <div style={{ fontSize: 28, animation: "spin 1s linear infinite" }}>🌐</div>
+            <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
+          </div>
+        )}
+        {/* Bloccato */}
+        {status === "blocked" && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, background: M3.surfaceContainerHighest, zIndex: 2, borderRadius: "0 0 12px 12px" }}>
+            <div style={{ fontSize: 36 }}>🔒</div>
+            <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>Il sito non permette la visualizzazione incorporata</div>
+            <div style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{domain}</div>
+            {url && (
+              <a href={url} target="_blank" rel="noopener noreferrer"
+                style={{ padding: "10px 24px", borderRadius: 20, background: M3.primary, color: M3.onPrimary, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
+                Apri in Safari ↗
+              </a>
+            )}
+          </div>
+        )}
+        {/* iframe */}
+        {url && (
           <iframe
+            key={url}
             src={url}
             title={`Sito ${wine.produttore}`}
-            onLoad={() => setLoaded(true)}
-            onError={() => { setError(true); setLoaded(true); }}
-            style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: loaded ? 1 : 0, transition: "opacity 0.3s" }}
+            onLoad={() => setStatus(s => s === "loading" ? "ok" : s)}
+            onError={() => setStatus("blocked")}
+            style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: status === "ok" ? 1 : 0, transition: "opacity 0.3s" }}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           />
-        </div>
-      ) : (
-        <div style={{ height: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 20 }}>
-          <div style={{ fontSize: 36 }}>🔒</div>
-          <div style={{ fontSize: 13, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", fontWeight: 500 }}>
-            Il sito non può essere incorporato
-          </div>
-          <a href={url} target="_blank" rel="noopener noreferrer"
-            style={{ padding: "9px 20px", borderRadius: 20, background: M3.primary, color: M3.onPrimary, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
-            Apri in Safari ↗
-          </a>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
