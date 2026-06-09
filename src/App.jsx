@@ -1871,7 +1871,6 @@ export default function Cantina() {
   return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: M3.surface, fontFamily: "'Roboto', sans-serif", overflow: "hidden",
       paddingTop: "env(safe-area-inset-top)",
-      paddingBottom: "env(safe-area-inset-bottom)",
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
@@ -1937,7 +1936,14 @@ export default function Cantina() {
       )}
 
       {/* ── Navigation Bar M3 ── */}
-      <div style={{ height: 80, background: M3.surfaceContainer, flexShrink: 0, borderTop: `1px solid ${M3.outlineVariant}`, display: "flex", alignItems: "flex-start", justifyContent: "space-around", paddingTop: 10, zIndex: 10 }}>
+      <div style={{
+        background: M3.surfaceContainer, flexShrink: 0,
+        borderTop: `1px solid ${M3.outlineVariant}`,
+        display: "flex", alignItems: "flex-start", justifyContent: "space-around",
+        paddingTop: 10,
+        paddingBottom: "env(safe-area-inset-bottom)",
+        zIndex: 10,
+      }}>
         {NAV.map(nav => (
           <div key={nav.id} onClick={() => setTab(nav.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
             <div style={{ position: "relative" }}>
