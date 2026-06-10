@@ -1203,6 +1203,7 @@ export default function Cantina() {
   const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
+  const originalIdsRef = useRef(new Set());
 
   // Forza aggiornamento Service Worker ad ogni deploy
   useEffect(() => {
@@ -1230,6 +1231,7 @@ export default function Cantina() {
           fermentazione: w.fermentazione || "—",
           malolattica:  w.malolattica  || "—",
         }));
+        originalIdsRef.current = new Set(normalizedWines.map(w => w.id));
         setStaticWines(normalizedWines);
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
         const allBevutiMap = new Map();
@@ -1284,6 +1286,10 @@ export default function Cantina() {
       setExtraWines(prev => prev.filter(w => w.id !== wine.id));
       setDeletedExtraIds(prev => new Set([...prev, wine.id]));
       await sb.delete("extra_wines", "id", wine.id);
+    } else if (!originalIdsRef.current.has(wine.id)) {
+      // Vino aggiunto dall'utente (in `wines`, non tra i 47 originali)
+      setStaticWines(prev => prev.filter(w => w.id !== wine.id));
+      await sb.delete("wines", "id", wine.id);
     } else {
       setBottleOverrides(prev => ({ ...prev, [wine.id]: (prev[wine.id] || 0) + 1 }));
     }
@@ -1332,6 +1338,11 @@ export default function Cantina() {
       const updated = { ...wine, ...form, annata: form.annata || "n.d.", bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
       setExtraWines(prev => prev.map(w => w.id === wine.id ? updated : w));
       await sb.upsert("extra_wines", { ...updated }, "id");
+    } else if (!originalIdsRef.current.has(wine.id)) {
+      // Vino aggiunto dall'utente (in `wines`): aggiorna direttamente la riga
+      const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
+      setStaticWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
+      await sb.upsert("wines", { id: wine.id, ...fields }, "id").catch(console.error);
     } else {
       const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
       setWineOverrides(prev => ({ ...prev, [wine.id]: fields }));
