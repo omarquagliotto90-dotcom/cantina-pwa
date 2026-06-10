@@ -1188,8 +1188,7 @@ function TabStatistiche({ wines, bevuti }) {
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
   const [bevuti, setBevuti] = useState([]);
-  const [staticWines, setStaticWines] = useState([]);
-  const [extraWines, setExtraWines] = useState([]);
+  const [wines, setWines] = useState([]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -1197,13 +1196,10 @@ export default function Cantina() {
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
   const [bottleOverrides, setBottleOverrides] = useState({});
-  const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
-  const [wineOverrides, setWineOverrides] = useState({});
   const [dbError, setDbError] = useState(null);
   const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
-  const originalIdsRef = useRef(new Set());
 
   // Forza aggiornamento Service Worker ad ogni deploy
   useEffect(() => {
@@ -1217,41 +1213,25 @@ export default function Cantina() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [wines, bev, extra, overrides] = await Promise.all([
+        const [fetchedWines, bev] = await Promise.all([
           fetch(`${SB_URL}/rest/v1/wines?order=id.asc`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" } }).then(r => r.ok ? r.json() : []),
           sb.get("bevuti"),
-          sb.get("extra_wines"),
-          sb.get("wine_overrides").catch(() => []),
         ]);
         // Normalizza snake_case → camelCase e valori nulli
-        const normalizedWines = wines.map(w => ({
+        setWines(fetchedWines.map(w => ({
           ...w,
           slowVinoBott: !!w.slow_vino_bott,
           macerazione:  w.macerazione  || "—",
           fermentazione: w.fermentazione || "—",
           malolattica:  w.malolattica  || "—",
-        }));
-        originalIdsRef.current = new Set(normalizedWines.map(w => w.id));
-        setStaticWines(normalizedWines);
+        })));
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
         const allBevutiMap = new Map();
         bevFromDb.forEach(b => allBevutiMap.set(b.id, b));
         setBevuti(Array.from(allBevutiMap.values()));
-        setExtraWines(extra.map(w => ({ ...w, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
         const ratingsFromDb = {};
         bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
         setRatings(ratingsFromDb);
-        if (Array.isArray(overrides) && overrides.length > 0) {
-          const ovMap = {};
-          // Esclude bottiglie e created_at: il contatore bottiglie dei vini statici
-          // è gestito da bottleOverrides (contatore in-memory incrementato da handleBevi).
-          // Un override residuo di bottiglie causerebbe un doppio decremento.
-          overrides.forEach(o => {
-            const { wine_id, created_at, bottiglie: _b, ...fields } = o;
-            if (Object.keys(fields).length > 0) ovMap[wine_id] = fields;
-          });
-          setWineOverrides(ovMap);
-        }
       } catch (e) {
         console.error("Errore caricamento dati:", e);
       } finally {
@@ -1261,10 +1241,9 @@ export default function Cantina() {
     loadData();
   }, []);
 
-  const allWines = [...staticWines, ...extraWines]
-    .map(w => { if (wineOverrides[w.id]) return { ...w, ...wineOverrides[w.id] }; return w; })
-    .map(w => { if (bottleOverrides[w.id] !== undefined) return { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] }; return w; })
-    .filter(w => { if (deletedExtraIds.has(w.id)) return false; return w.bottiglie > 0; });
+  const allWines = wines
+    .map(w => bottleOverrides[w.id] !== undefined ? { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] } : w)
+    .filter(w => w.bottiglie > 0);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1281,18 +1260,8 @@ export default function Cantina() {
   }, []);
 
   const handleElimina = async (wine) => {
-    const isExtra = extraWines.some(w => w.id === wine.id);
-    if (isExtra) {
-      setExtraWines(prev => prev.filter(w => w.id !== wine.id));
-      setDeletedExtraIds(prev => new Set([...prev, wine.id]));
-      await sb.delete("extra_wines", "id", wine.id);
-    } else if (!originalIdsRef.current.has(wine.id)) {
-      // Vino aggiunto dall'utente (in `wines`, non tra i 47 originali)
-      setStaticWines(prev => prev.filter(w => w.id !== wine.id));
-      await sb.delete("wines", "id", wine.id);
-    } else {
-      setBottleOverrides(prev => ({ ...prev, [wine.id]: (prev[wine.id] || 0) + 1 }));
-    }
+    setWines(prev => prev.filter(w => w.id !== wine.id));
+    await sb.delete("wines", "id", wine.id);
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
@@ -1323,7 +1292,7 @@ export default function Cantina() {
       const row = { id: nextId, produttore: form.produttore, vino: form.vino, annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
       const inserted = await sb.insert("wines", row);
       const saved = inserted ?? row;
-      setStaticWines(prev => [...prev, { ...saved, slowVinoBott: !!saved.slow_vino_bott, macerazione: saved.macerazione || "—", fermentazione: saved.fermentazione || "—", malolattica: saved.malolattica || "—" }]);
+      setWines(prev => [...prev, { ...saved, slowVinoBott: !!saved.slow_vino_bott, macerazione: saved.macerazione || "—", fermentazione: saved.fermentazione || "—", malolattica: saved.malolattica || "—" }]);
     } catch (e) {
       setDbError("Errore salvataggio vino");
     }
@@ -1333,21 +1302,9 @@ export default function Cantina() {
 
   const handleSalvaModifica = async (form) => {
     const wine = pendingModifica;
-    const isExtra = extraWines.some(w => w.id === wine.id);
-    if (isExtra) {
-      const updated = { ...wine, ...form, annata: form.annata || "n.d.", bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
-      setExtraWines(prev => prev.map(w => w.id === wine.id ? updated : w));
-      await sb.upsert("extra_wines", { ...updated }, "id");
-    } else if (!originalIdsRef.current.has(wine.id)) {
-      // Vino aggiunto dall'utente (in `wines`): aggiorna direttamente la riga
-      const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
-      setStaticWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
-      await sb.upsert("wines", { id: wine.id, ...fields }, "id").catch(console.error);
-    } else {
-      const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
-      setWineOverrides(prev => ({ ...prev, [wine.id]: fields }));
-      await sb.upsert("wine_overrides", { wine_id: wine.id, ...fields }, "wine_id").catch(console.error);
-    }
+    const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
+    setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
+    await sb.upsert("wines", { id: wine.id, ...fields }, "id").catch(console.error);
     setPendingModifica(null);
   };
 
