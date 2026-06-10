@@ -1304,12 +1304,14 @@ export default function Cantina() {
   };
 
   const handleSalva = async (form) => {
-    const id = Date.now();
-    const row = { id, produttore: form.produttore, vino: form.vino, annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: "—", fermentazione: "—", malolattica: "—" };
-    setExtraWines(prev => [...prev, { ...row }]);
+    const row = { produttore: form.produttore, vino: form.vino, annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
     setShowAggiungi(false);
     setTab("lista");
-    await sb.insert("extra_wines", row);
+    // Inserisce in wines (dataset principale); l'id viene assegnato da Supabase
+    const inserted = await sb.insert("wines", row).catch(() => { showDbError("Errore salvataggio vino"); return null; });
+    if (inserted) {
+      setStaticWines(prev => [...prev, { ...inserted, slowVinoBott: !!inserted.slow_vino_bott, macerazione: inserted.macerazione || "—", fermentazione: inserted.fermentazione || "—", malolattica: inserted.malolattica || "—" }]);
+    }
   };
 
   const handleModifica = (wine) => setPendingModifica(wine);
