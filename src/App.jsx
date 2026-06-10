@@ -959,9 +959,8 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     setTimeout(() => setExpanded(wineId), scrollDuration + 80);
   };
 
-  const bevutiIds = new Set(bevuti.map(b => b.id));
+  // 1:N — il vino resta in Lista finché bottiglie > 0 (filtro già in allWines); bevutiIds non serve qui
   const filtered = wines
-    .filter(w => !bevutiIds.has(w.id))
     .filter(w => filter === "Tutti" || w.tipologia === filter)
     .filter(w => {
       const q = search.toLowerCase();
@@ -1081,8 +1080,8 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
 
 // ─── Tab: Statistiche ─────────────────────────────────────────────────────────
 function TabStatistiche({ wines, bevuti }) {
-  const bevutiIds = new Set(bevuti.map(b => b.id));
-  const cantina = wines.filter(w => !bevutiIds.has(w.id));
+  // 1:N — cantina = tutti i vini passati (già filtrati bottiglie > 0 a monte)
+  const cantina = wines;
   const totB = cantina.reduce((a, w) => a + w.bottiglie, 0);
   const totV = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
   const totBevuto = bevuti.reduce((a, b) => { const w = wines.find(x => x.id === b.id); return a + (w?.prezzo || 0); }, 0);
@@ -1225,9 +1224,10 @@ export default function Cantina() {
           fermentazione: w.fermentazione || "—",
           malolattica:  w.malolattica  || "—",
         })));
-        // F5: niente deduplica — 1:N, ogni riga bevuti ha uid univoco
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
-        setBevuti(bevFromDb);
+        const allBevutiMap = new Map();
+        bevFromDb.forEach(b => allBevutiMap.set(b.id, b));
+        setBevuti(Array.from(allBevutiMap.values()));
         const ratingsFromDb = {};
         bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
         setRatings(ratingsFromDb);
@@ -1243,10 +1243,6 @@ export default function Cantina() {
   const allWines = wines
     .map(w => bottleOverrides[w.id] !== undefined ? { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] } : w)
     .filter(w => w.bottiglie > 0);
-
-  // F22: wineMap per TabBevuti usa wines non filtrato per bottiglie (include vini a 0)
-  const winesForBevuti = wines
-    .map(w => bottleOverrides[w.id] !== undefined ? { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] } : w);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1271,19 +1267,11 @@ export default function Cantina() {
 
   const handleConferma = async (nota, data, rating) => {
     const uid = Date.now();
-    const wineId = pendingBevi.id;
-    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || 0 };
-    setBevuti(prev => [...prev, { uid, id: wineId, data, nota: nota || "" }]);
-    if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
-    // F4: decrementa bottiglie nello state locale
-    setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
-    const current = wines.find(w => w.id === wineId);
+    const row = { uid, wine_id: pendingBevi.id, data, nota: nota || "", rating: rating || 0 };
+    setBevuti(prev => [...prev, { uid, id: pendingBevi.id, data, nota: nota || "" }]);
+    if (rating > 0) setRatings(prev => ({ ...prev, [pendingBevi.id]: rating }));
     setPendingBevi(null);
     await sb.insert("bevuti", row);
-    // F4: PATCH bottiglie su Supabase
-    if (current) {
-      await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
-    }
   };
 
   const handleRiporta = async (uid) => {
@@ -1325,8 +1313,8 @@ export default function Cantina() {
     if (bev) { await sb.patch("bevuti", "uid", bev.uid, { rating: score }).catch(console.error); }
   };
 
-  const bevutiIds = new Set(bevuti.map(b => b.id));
-  const cantina = allWines.filter(w => !bevutiIds.has(w.id));
+  // 1:N — cantina = tutti i vini con bottiglie > 0 (già filtrati in allWines)
+  const cantina = allWines;
   const totBottiglie = cantina.reduce((a, w) => a + w.bottiglie, 0);
   const totValore    = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
 
@@ -1394,7 +1382,7 @@ export default function Cantina() {
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
         {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
