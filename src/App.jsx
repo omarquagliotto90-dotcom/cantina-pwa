@@ -322,7 +322,6 @@ function BottleImage({ wine, active }) {
           if (!cancelled) setStatus("error");
         }
       } catch (err) {
-        imgSessionCache.set(wine.id, "NOT_FOUND");
         if (!cancelled) setStatus("error");
       }
     }
@@ -372,10 +371,10 @@ function WebsiteView({ wine }) {
         return;
       }
       try {
-        const rows = await sb.get(`wine_websites?produttore=eq.${encodeURIComponent(key)}&select=url,source`);
-        if (rows?.length > 0 && rows[0].url) {
-          websiteCache[key] = { url: rows[0].url, source: rows[0].source };
-          if (!cancelled) { setUrl(rows[0].url); setSource(rows[0].source); setStatus("loading"); }
+        const row = await sb.getWhere("wine_websites", "produttore", key);
+        if (row?.url) {
+          websiteCache[key] = { url: row.url, source: row.source };
+          if (!cancelled) { setUrl(row.url); setSource(row.source); setStatus("loading"); }
           return;
         }
       } catch {}
@@ -494,6 +493,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
     const wasExpanded = prevExpandedRef.current;
     prevExpandedRef.current = expanded;
 
+    if (expanded) { setClosing(false); return; }
     if (!expanded && wasExpanded) {
       // Animazione di chiusura
       setClosing(true);
@@ -642,7 +642,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                     return (
                       <button key={n} onClick={() => onRate(wine.id, n === currentRating ? 0 : n)} onMouseEnter={() => setHoverRating(n)} onMouseLeave={() => setHoverRating(0)}
                         style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", borderRadius: 8, fontSize: 30, lineHeight: 1, filter: active ? "none" : "grayscale(1) opacity(0.35)", transform: active ? "scale(1.12)" : "scale(1)", transition: "transform 0.15s, filter 0.15s" }}
-                        title={`${n} calice${n > 1 ? "i" : ""}`}>{IC.wineglass}</button>
+                        title={`${n} ${n > 1 ? "calici" : "calice"}`}>{IC.wineglass}</button>
                     );
                   })}
                 </div>
@@ -717,7 +717,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       const response = await fetch("/api/analyze-label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64, mediaType: "image/jpeg" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || response.status);
-      setForm(prev => ({ ...prev, produttore: data.produttore || prev.produttore, vino: data.vino || prev.vino, annata: data.annata || prev.annata, tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : prev.tipologia, vitigno: data.vitigno || prev.vitigno }));
+      setForm(prev => ({ ...prev, produttore: data.produttore || prev.produttore, vino: data.vino || prev.vino, annata: data.annata != null ? String(data.annata) : prev.annata, tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : prev.tipologia, vitigno: data.vitigno || prev.vitigno }));
       setModo("manuale");
     } catch (err) {
       setAiError("Riconoscimento non riuscito. Puoi compilare manualmente.");
@@ -812,8 +812,8 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
               <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
                 <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.arrowBack} Indietro</span>
               </button>
-              <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
-                style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+              <button onClick={() => { if (form.produttore && form.vino && form.bottiglie > 0) onSalva(form); }}
+                style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino && form.bottiglie > 0 ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino && form.bottiglie > 0 ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
                 Salva in cantina
               </button>
             </div>
@@ -867,8 +867,8 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
-            style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
+          <button onClick={() => { if (form.produttore && form.vino && form.bottiglie > 0) onSalva(form); }}
+            style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino && form.bottiglie > 0 ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino && form.bottiglie > 0 ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
             <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.save} Salva modifiche</span>
           </button>
         </div>
@@ -964,7 +964,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     .filter(w => filter === "Tutti" || w.tipologia === filter)
     .filter(w => {
       const q = search.toLowerCase();
-      return !q || w.produttore.toLowerCase().includes(q) || w.vino.toLowerCase().includes(q) || w.annata.includes(q) || (w.vitigno || "").toLowerCase().includes(q);
+      return !q || w.produttore.toLowerCase().includes(q) || w.vino.toLowerCase().includes(q) || String(w.annata).includes(q) || (w.vitigno || "").toLowerCase().includes(q);
     });
 
   const totalB = filtered.reduce((a, w) => a + w.bottiglie, 0);
@@ -1239,7 +1239,7 @@ export default function Cantina() {
         setRatings(ratingsFromDb);
         if (Array.isArray(overrides) && overrides.length > 0) {
           const ovMap = {};
-          overrides.forEach(o => { const { wine_id, ...fields } = o; ovMap[wine_id] = fields; });
+          overrides.forEach(o => { const { wine_id, created_at, ...fields } = o; ovMap[wine_id] = fields; });
           setWineOverrides(ovMap);
         }
       } catch (e) {
