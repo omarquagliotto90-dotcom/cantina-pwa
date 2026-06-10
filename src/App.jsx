@@ -361,6 +361,7 @@ function WebsiteView({ wine }) {
   const [url, setUrl] = useState(null);
   const [source, setSource] = useState(null);
   const [status, setStatus] = useState("searching");
+  const iframeRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +402,20 @@ function WebsiteView({ wine }) {
     const t = setTimeout(() => setStatus(s => s === "loading" ? "blocked" : s), 3000);
     return () => clearTimeout(t);
   }, [status, url]);
+
+  // Recovery: se dopo il blocked l'iframe finisce di caricare, torna a ok
+  useEffect(() => {
+    if (status !== "blocked") return;
+    const t = setTimeout(() => {
+      try {
+        const doc = iframeRef.current?.contentDocument || iframeRef.current?.contentWindow?.document;
+        const body = doc?.body?.innerText || "";
+        const title = doc?.title || "";
+        if (body || title) setStatus("ok");
+      } catch { /* cross-origin, lascia blocked */ }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [status]);
 
   const domain = url ? url.replace("https://", "").replace("http://", "").split("/")[0] : "";
   const isGoogle = source === "fallback";
@@ -449,7 +464,7 @@ function WebsiteView({ wine }) {
             </div>
           </div>
         )}
-        {url && (<iframe key={url} src={url} title={`Sito ${wine.produttore}`}
+        {url && (<iframe ref={iframeRef} key={url} src={url} title={`Sito ${wine.produttore}`}
           onLoad={(e) => {
             try {
               const doc = e.target.contentDocument || e.target.contentWindow?.document;
@@ -463,7 +478,7 @@ function WebsiteView({ wine }) {
           }}
           onError={() => setStatus("blocked")}
           style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: status === "ok" ? 1 : 0, transition: "opacity 0.3s" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          sandbox="allow-scripts allow-forms allow-popups"
         />)}
       </div>
     </div>
@@ -958,9 +973,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     setTimeout(() => setExpanded(wineId), scrollDuration + 80);
   };
 
-  const bevutiIds = new Set(bevuti.map(b => b.id));
   const filtered = wines
-    .filter(w => !bevutiIds.has(w.id))
     .filter(w => filter === "Tutti" || w.tipologia === filter)
     .filter(w => {
       const q = search.toLowerCase();
@@ -1080,8 +1093,8 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
 
 // ─── Tab: Statistiche ─────────────────────────────────────────────────────────
 function TabStatistiche({ wines, bevuti }) {
-  const bevutiIds = new Set(bevuti.map(b => b.id));
-  const cantina = wines.filter(w => !bevutiIds.has(w.id));
+  // wines è già filtrato a bottiglie > 0; ogni voce in bevuti è una degustazione
+  const cantina = wines;
   const totB = cantina.reduce((a, w) => a + w.bottiglie, 0);
   const totV = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
   const totBevuto = bevuti.reduce((a, b) => { const w = wines.find(x => x.id === b.id); return a + (w?.prezzo || 0); }, 0);
@@ -1195,12 +1208,20 @@ export default function Cantina() {
   const [compact, setCompact] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
   const [bottleOverrides, setBottleOverrides] = useState({});
   const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
   const [wineOverrides, setWineOverrides] = useState({});
   const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
-  const lastScrollY = useRef(0);
+  const lastScrollY = useRef(null);
+  const dbErrorTimer = useRef(null);
+
+  const showDbError = (msg) => {
+    setDbError(msg);
+    if (dbErrorTimer.current) clearTimeout(dbErrorTimer.current);
+    dbErrorTimer.current = setTimeout(() => setDbError(null), 4000);
+  };
 
   // Forza aggiornamento Service Worker ad ogni deploy
   useEffect(() => {
@@ -1229,14 +1250,18 @@ export default function Cantina() {
           malolattica:  w.malolattica  || "—",
         }));
         setStaticWines(normalizedWines);
+        // Ogni riga bevuti è una degustazione separata (no dedup)
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
-        const allBevutiMap = new Map();
-        bevFromDb.forEach(b => allBevutiMap.set(b.id, b));
-        setBevuti(Array.from(allBevutiMap.values()));
+        setBevuti(bevFromDb);
         setExtraWines(extra.map(w => ({ ...w, macerazione: w.macerazione || "—", fermentazione: w.fermentazione || "—", malolattica: w.malolattica || "—" })));
+        // Rating: prende l'ultimo (uid più alto) per ogni wine_id
         const ratingsFromDb = {};
-        bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
+        [...bev].sort((a, b) => a.uid - b.uid).forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
         setRatings(ratingsFromDb);
+        // Ricostruisce bottleOverrides dal conteggio degustazioni per wine_id
+        const consumiPerWine = {};
+        bev.forEach(b => { consumiPerWine[b.wine_id] = (consumiPerWine[b.wine_id] || 0) + 1; });
+        setBottleOverrides(consumiPerWine);
         if (Array.isArray(overrides) && overrides.length > 0) {
           const ovMap = {};
           overrides.forEach(o => { const { wine_id, created_at, ...fields } = o; ovMap[wine_id] = fields; });
@@ -1251,10 +1276,13 @@ export default function Cantina() {
     loadData();
   }, []);
 
-  const allWines = [...staticWines, ...extraWines]
+  const allWinesBase = [...staticWines, ...extraWines]
     .map(w => { if (wineOverrides[w.id]) return { ...w, ...wineOverrides[w.id] }; return w; })
     .map(w => { if (bottleOverrides[w.id] !== undefined) return { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] }; return w; })
-    .filter(w => { if (deletedExtraIds.has(w.id)) return false; return w.bottiglie > 0; });
+    .filter(w => !deletedExtraIds.has(w.id));
+  const allWines = allWinesBase.filter(w => w.bottiglie > 0);
+  // TabBevuti ha bisogno di vedere anche vini esauriti (bottiglie === 0)
+  const allWinesForBevuti = allWinesBase;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1275,9 +1303,14 @@ export default function Cantina() {
     if (isExtra) {
       setExtraWines(prev => prev.filter(w => w.id !== wine.id));
       setDeletedExtraIds(prev => new Set([...prev, wine.id]));
-      await sb.delete("extra_wines", "id", wine.id);
+      await sb.delete("extra_wines", "id", wine.id).catch(() => showDbError("Errore eliminazione vino"));
     } else {
       setBottleOverrides(prev => ({ ...prev, [wine.id]: (prev[wine.id] || 0) + 1 }));
+      // Persiste il decremento su wine_overrides (sopravvive al reload)
+      const newBottiglie = (wine.bottiglie || 0) - 1;
+      const ovFields = { ...(wineOverrides[wine.id] || {}), bottiglie: newBottiglie };
+      setWineOverrides(prev => ({ ...prev, [wine.id]: ovFields }));
+      await sb.upsert("wine_overrides", { wine_id: wine.id, ...ovFields }, "wine_id").catch(() => showDbError("Errore salvataggio bottiglie"));
     }
   };
 
@@ -1285,16 +1318,48 @@ export default function Cantina() {
 
   const handleConferma = async (nota, data, rating) => {
     const uid = Date.now();
-    const row = { uid, wine_id: pendingBevi.id, data, nota: nota || "", rating: rating || 0 };
-    setBevuti(prev => [...prev, { uid, id: pendingBevi.id, data, nota: nota || "" }]);
-    if (rating > 0) setRatings(prev => ({ ...prev, [pendingBevi.id]: rating }));
+    const wine = pendingBevi;
+    const row = { uid, wine_id: wine.id, data, nota: nota || "", rating: rating || 0 };
+    // Decrementa bottiglia in stato locale
+    setBottleOverrides(prev => ({ ...prev, [wine.id]: (prev[wine.id] || 0) + 1 }));
+    setBevuti(prev => [...prev, { uid, id: wine.id, data, nota: nota || "" }]);
+    if (rating > 0) setRatings(prev => ({ ...prev, [wine.id]: rating }));
     setPendingBevi(null);
-    await sb.insert("bevuti", row);
+    await sb.insert("bevuti", row).catch(() => showDbError("Errore salvataggio degustazione"));
+    // Persiste decremento bottiglie su wine_overrides per vini statici
+    const isExtra = extraWines.some(w => w.id === wine.id);
+    if (!isExtra) {
+      const newBottiglie = (wine.bottiglie || 0) - 1;
+      const ovFields = { ...(wineOverrides[wine.id] || {}), bottiglie: newBottiglie };
+      setWineOverrides(prev => ({ ...prev, [wine.id]: ovFields }));
+      await sb.upsert("wine_overrides", { wine_id: wine.id, ...ovFields }, "wine_id").catch(() => showDbError("Errore salvataggio bottiglie"));
+    }
   };
 
   const handleRiporta = async (uid) => {
+    const bev = bevuti.find(b => b.uid === uid);
     setBevuti(prev => prev.filter(b => b.uid !== uid));
-    await sb.delete("bevuti", "uid", uid);
+    await sb.delete("bevuti", "uid", uid).catch(() => showDbError("Errore rimozione degustazione"));
+    if (!bev) return;
+    // Re-incrementa bottiglia
+    setBottleOverrides(prev => {
+      const next = { ...prev };
+      if ((next[bev.id] || 0) > 0) next[bev.id] = next[bev.id] - 1;
+      else delete next[bev.id];
+      return next;
+    });
+    // Aggiorna wine_overrides per vini statici
+    const isExtra = extraWines.some(w => w.id === bev.id);
+    if (!isExtra) {
+      const baseWine = staticWines.find(w => w.id === bev.id);
+      if (baseWine) {
+        const remainingConsumi = bevuti.filter(b => b.uid !== uid && b.id === bev.id).length;
+        const newBottiglie = (baseWine.bottiglie || 0) - remainingConsumi;
+        const ovFields = { ...(wineOverrides[bev.id] || {}), bottiglie: newBottiglie };
+        setWineOverrides(prev => ({ ...prev, [bev.id]: ovFields }));
+        await sb.upsert("wine_overrides", { wine_id: bev.id, ...ovFields }, "wine_id").catch(() => showDbError("Errore salvataggio bottiglie"));
+      }
+    }
   };
 
   const handleSalva = async (form) => {
@@ -1303,7 +1368,7 @@ export default function Cantina() {
     setExtraWines(prev => [...prev, { ...row }]);
     setShowAggiungi(false);
     setTab("lista");
-    await sb.insert("extra_wines", row);
+    await sb.insert("extra_wines", row).catch(() => showDbError("Errore salvataggio vino"));
   };
 
   const handleModifica = (wine) => setPendingModifica(wine);
@@ -1314,18 +1379,20 @@ export default function Cantina() {
     if (isExtra) {
       const updated = { ...wine, ...form, annata: form.annata || "n.d.", bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
       setExtraWines(prev => prev.map(w => w.id === wine.id ? updated : w));
-      await sb.upsert("extra_wines", { ...updated }, "id");
+      await sb.upsert("extra_wines", { ...updated }, "id").catch(() => showDbError("Errore salvataggio modifiche"));
     } else {
       const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
       setWineOverrides(prev => ({ ...prev, [wine.id]: fields }));
-      await sb.upsert("wine_overrides", { wine_id: wine.id, ...fields }, "wine_id").catch(console.error);
+      await sb.upsert("wine_overrides", { wine_id: wine.id, ...fields }, "wine_id").catch(() => showDbError("Errore salvataggio modifiche"));
     }
     setPendingModifica(null);
   };
 
   const handleRate = async (wineId, score) => {
     setRatings(prev => ({ ...prev, [wineId]: score }));
-    const bev = bevuti.find(b => b.id === wineId);
+    // Con più degustazioni dello stesso vino, aggiorna l'ultima (uid più alto)
+    const allBevForWine = bevuti.filter(b => b.id === wineId);
+    const bev = allBevForWine.reduce((latest, b) => (!latest || b.uid > latest.uid) ? b : latest, null);
     if (bev) { await sb.patch("bevuti", "uid", bev.uid, { rating: score }).catch(console.error); }
   };
 
@@ -1388,7 +1455,7 @@ export default function Cantina() {
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
         {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWines} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={allWinesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
@@ -1426,6 +1493,14 @@ export default function Cantina() {
       {pendingBevi && <ModalBevi wine={pendingBevi} onConferma={handleConferma} onAnnulla={() => setPendingBevi(null)} />}
       {showAggiungi && <ModalAggiungi onSalva={handleSalva} onAnnulla={() => setShowAggiungi(false)} />}
       {pendingModifica && <ModalModifica wine={pendingModifica} onSalva={handleSalvaModifica} onAnnulla={() => setPendingModifica(null)} />}
+
+      {/* ── DB Error Toast ── */}
+      {dbError && (
+        <div style={{ position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", background: M3.errorContainer, color: M3.onErrorContainer, padding: "10px 20px", borderRadius: 20, fontSize: 13, fontWeight: 500, fontFamily: "'Roboto', sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", zIndex: 9999, display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          {dbError}
+        </div>
+      )}
     </div>
   );
 }
