@@ -717,6 +717,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       const response = await fetch("/api/analyze-label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64, mediaType: "image/jpeg" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || response.status);
+      if (data.raw !== undefined) throw new Error("Riconoscimento non riuscito. Puoi compilare manualmente.");
       setForm(prev => ({ ...prev, produttore: data.produttore || prev.produttore, vino: data.vino || prev.vino, annata: data.annata || prev.annata, tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : prev.tipologia, vitigno: data.vitigno || prev.vitigno }));
       setModo("manuale");
     } catch (err) {
@@ -1198,6 +1199,7 @@ export default function Cantina() {
   const [bottleOverrides, setBottleOverrides] = useState({});
   const [deletedExtraIds, setDeletedExtraIds] = useState(new Set());
   const [wineOverrides, setWineOverrides] = useState({});
+  const [dbError, setDbError] = useState(null);
   const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
@@ -1240,7 +1242,7 @@ export default function Cantina() {
         if (Array.isArray(overrides) && overrides.length > 0) {
           const ovMap = {};
           // Esclude bottiglie e created_at: il contatore bottiglie dei vini statici
-          // è gestito solo da bottleOverrides (ricostruito dai bevuti).
+          // è gestito da bottleOverrides (contatore in-memory incrementato da handleBevi).
           // Un override residuo di bottiglie causerebbe un doppio decremento.
           overrides.forEach(o => {
             const { wine_id, created_at, bottiglie: _b, ...fields } = o;
@@ -1317,7 +1319,7 @@ export default function Cantina() {
       const saved = inserted ?? row;
       setStaticWines(prev => [...prev, { ...saved, slowVinoBott: !!saved.slow_vino_bott, macerazione: saved.macerazione || "—", fermentazione: saved.fermentazione || "—", malolattica: saved.malolattica || "—" }]);
     } catch (e) {
-      showDbError("Errore salvataggio vino");
+      setDbError("Errore salvataggio vino");
     }
   };
 
@@ -1344,8 +1346,10 @@ export default function Cantina() {
     if (bev) { await sb.patch("bevuti", "uid", bev.uid, { rating: score }).catch(console.error); }
   };
 
-  const totBottiglie = allWines.reduce((a, w) => a + w.bottiglie, 0);
-  const totValore    = allWines.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
+  const bevutiIds = new Set(bevuti.map(b => b.id));
+  const cantina = allWines.filter(w => !bevutiIds.has(w.id));
+  const totBottiglie = cantina.reduce((a, w) => a + w.bottiglie, 0);
+  const totValore    = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
 
   if (loading) return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: M3.surface, gap: 16 }}>
@@ -1399,6 +1403,14 @@ export default function Cantina() {
           </div>
         </div>
       </div>
+
+      {/* ── DB Error Banner ── */}
+      {dbError && (
+        <div style={{ background: "#FDECEA", color: "#B71C1C", padding: "10px 16px", fontSize: 13, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, zIndex: 15 }}>
+          <span>{dbError}</span>
+          <button onClick={() => setDbError(null)} style={{ background: "none", border: "none", color: "#B71C1C", cursor: "pointer", fontWeight: 700, fontSize: 16, lineHeight: 1, padding: "0 4px" }}>✕</button>
+        </div>
+      )}
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
