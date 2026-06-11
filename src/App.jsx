@@ -1237,7 +1237,10 @@ export default function Cantina() {
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
         setBevuti(bevFromDb);
         const ratingsFromDb = {};
-        bev.forEach(b => { if (b.rating > 0) ratingsFromDb[b.wine_id] = b.rating; });
+        // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
+        bev.forEach(b => {
+          if (b.rating > 0 && b.rating > (ratingsFromDb[b.wine_id] || 0)) ratingsFromDb[b.wine_id] = b.rating;
+        });
         setRatings(ratingsFromDb);
       } catch (e) {
         console.error("Errore caricamento dati:", e);
@@ -1396,12 +1399,16 @@ export default function Cantina() {
   };
 
   const handleRate = async (wineId, score) => {
+    setDbError(null);
     const prevScore = ratings[wineId] ?? 0;
     setRatings(prev => ({ ...prev, [wineId]: score }));
-    const bev = bevuti.find(b => b.id === wineId);
-    if (bev) {
-      const patched = await sb.patch("bevuti", "uid", bev.uid, { rating: score });
-      if (!patched) {
+    // N3: il rating è per-vino, ma in DB c'è una riga per bevuta → patcha tutte le bevute del vino
+    const targets = bevuti.filter(b => b.id === wineId);
+    if (targets.length > 0) {
+      const results = await Promise.all(
+        targets.map(b => sb.patch("bevuti", "uid", b.uid, { rating: score }))
+      );
+      if (results.some(r => !r)) {
         setRatings(prev => ({ ...prev, [wineId]: prevScore }));
         setDbError("Errore: valutazione non salvata");
       }
