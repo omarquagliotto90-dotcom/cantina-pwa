@@ -670,15 +670,15 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             </button>
             {!confirmDelete ? (
               <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{ width: "100%", padding: "10px 24px", borderRadius: 20, border: `1px solid #B0A8C0`, background: "transparent", color: "#B0A8C0", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.trash} Elimina dalla cantina</span>
+                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.trash} {bevutoInfo ? "Riporta in cantina" : "Elimina dalla cantina"}</span>
               </button>
             ) : (
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ flex: 1, fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-                  {bevutoInfo ? "Rimuovi dall'archivio?" : wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
+                  {bevutoInfo ? "Riporta questa bottiglia in cantina?" : wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
                 </span>
                 <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }} style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurfaceVariant, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>No</button>
-                <button onClick={(e) => { e.stopPropagation(); onElimina(wine); setConfirmDelete(false); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", background: M3.error, color: "#FFFFFF", fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Sì, elimina</button>
+                <button onClick={(e) => { e.stopPropagation(); onElimina(wine); setConfirmDelete(false); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", background: bevutoInfo ? M3.primary : M3.error, color: "#FFFFFF", fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>{bevutoInfo ? "Sì, riporta" : "Sì, elimina"}</button>
               </div>
             )}
           </div>
