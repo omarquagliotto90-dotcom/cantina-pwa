@@ -1284,14 +1284,19 @@ export default function Cantina() {
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
+    let insertedOk = false;
     try {
       const inserted = await sb.insert("bevuti", row);
       if (!inserted) throw new Error("insert bevuti failed");
-      // F4: PATCH bottiglie su Supabase
+      insertedOk = true;
+      // F4 / P3: PATCH bottiglie su Supabase, con verifica esito
       if (current) {
-        await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
+        const patched = await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
+        if (!patched) throw new Error("patch bottiglie failed");
       }
     } catch (e) {
+      // N1: se la bevuta era già stata scritta sul DB, compensala per evitare la riga fantasma
+      if (insertedOk) await sb.delete("bevuti", "uid", uid);
       // Rollback: ripristina stato pre-azione
       setBevuti(prevBevuti);
       setRatings(prevRatings);
