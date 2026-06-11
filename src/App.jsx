@@ -1302,11 +1302,29 @@ export default function Cantina() {
 
   const handleRiporta = async (uid) => {
     const entry = bevuti.find(b => b.uid === uid);
+    if (!entry) return;
+    const current = wines.find(w => w.id === entry.id);
+    // Snapshot per rollback
+    const prevBevuti = bevuti;
+    const prevWines = wines;
+    // Ottimistico: rimuovi la bevuta e riaccredita la bottiglia
     setBevuti(prev => prev.filter(b => b.uid !== uid));
+    setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: (w.bottiglie || 0) + 1 } : w));
     const ok = await sb.delete("bevuti", "uid", uid);
     if (!ok) {
-      if (entry) setBevuti(prev => [...prev, entry]);
+      setBevuti(prevBevuti);
+      setWines(prevWines);
       setDbError("Errore: ripristino non riuscito");
+      return;
+    }
+    // P1: riaccredita la bottiglia anche su Supabase
+    if (current) {
+      const patched = await sb.patch("wines", "id", entry.id, { bottiglie: (current.bottiglie || 0) + 1 });
+      if (!patched) {
+        // delete bevuti già committato: riallinea lo state al DB
+        setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
+        setDbError("Bevuta rimossa, ma bottiglia non riaccreditata sul DB");
+      }
     }
   };
 
