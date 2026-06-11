@@ -47,10 +47,11 @@ const sb = {
     return Array.isArray(data) ? data[0] : data;
   },
   async delete(table, column, value) {
-    await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
+    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
       method: "DELETE",
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
     });
+    return r.ok;
   },
   async patch(table, column, value, data) {
     const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
@@ -1194,7 +1195,6 @@ export default function Cantina() {
   const [compact, setCompact] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [bottleOverrides, setBottleOverrides] = useState({});
   const [dbError, setDbError] = useState(null);
   const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
@@ -1239,13 +1239,10 @@ export default function Cantina() {
     loadData();
   }, []);
 
-  const allWines = wines
-    .map(w => bottleOverrides[w.id] !== undefined ? { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] } : w)
-    .filter(w => w.bottiglie > 0);
+  const allWines = wines.filter(w => w.bottiglie > 0);
 
   // F22: per TabBevuti — include vini a 0 bottiglie (già bevuti)
-  const winesForBevuti = wines
-    .map(w => bottleOverrides[w.id] !== undefined ? { ...w, bottiglie: w.bottiglie - bottleOverrides[w.id] } : w);
+  const winesForBevuti = wines;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1263,7 +1260,11 @@ export default function Cantina() {
 
   const handleElimina = async (wine) => {
     setWines(prev => prev.filter(w => w.id !== wine.id));
-    await sb.delete("wines", "id", wine.id);
+    const ok = await sb.delete("wines", "id", wine.id);
+    if (!ok) {
+      setWines(prev => [...prev, wine].sort((a, b) => a.id - b.id));
+      setDbError("Errore: eliminazione non riuscita");
+    }
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
@@ -1273,21 +1274,40 @@ export default function Cantina() {
     const wineId = pendingBevi.id;
     const current = wines.find(w => w.id === wineId);
     const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || 0 };
+    // Snapshot per rollback
+    const prevBevuti = bevuti;
+    const prevRatings = ratings;
+    const prevWines = wines;
+    // Update ottimistico
     setBevuti(prev => [...prev, { uid, id: wineId, data, nota: nota || "" }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
-    await sb.insert("bevuti", row);
-    // F4: PATCH bottiglie su Supabase
-    if (current) {
-      await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
+    try {
+      const inserted = await sb.insert("bevuti", row);
+      if (!inserted) throw new Error("insert bevuti failed");
+      // F4: PATCH bottiglie su Supabase
+      if (current) {
+        await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
+      }
+    } catch (e) {
+      // Rollback: ripristina stato pre-azione
+      setBevuti(prevBevuti);
+      setRatings(prevRatings);
+      setWines(prevWines);
+      setDbError("Errore: bevuta non registrata");
     }
   };
 
   const handleRiporta = async (uid) => {
+    const entry = bevuti.find(b => b.uid === uid);
     setBevuti(prev => prev.filter(b => b.uid !== uid));
-    await sb.delete("bevuti", "uid", uid);
+    const ok = await sb.delete("bevuti", "uid", uid);
+    if (!ok) {
+      if (entry) setBevuti(prev => [...prev, entry]);
+      setDbError("Errore: ripristino non riuscito");
+    }
   };
 
   const handleSalva = async (form) => {
@@ -1297,12 +1317,12 @@ export default function Cantina() {
       // id è integer senza autoincrement: legge il max corrente e usa max+1
       const maxRow = await fetch(`${SB_URL}/rest/v1/wines?select=id&order=id.desc&limit=1`, {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
-      }).then(r => r.json());
+      }).then(r => { if (!r.ok) throw new Error(`max-id fetch ${r.status}`); return r.json(); });
       const nextId = ((maxRow[0]?.id) || 0) + 1;
       const row = { id: nextId, produttore: form.produttore, vino: form.vino, annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
       const inserted = await sb.insert("wines", row);
-      const saved = inserted ?? row;
-      setWines(prev => [...prev, { ...saved, slowVinoBott: !!saved.slow_vino_bott, macerazione: saved.macerazione || "—", fermentazione: saved.fermentazione || "—", malolattica: saved.malolattica || "—" }]);
+      if (!inserted) throw new Error("insert failed");
+      setWines(prev => [...prev, { ...inserted, slowVinoBott: !!inserted.slow_vino_bott, macerazione: inserted.macerazione || "—", fermentazione: inserted.fermentazione || "—", malolattica: inserted.malolattica || "—" }]);
     } catch (e) {
       setDbError("Errore salvataggio vino");
     }
@@ -1319,9 +1339,16 @@ export default function Cantina() {
   };
 
   const handleRate = async (wineId, score) => {
+    const prevScore = ratings[wineId] ?? 0;
     setRatings(prev => ({ ...prev, [wineId]: score }));
     const bev = bevuti.find(b => b.id === wineId);
-    if (bev) { await sb.patch("bevuti", "uid", bev.uid, { rating: score }).catch(console.error); }
+    if (bev) {
+      const patched = await sb.patch("bevuti", "uid", bev.uid, { rating: score });
+      if (!patched) {
+        setRatings(prev => ({ ...prev, [wineId]: prevScore }));
+        setDbError("Errore: valutazione non salvata");
+      }
+    }
   };
 
   // 1:N — cantina = tutti i vini con bottiglie > 0 (già filtrati in allWines)
