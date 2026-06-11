@@ -1260,10 +1260,25 @@ export default function Cantina() {
 
   const handleElimina = async (wine) => {
     setDbError(null);
+    const current = wines.find(w => w.id === wine.id);
+    const qty = current?.bottiglie ?? wine.bottiglie ?? 0;
+    if (qty > 1) {
+      // Decrementa di 1: la riga resta in cantina
+      const prevWines = wines;
+      setWines(prev => prev.map(w => w.id === wine.id ? { ...w, bottiglie: qty - 1 } : w));
+      const patched = await sb.patch("wines", "id", wine.id, { bottiglie: qty - 1 });
+      if (!patched) {
+        setWines(prevWines);
+        setDbError("Errore: rimozione bottiglia non riuscita");
+      }
+      return;
+    }
+    // Ultima bottiglia (qty <= 1): elimina la riga
+    const prevWines = wines;
     setWines(prev => prev.filter(w => w.id !== wine.id));
     const ok = await sb.delete("wines", "id", wine.id);
     if (!ok) {
-      setWines(prev => [...prev, wine].sort((a, b) => a.id - b.id));
+      setWines(prevWines);
       setDbError("Errore: eliminazione non riuscita");
     }
   };
@@ -1361,9 +1376,14 @@ export default function Cantina() {
     setDbError(null);
     const wine = pendingModifica;
     const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
+    const prevWines = wines;
     setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
-    await sb.upsert("wines", { id: wine.id, ...fields }, "id").catch(console.error);
     setPendingModifica(null);
+    const saved = await sb.upsert("wines", { id: wine.id, ...fields }, "id");
+    if (!saved) {
+      setWines(prevWines);
+      setDbError("Errore: modifiche non salvate");
+    }
   };
 
   const handleRate = async (wineId, score) => {
