@@ -834,6 +834,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
     vitigno: wine.vitigno || "", macerazione: wine.macerazione || "", fermentazione: wine.fermentazione || "",
     malolattica: wine.malolattica || "", note: wine.note || "",
   });
+  const [formError, setFormError] = useState(null);
 
   const field = (key, label, type = "text", opts = {}) => (
     <div style={{ marginBottom: 12 }}>
@@ -845,7 +846,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
       ) : opts.textarea ? (
         <textarea value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} rows={opts.rows || 3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 13, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical", lineHeight: 1.5 }} />
       ) : (
-        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
+        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
       )}
     </div>
   );
@@ -867,9 +868,17 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Malolattica")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
+        {formError && (
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 10 }}>{formError}</div>
+        )}
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
+          <button onClick={() => {
+              if (!form.produttore || !form.vino) { setFormError("Produttore e nome vino sono obbligatori."); return; }
+              if (form.bottiglie === "" || form.prezzo === "") { setFormError("Bottiglie e prezzo non possono essere vuoti."); return; }
+              setFormError(null);
+              onSalva(form);
+            }}
             style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
             <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.save} Salva modifiche</span>
           </button>
