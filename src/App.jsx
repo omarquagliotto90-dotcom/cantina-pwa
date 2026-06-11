@@ -67,6 +67,8 @@ const sb = {
 
 // ─── Cache in-memory immagini bottiglia ──
 const imgSessionCache = new Map();
+// N5: id dei vini con una ricerca immagine già in volo, per evitare enqueue duplicati su remount
+const imgInFlight = new Set();
 
 // ─── Coda globale per le ricerche immagini ─────────────────────────────────
 const imgQueue = {
@@ -307,6 +309,9 @@ function BottleImage({ wine, active }) {
         }
       } catch (_) {}
       if (!cancelled) setStatus("loading");
+      // N5: se una ricerca per questo vino è già in coda, non accodarne una seconda
+      if (imgInFlight.has(wine.id)) return;
+      imgInFlight.add(wine.id);
       try {
         const bestUrl = await imgQueue.add(async () => {
           const res = await fetch("/api/search-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino, annata: wine.annata }) });
@@ -325,6 +330,8 @@ function BottleImage({ wine, active }) {
       } catch (err) {
         imgSessionCache.set(wine.id, "NOT_FOUND");
         if (!cancelled) setStatus("error");
+      } finally {
+        imgInFlight.delete(wine.id);
       }
     }
     fetchImage();
@@ -1045,7 +1052,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
     container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
     setTimeout(() => setExpanded(uid), scrollDuration + 80);
   };
-  const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo || 0), 0);
+  const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo ?? b.prezzo ?? 0), 0);
 
   if (bevuti.length === 0) {
     return (
@@ -1073,7 +1080,12 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         </div>
       </div>
       {[...bevuti].reverse().map(b => {
-        const wine = wineMap[b.id];
+        // Storico indipendente: se il vino non è più in cantina, ricostruisci dallo snapshot della bevuta
+        const wine = wineMap[b.id] || (b.produttore ? {
+          id: b.id, produttore: b.produttore, vino: b.vino, annata: b.annata || "",
+          tipologia: b.tipologia || "Bianco fermo", prezzo: b.prezzo || 0, bottiglie: 0,
+          vitigno: "—", macerazione: "—", fermentazione: "—", malolattica: "—", note: "",
+        } : null);
         if (!wine) return null;
         return (
           <WineCard key={b.uid} wine={wine} expanded={expanded === b.uid}
@@ -1234,7 +1246,7 @@ export default function Cantina() {
           malolattica:  w.malolattica  || "—",
         })));
         // F5: 1:N — nessuna deduplica, uid è chiave univoca
-        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "" }));
+        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
         setBevuti(bevFromDb);
         const ratingsFromDb = {};
         // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
@@ -1292,7 +1304,11 @@ export default function Cantina() {
     if (!ok) {
       setWines(prevWines);
       setDbError("Errore: eliminazione non riuscita");
+      return;
     }
+    // P4: rimuovi l'immagine associata (evita orphan ed eredità su id riusati). I bevuti NON si toccano: sono storico.
+    imgSessionCache.delete(wine.id);
+    sb.delete("wine_images", "wine_id", wine.id).catch(() => {});
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
@@ -1302,13 +1318,15 @@ export default function Cantina() {
     const uid = Date.now();
     const wineId = pendingBevi.id;
     const current = wines.find(w => w.id === wineId);
-    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || 0 };
+    // Snapshot dati vino: bevuti è uno storico indipendente da wines
+    const snap = current ? { produttore: current.produttore, vino: current.vino, annata: current.annata, tipologia: current.tipologia, prezzo: current.prezzo } : {};
+    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || 0, ...snap };
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevRatings = ratings;
     const prevWines = wines;
     // Update ottimistico
-    setBevuti(prev => [...prev, { uid, id: wineId, data, nota: nota || "" }]);
+    setBevuti(prev => [...prev, { uid, id: wineId, data, nota: nota || "", ...snap }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
