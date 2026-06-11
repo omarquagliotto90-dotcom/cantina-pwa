@@ -1259,6 +1259,7 @@ export default function Cantina() {
   }, []);
 
   const handleElimina = async (wine) => {
+    setDbError(null);
     setWines(prev => prev.filter(w => w.id !== wine.id));
     const ok = await sb.delete("wines", "id", wine.id);
     if (!ok) {
@@ -1270,6 +1271,7 @@ export default function Cantina() {
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
 
   const handleConferma = async (nota, data, rating) => {
+    setDbError(null);
     const uid = Date.now();
     const wineId = pendingBevi.id;
     const current = wines.find(w => w.id === wineId);
@@ -1306,6 +1308,7 @@ export default function Cantina() {
   };
 
   const handleRiporta = async (uid) => {
+    setDbError(null);
     const entry = bevuti.find(b => b.uid === uid);
     if (!entry) return;
     const current = wines.find(w => w.id === entry.id);
@@ -1334,6 +1337,7 @@ export default function Cantina() {
   };
 
   const handleSalva = async (form) => {
+    setDbError(null);
     setShowAggiungi(false);
     setTab("lista");
     try {
@@ -1354,6 +1358,7 @@ export default function Cantina() {
   const handleModifica = (wine) => setPendingModifica(wine);
 
   const handleSalvaModifica = async (form) => {
+    setDbError(null);
     const wine = pendingModifica;
     const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
     setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
