@@ -1555,9 +1555,9 @@ export default function Cantina() {
         .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
         .m3-closing { animation: m3ContentOut 260ms cubic-bezier(0.2, 0, 0, 1) both; overflow: hidden; }
         /* MD3 expand: height (grid-template-rows) + fade, coppia Emphasized */
-        .m3-expand-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 250ms cubic-bezier(0.3, 0, 0.8, 0.15); /* Emphasized Accelerate, Medium1 250ms (chiusura) */ }
+        .m3-expand-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 250ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium1 250ms (chiusura) */ }
         .m3-expand-grid.open { grid-template-rows: 1fr; transition: grid-template-rows 300ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium2 300ms (apertura) */ }
-        .m3-expand-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 250ms cubic-bezier(0.3, 0, 0.8, 0.15); }
+        .m3-expand-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 250ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate 250ms (chiusura) */ }
         .m3-expand-grid.open .m3-expand-inner { opacity: 1; transition: opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1); }
       `}</style>
 
