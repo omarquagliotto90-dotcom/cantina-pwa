@@ -532,6 +532,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   return (
     <div ref={el => { cardRef.current = el; if (cardRefCallback) cardRefCallback(el); }} style={{
       borderRadius: 12,
+      scrollMarginTop: 8,
       border: expanded ? `1px solid ${t.indicator}55` : `1px solid ${M3.outlineVariant}`,
       borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
       background: expanded ? "#F4F3EE" : M3.surface,
@@ -1022,11 +1023,12 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     // Apri in-place — vale sia al primo tap sia al cambio card
     setExpanded(wineId);
 
-    // Dopo il relayout porta la card in vista quanto basta:
-    // niente durate stimate, niente target ricalcolato su layout stale.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // Attendo la fine dell'apertura (300ms = Medium2, durata nota dell'animazione)
+    // così la card ha l'altezza FINALE: se più alta del viewport, nearest allinea
+    // l'header in cima; se ci sta già tutta e visibile, non muove nulla.
+    setTimeout(() => {
       cardRefs.current[wineId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }));
+    }, 300);
   };
 
   // 1:N — vino resta in Lista finché bottiglie > 0 (garantito da allWines a monte)
