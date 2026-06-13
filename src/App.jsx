@@ -148,6 +148,7 @@ const TIPO = {
 };
 
 const FILTERS = ["Tutti", "Rosso fermo", "Bianco fermo", "Orange", "Spumante", "Spumante rosso", "Sidro"];
+const DENOMINAZIONI = ["DOC", "DOCG", "IGT", "AOC", "IGP", "QbA", "QmP", "AVA", "n.d."];
 
 // ─── Icone SVG M3 ────────────────────────────────────────────────────────────
 const IC = {
@@ -541,7 +542,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
             {wine.vino}
             {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display:"inline-flex", verticalAlign:"middle" }}>{IC.verified}</span>}
           </div>
-          {wine.denominazione && (
+          {wine.denominazione && wine.denominazione !== "n.d." && (
             <div style={{ fontSize: 11, fontFamily: "'Roboto', sans-serif", color: M3.onSurfaceVariant, lineHeight: 1.2, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {wine.denominazione}
             </div>
@@ -703,7 +704,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
 // ─── Modal: Aggiungi Vino ─────────────────────────────────────────────────────
 function ModalAggiungi({ onSalva, onAnnulla }) {
   const [modo, setModo] = useState(null);
-  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
+  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "n.d.", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMime, setImageMime] = useState("image/jpeg");
@@ -738,17 +739,18 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       const base = {
         produttore: data.produttore || "",
         vino: data.vino || "",
-        denominazione: data.denominazione || "",
+        denominazione: DENOMINAZIONI.includes(data.denominazione) ? data.denominazione : "n.d.",
         annata: data.annata || "",
         tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : null,
         vitigno: data.vitigno || "",
       };
-      setForm(prev => ({ ...prev, produttore: base.produttore || prev.produttore, vino: base.vino || prev.vino, denominazione: base.denominazione || prev.denominazione, annata: base.annata || prev.annata, tipologia: base.tipologia || prev.tipologia, vitigno: base.vitigno || prev.vitigno }));
+      setForm(prev => ({ ...prev, produttore: base.produttore || prev.produttore, vino: base.vino || prev.vino, denominazione: base.denominazione, annata: base.annata || prev.annata, tipologia: base.tipologia || prev.tipologia, vitigno: base.vitigno || prev.vitigno }));
       // Fase 2: arricchimento web — un suo fallimento non perde i dati base
-      if (base.produttore && base.vino) {
+      if (base.produttore && (base.vino || base.denominazione !== "n.d.")) {
         setAiFase("web");
+        const queryVino = [base.vino, base.denominazione !== "n.d." ? base.denominazione : ""].filter(Boolean).join(" ");
         try {
-          const enrichRes = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: base.produttore, vino: base.vino, annata: base.annata }) });
+          const enrichRes = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: base.produttore, vino: queryVino, annata: base.annata }) });
           const enrich = await enrichRes.json();
           if (enrichRes.ok && enrich.raw === undefined) {
             setForm(prev => ({
@@ -781,7 +783,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
       {opts.select ? (
         <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }}>
-          {Object.keys(TIPO).map(t => <option key={t}>{t}</option>)}
+          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
         </select>
       ) : (
         <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value }))}
@@ -848,7 +850,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             )}
             {field("produttore", "Produttore")}
             {field("vino", "Nome vino")}
-            {field("denominazione", "Denominazione")}
+            {field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}
             {field("annata", "Annata")}
             {field("tipologia", "Tipologia", "text", { select: true })}
             {field("bottiglie", "N. bottiglie", "number")}
@@ -880,7 +882,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
 // ─── Modal: Modifica dati vino ────────────────────────────────────────────────
 function ModalModifica({ wine, onSalva, onAnnulla }) {
   const [form, setForm] = useState({
-    produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "", annata: wine.annata || "",
+    produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "n.d.", annata: wine.annata || "",
     tipologia: wine.tipologia || "Bianco fermo", bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
     vitigno: wine.vitigno || "", macerazione: wine.macerazione || "", fermentazione: wine.fermentazione || "",
     malolattica: wine.malolattica || "", note: wine.note || "",
@@ -892,7 +894,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
       <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
       {opts.select ? (
         <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface }}>
-          {Object.keys(TIPO).map(t => <option key={t}>{t}</option>)}
+          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
         </select>
       ) : opts.textarea ? (
         <textarea value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} rows={opts.rows || 3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 13, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical", lineHeight: 1.5 }} />
@@ -913,7 +915,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
           </div>
         </div>
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Dati principali</div>
-        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione")}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo (€/bottiglia)", "number")}
+        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo (€/bottiglia)", "number")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
         {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Malolattica")}
@@ -1285,7 +1287,7 @@ export default function Cantina() {
         setWines(fetchedWines.map(w => ({
           ...w,
           slowVinoBott: !!w.slow_vino_bott,
-          denominazione: w.denominazione || "",
+          denominazione: w.denominazione || "n.d.",
           macerazione:  w.macerazione  || "—",
           fermentazione: w.fermentazione || "—",
           malolattica:  w.malolattica  || "—",
@@ -1457,10 +1459,10 @@ export default function Cantina() {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
       }).then(r => { if (!r.ok) throw new Error(`max-id fetch ${r.status}`); return r.json(); });
       const nextId = ((maxRow[0]?.id) || 0) + 1;
-      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: form.denominazione || "", annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
+      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: form.denominazione || "n.d.", annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
       const inserted = await sb.insert("wines", row);
       if (!inserted) throw new Error("insert failed");
-      setWines(prev => [...prev, { ...inserted, slowVinoBott: !!inserted.slow_vino_bott, denominazione: inserted.denominazione || "", macerazione: inserted.macerazione || "—", fermentazione: inserted.fermentazione || "—", malolattica: inserted.malolattica || "—" }]);
+      setWines(prev => [...prev, { ...inserted, slowVinoBott: !!inserted.slow_vino_bott, denominazione: inserted.denominazione || "n.d.", macerazione: inserted.macerazione || "—", fermentazione: inserted.fermentazione || "—", malolattica: inserted.malolattica || "—" }]);
     } catch (e) {
       setDbError("Errore salvataggio vino");
     }
