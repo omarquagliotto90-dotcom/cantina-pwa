@@ -295,6 +295,19 @@ const GlobeSearchIcon = ({ size = 14, color = "currentColor", style = {} }) => (
   </svg>
 );
 
+const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {} }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} fill={color} style={style} xmlns="http://www.w3.org/2000/svg">
+      <path d="m 5.6324693,0.99037692 c -0.74128,0.20179298 -1.61733,0.77353998 -2.02167,1.31165498 -0.70758,0.9417 -0.70758,1.210757 -0.77497,21.8609041 -0.0674,16.311597 0,21.120996 0.33695,21.760007 0.23586,0.47085 0.94344,1.109861 1.58363,1.412551 1.07822,0.538114 2.72925,0.605379 19.4753697,0.605379 16.27439,0 18.43083,-0.06726 19.2395,-0.538115 1.95427,-1.143493 1.88688,-0.269057 1.98797,-22.163593 0.10108,-21.9954331 0.0674,-22.5335471 -1.71842,-23.8452021 -0.94344,-0.70627498 -1.24669,-0.70627498 -18.86886,-0.73990698 -12.36585,-0.03363 -18.3297497,0.06726 -19.2394997,0.336321 z M 22.951389,24.431993 v 21.827272 h -7.88449 c -8.1203497,0 -9.7039897,-0.201793 -10.3104897,-1.345287 -0.40433,-0.739907 -0.47172,-40.3249591 -0.0674,-40.8630741 0.80867,-1.109861 2.45969,-1.345286 10.3441797,-1.412551 l 7.91819,-0.03363 z m 19.64383,-21.1209971 0.90975,0.571747 V 24.532889 c 0,18.766746 -0.0337,20.683779 -0.5728,21.087365 -0.43803,0.369954 -2.35861,0.47085 -9.16488,0.47085 h -8.62577 l -0.10108,-21.0201 c -0.0337,-11.569463 0,-21.3564221 0.10108,-21.7936401 l 0.20217,-0.773539 8.15405,0.100896 c 7.14321,0.100897 8.28882,0.168161 9.09748,0.706275 z" />
+      <path d="m 10.214899,16.864757 c -0.9771297,1.580711 -1.6173297,5.44841 -1.1119097,6.961857 0.40433,1.177126 1.6847197,2.556044 2.9987997,3.228687 0.64019,0.336322 0.74128,0.672644 0.74128,2.219723 0,1.782504 -0.0337,1.849769 -0.90975,1.849769 -2.0216597,0 -3.2009697,0.840804 -2.0890497,1.513447 0.2695497,0.168161 5.4921797,0.302689 7.6486297,0.201793 0.20216,-0.03363 0.40433,-0.336322 0.40433,-0.706275 0,-0.639011 -0.47172,-0.874437 -2.35861,-1.07623 -0.77497,-0.100896 -0.84236,-0.235425 -0.84236,-1.748872 0,-1.580711 0.0674,-1.681608 1.31408,-2.387883 0.70758,-0.403586 1.54994,-1.177126 1.85319,-1.71524 0.74128,-1.345287 0.6065,-5.482042 -0.20216,-7.701765 l -0.6402,-1.681608 -2.9988,-0.06726 -3.03249,-0.100897 z m 5.93022,1.210758 c 0.23586,0.235425 0.40433,0.672643 0.40433,1.008965 0,0.538114 -0.30325,0.605378 -2.49338,0.605378 -1.38147,0 -2.59447,-0.100896 -2.66186,-0.269057 -0.10108,-0.134529 -0.0337,-0.571747 0.13478,-1.008965 0.23586,-0.639011 0.50541,-0.739907 2.25752,-0.739907 1.07822,0 2.12275,0.168161 2.35861,0.403586 z m 0.74128,4.607606 c 0,1.177125 -1.95428,3.060526 -3.13358,3.060526 -1.34778,0 -3.36944,-2.724205 -2.76294,-3.699537 0.10108,-0.168161 1.48255,-0.336322 3.06619,-0.336322 h 2.83033 z" />
+      <path d="m 29.488099,9.4320499 c -0.53911,1.3452861 -0.0337,1.5134471 4.852,1.5134471 3.77377,0 4.7846,-0.100897 5.12154,-0.504483 0.33695,-0.403586 0.33695,-0.6053781 0,-1.0089641 -0.33694,-0.403586 -1.34777,-0.504483 -5.12154,-0.504483 -3.84117,0 -4.71722,0.100897 -4.852,0.504483 z" />
+      <path d="m 29.488099,15.115885 c -0.10108,0.269057 -0.13478,0.773539 -0.0674,1.109861 0.10109,0.538114 0.57281,0.605379 4.8183,0.706275 4.07702,0.06726 4.75091,0 5.12155,-0.47085 0.30325,-0.403586 0.30325,-0.739907 0.0674,-1.177126 -0.30325,-0.571746 -0.77497,-0.639011 -5.05416,-0.639011 -3.77377,0 -4.75091,0.100897 -4.88569,0.470851 z" />
+      <path d="m 29.488099,20.833352 c -0.10108,0.269057 -0.13478,0.77354 -0.0674,1.109861 0.10109,0.538115 0.53911,0.605379 4.78461,0.605379 5.12155,0 5.93021,-0.235425 5.29002,-1.446183 -0.37064,-0.706275 -0.6065,-0.739907 -5.12155,-0.739907 -3.77377,0 -4.75091,0.100896 -4.88569,0.47085 z" />
+      <path d="m 29.488099,26.920773 c -0.53911,1.345286 -0.0337,1.513447 4.852,1.513447 3.77377,0 4.7846,-0.100896 5.12154,-0.504482 0.33695,-0.403586 0.33695,-0.605379 0,-1.008965 -0.33694,-0.403586 -1.34777,-0.504483 -5.12154,-0.504483 -3.84117,0 -4.71722,0.100897 -4.852,0.504483 z" />
+      <path d="m 29.589179,32.369183 c -0.13477,0.100896 -0.23586,0.504482 -0.23586,0.840804 0,0.571746 0.37064,0.605379 5.02047,0.605379 2.79663,0 5.12155,-0.134529 5.22263,-0.30269 0.13478,-0.168161 0.10108,-0.538114 0,-0.840804 -0.16847,-0.47085 -0.94344,-0.538114 -4.98677,-0.538114 -2.66186,0 -4.91938,0.100896 -5.02047,0.235425 z" />
+      <path d="m 29.926129,37.78396 c -0.33695,0.06726 -0.57281,0.437219 -0.57281,0.840804 0,1.513448 0.30325,1.614344 5.05416,1.513448 4.04333,-0.100897 4.51505,-0.168161 4.91939,-0.77354 0.87605,-1.311654 0.20216,-1.547079 -4.48136,-1.614344 -2.3923,-0.03363 -4.61613,-0.03363 -4.91938,0.03363 z" />
+  </svg>
+);
+
 const TIPO = {
   "Rosso fermo":    { container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: <RossoIcon /> },
   "Bianco fermo":   { container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: <BiancoIcon /> },
@@ -1055,6 +1068,31 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
     malolattica: wine.malolattica || "", note: wine.note || "",
   });
   const [formError, setFormError] = useState(null);
+  const [schedaLoading, setSchedaLoading] = useState(false);
+  const [schedaError, setSchedaError] = useState(null);
+
+  const handleInserisciScheda = async () => {
+    if (!form.produttore || !form.vino) { setSchedaError("Inserisci produttore e nome vino prima di cercare."); return; }
+    setSchedaLoading(true); setSchedaError(null);
+    try {
+      const queryVino = [form.vino, form.denominazione !== "n.d." ? form.denominazione : ""].filter(Boolean).join(" ");
+      const res = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: form.produttore, vino: queryVino, annata: form.annata }) });
+      const data = await res.json();
+      if (!res.ok || data.raw !== undefined) throw new Error(data.error || "Ricerca non riuscita");
+      setForm(prev => ({
+        ...prev,
+        vitigno: data.vitigno || prev.vitigno,
+        fermentazione: data.fermentazione || prev.fermentazione,
+        macerazione: data.macerazione || prev.macerazione,
+        malolattica: data.malolattica || prev.malolattica,
+        note: data.note || prev.note,
+      }));
+    } catch (err) {
+      setSchedaError("Scheda tecnica non trovata sul web. Puoi compilare a mano.");
+    } finally {
+      setSchedaLoading(false);
+    }
+  };
 
   const field = (key, label, type = "text", opts = {}) => (
     <div style={{ marginBottom: 12 }}>
@@ -1085,6 +1123,15 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo (€/bottiglia)", "number")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
+        <button onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: (schedaLoading || !form.produttore || !form.vino) ? M3.surfaceContainerHighest : M3.primaryContainer, color: (schedaLoading || !form.produttore || !form.vino) ? M3.onSurfaceVariant : M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: (schedaLoading || !form.produttore || !form.vino) ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", marginBottom: 14 }}>
+          {schedaLoading
+            ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ display: "inline-flex", animation: "spin 1s linear infinite" }}>{IC.spinner}</span> Ricerca in corso…</span>
+            : <span style={{ display: "flex", alignItems: "center", gap: 8 }}><SchedaTecnicaIcon size={20} /> Inserisci scheda tecnica</span>}
+        </button>
+        {schedaError && (
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>{schedaError}</div>
+        )}
         {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Malolattica")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
