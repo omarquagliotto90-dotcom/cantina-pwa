@@ -488,6 +488,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   const vinoSW = !!wine.slowVinoBott;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [rowsOpen, setRowsOpen] = useState(false);
   const cardRef = useRef(null);
 
   const tabs = [
@@ -503,14 +504,22 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
     const wasExpanded = prevExpandedRef.current;
     prevExpandedRef.current = expanded;
 
+    if (expanded && !wasExpanded) {
+      // Apertura: contenuto montato a 0fr, poi rAF -> 1fr per animare height+fade (Emphasized Decelerate 300ms)
+      setClosing(false);
+      const r = requestAnimationFrame(() => setRowsOpen(true));
+      return () => cancelAnimationFrame(r);
+    }
+
     if (!expanded && wasExpanded) {
-      // Animazione di chiusura
+      // Chiusura: anima verso 0fr (Emphasized Accelerate 250ms), poi smonta
+      setRowsOpen(false);
       setClosing(true);
       const t = setTimeout(() => {
         setClosing(false);
         setCardTab("scheda");
         setConfirmDelete(false);
-      }, 260);
+      }, 250);
       return () => clearTimeout(t);
     }
   }, [expanded]);
@@ -569,9 +578,11 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         </div>
       </div>
 
-      {/* ── Contenuto espanso ── */}
-      {(expanded || closing) && (
-        <div className={closing ? "m3-closing" : "m3-expand-content"} style={{ padding: "0 14px 14px" }}>
+      {/* ── Contenuto espanso: grid height + fade (Emphasized) ── */}
+      <div className={"m3-expand-grid" + (rowsOpen ? " open" : "")}>
+        <div className="m3-expand-inner">
+          {(expanded || closing) && (
+            <div style={{ padding: "0 14px 14px" }}>
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
           {/* Tab switcher */}
@@ -695,8 +706,10 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
               </div>
             )}
           </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1542,6 +1555,11 @@ export default function Cantina() {
         @keyframes m3FadeIn { from { opacity: 0; } to { opacity: 1; } }
         .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
         .m3-closing { animation: m3ContentOut 260ms cubic-bezier(0.2, 0, 0, 1) both; overflow: hidden; }
+        /* MD3 expand: height (grid-template-rows) + fade, coppia Emphasized */
+        .m3-expand-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 250ms cubic-bezier(0.3, 0, 0.8, 0.15); /* Emphasized Accelerate, Medium1 250ms (chiusura) */ }
+        .m3-expand-grid.open { grid-template-rows: 1fr; transition: grid-template-rows 300ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium2 300ms (apertura) */ }
+        .m3-expand-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 250ms cubic-bezier(0.3, 0, 0.8, 0.15); }
+        .m3-expand-grid.open .m3-expand-inner { opacity: 1; transition: opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1); }
         .m3-stagger-1 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
         .m3-stagger-2 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
         .m3-stagger-3 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
