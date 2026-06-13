@@ -1016,33 +1016,17 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const cardRefs = useRef({});
 
   const handleToggle = (wineId) => {
-    // Stessa card: chiudi semplicemente
+    // Stessa card: chiudi
     if (expanded === wineId) { setExpanded(null); return; }
 
-    // Nessuna card aperta: apri direttamente
-    if (expanded === null) { setExpanded(wineId); return; }
+    // Apri in-place — vale sia al primo tap sia al cambio card
+    setExpanded(wineId);
 
-    // C'è una card aperta diversa: coordina scroll + chiusura + apertura
-    const container = scrollRef?.current;
-    const targetRef = cardRefs.current[wineId];
-    if (!container || !targetRef) { setExpanded(wineId); return; }
-
-    const containerRect = container.getBoundingClientRect();
-    const targetRect = targetRef.getBoundingClientRect();
-    const targetScrollTop = container.scrollTop + targetRect.top - containerRect.top - 16;
-    const distance = Math.abs(targetScrollTop - container.scrollTop);
-
-    // Stima durata scroll: ~0.8ms per pixel, min 200ms, max 600ms
-    const scrollDuration = Math.min(600, Math.max(200, distance * 0.8));
-
-    // Chiudi la card corrente
-    setExpanded(null);
-
-    // Avvia scroll manuale verso la nuova card
-    container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-
-    // Dopo che scroll + chiusura sono completati, espandi la nuova
-    setTimeout(() => setExpanded(wineId), scrollDuration + 80);
+    // Dopo il relayout porta la card in vista quanto basta:
+    // niente durate stimate, niente target ricalcolato su layout stale.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      cardRefs.current[wineId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }));
   };
 
   // 1:N — vino resta in Lista finché bottiglie > 0 (garantito da allWines a monte)
