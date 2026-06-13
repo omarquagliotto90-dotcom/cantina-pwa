@@ -698,11 +698,12 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
 // ─── Modal: Aggiungi Vino ─────────────────────────────────────────────────────
 function ModalAggiungi({ onSalva, onAnnulla }) {
   const [modo, setModo] = useState(null);
-  const [form, setForm] = useState({ produttore: "", vino: "", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", note: "" });
+  const [form, setForm] = useState({ produttore: "", vino: "", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
+  const [aiFase, setAiFase] = useState("vision");
   const fileRef = useRef();
 
   const handleFotoChange = (e) => {
@@ -720,13 +721,43 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
 
   const handleAnalizzaEtichetta = async () => {
     if (!imageBase64) return;
-    setAiLoading(true); setAiError(null);
+    setAiLoading(true); setAiError(null); setAiFase("vision");
     try {
       const response = await fetch("/api/analyze-label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64, mediaType: "image/jpeg" }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || response.status);
       if (data.raw !== undefined) throw new Error("Riconoscimento non riuscito. Puoi compilare manualmente.");
-      setForm(prev => ({ ...prev, produttore: data.produttore || prev.produttore, vino: data.vino || prev.vino, annata: data.annata || prev.annata, tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : prev.tipologia, vitigno: data.vitigno || prev.vitigno }));
+      const base = {
+        produttore: data.produttore || "",
+        vino: data.vino || "",
+        annata: data.annata || "",
+        tipologia: Object.keys(TIPO).includes(data.tipologia) ? data.tipologia : null,
+        vitigno: data.vitigno || "",
+      };
+      setForm(prev => ({ ...prev, produttore: base.produttore || prev.produttore, vino: base.vino || prev.vino, annata: base.annata || prev.annata, tipologia: base.tipologia || prev.tipologia, vitigno: base.vitigno || prev.vitigno }));
+      // Fase 2: arricchimento web — un suo fallimento non perde i dati base
+      if (base.produttore && base.vino) {
+        setAiFase("web");
+        try {
+          const enrichRes = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: base.produttore, vino: base.vino, annata: base.annata }) });
+          const enrich = await enrichRes.json();
+          if (enrichRes.ok && enrich.raw === undefined) {
+            setForm(prev => ({
+              ...prev,
+              vitigno: prev.vitigno || enrich.vitigno || "",
+              macerazione: prev.macerazione || enrich.macerazione || "",
+              fermentazione: prev.fermentazione || enrich.fermentazione || "",
+              malolattica: prev.malolattica || enrich.malolattica || "",
+              note: prev.note || enrich.note || "",
+              prezzo: (!prev.prezzo && enrich.prezzo_stimato) ? enrich.prezzo_stimato : prev.prezzo,
+            }));
+          } else {
+            setAiError("Riconoscimento riuscito, ma la ricerca web non è andata a buon fine. Campi tecnici da compilare a mano.");
+          }
+        } catch {
+          setAiError("Riconoscimento riuscito, ma la ricerca web non è andata a buon fine. Campi tecnici da compilare a mano.");
+        }
+      }
       setModo("manuale");
     } catch (err) {
       setAiError("Riconoscimento non riuscito. Puoi compilare manualmente.");
@@ -789,8 +820,8 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             ) : (
               <div style={{ padding: "24px 0" }}>
                 <div style={{ marginBottom: 12, color: M3.primary, animation: "spin 1s linear infinite" }}>{IC.ai}</div>
-                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>Analisi AI in corso…</div>
-                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Riconoscimento produttore, vino e annata</div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>{aiFase === "web" ? "Ricerca info sul web…" : "Analisi AI in corso…"}</div>
+                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{aiFase === "web" ? "Scheda tecnica e stima prezzo (fino a 1 minuto)" : "Riconoscimento produttore, vino e annata"}</div>
               </div>
             )}
           </div>
@@ -801,7 +832,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
               <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
                 <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>{aiError ? "⚠️ Riconoscimento parziale" : "🤖 Campi pre-compilati da AI"}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>{aiError ? "⚠️ Attenzione" : "🤖 Campi pre-compilati da AI"}</div>
                   <div style={{ fontSize: 11, color: "#388E3C", fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, marginTop: 2 }}>{aiError || "Verifica e correggi i campi se necessario"}</div>
                 </div>
               </div>
@@ -813,6 +844,9 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             {field("bottiglie", "N. bottiglie", "number")}
             {field("prezzo", "Prezzo (€/bot.)", "number")}
             {field("vitigno", "Vitigno")}
+            {field("macerazione", "Macerazione")}
+            {field("fermentazione", "Fermentazione")}
+            {field("malolattica", "Malolattica")}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>Note</div>
               <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} rows={3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
@@ -1386,6 +1420,27 @@ export default function Cantina() {
     setShowAggiungi(false);
     setTab("lista");
     try {
+      // Dedup: se esiste già lo stesso vino (produttore+vino+annata), incrementa bottiglie invece di creare una riga nuova.
+      // Match case/space-insensitive; include righe a 0 bottiglie (storico) → riappaiono in Lista.
+      const norm = s => (s || "").trim().toLowerCase();
+      const formAnnata = form.annata || "n.d.";
+      const existing = wines.find(w =>
+        norm(w.produttore) === norm(form.produttore) &&
+        norm(w.vino) === norm(form.vino) &&
+        norm(w.annata) === norm(formAnnata)
+      );
+      if (existing) {
+        const nuoveBottiglie = (existing.bottiglie || 0) + form.bottiglie;
+        const prevWines = wines;
+        // Ottimistico: aggiorna solo le bottiglie, i dati in cantina restano la fonte di verità
+        setWines(prev => prev.map(w => w.id === existing.id ? { ...w, bottiglie: nuoveBottiglie } : w));
+        const patched = await sb.patch("wines", "id", existing.id, { bottiglie: nuoveBottiglie });
+        if (!patched) {
+          setWines(prevWines);
+          setDbError("Errore: aggiornamento bottiglie non riuscito");
+        }
+        return;
+      }
       // id è integer senza autoincrement: legge il max corrente e usa max+1
       const maxRow = await fetch(`${SB_URL}/rest/v1/wines?select=id&order=id.desc&limit=1`, {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
