@@ -1010,7 +1010,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, scrollRef }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
@@ -1084,28 +1084,24 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
 }
 
 // ─── Tab: Bevuti ──────────────────────────────────────────────────────────────
-function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, scrollRef }) {
+function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
   const [expanded, setExpanded] = useState(null);
   const cardRefs = useRef({});
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
   const handleToggle = (uid) => {
+    // Stessa card: chiudi
     if (expanded === uid) { setExpanded(null); return; }
-    if (expanded === null) { setExpanded(uid); return; }
 
-    const container = scrollRef?.current;
-    const targetRef = cardRefs.current[uid];
-    if (!container || !targetRef) { setExpanded(uid); return; }
+    // Apri in-place — vale sia al primo tap sia al cambio card
+    setExpanded(uid);
 
-    const containerRect = container.getBoundingClientRect();
-    const targetRect = targetRef.getBoundingClientRect();
-    const targetScrollTop = container.scrollTop + targetRect.top - containerRect.top - 16;
-    const distance = Math.abs(targetScrollTop - container.scrollTop);
-    const scrollDuration = Math.min(600, Math.max(200, distance * 0.8));
-
-    setExpanded(null);
-    container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
-    setTimeout(() => setExpanded(uid), scrollDuration + 80);
+    // Attendo la fine dell'apertura (300ms = Medium2) così la card ha l'altezza
+    // FINALE, poi porto in vista col minimo necessario (header in cima se più alta
+    // del viewport, nessun movimento se già visibile). Niente target su layout stale.
+    setTimeout(() => {
+      cardRefs.current[uid]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 300);
   };
   const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo ?? b.prezzo ?? 0), 0);
 
@@ -1536,20 +1532,9 @@ export default function Cantina() {
         html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #FFF8F7; }
         input, textarea, select { outline: none; }
         ::-webkit-scrollbar { width: 0; height: 0; }
-        @keyframes expandIn { from { opacity:0; transform:translateY(-5px) } to { opacity:1; transform:translateY(0) } }
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
-        @keyframes m3ContentIn {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes m3ContentOut {
-          from { opacity: 1; transform: translateY(0); }
-          to   { opacity: 0; transform: translateY(-8px); }
-        }
-        .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
-        .m3-closing { animation: m3ContentOut 260ms cubic-bezier(0.2, 0, 0, 1) both; overflow: hidden; }
         /* MD3 expand: height (grid-template-rows) + fade, coppia Emphasized */
         .m3-expand-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 250ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium1 250ms (chiusura) */ }
         .m3-expand-grid.open { grid-template-rows: 1fr; transition: grid-template-rows 300ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium2 300ms (apertura) */ }
@@ -1577,8 +1562,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} scrollRef={scrollRef} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
