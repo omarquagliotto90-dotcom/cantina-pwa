@@ -27,7 +27,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
-        max_tokens: 1000,
+        max_tokens: 1200,
+        temperature: 0,
         messages: [{
           role: "user",
           content: [
@@ -41,15 +42,32 @@ export default async function handler(req, res) {
             },
             {
               type: "text",
-              text: `Analizza questa etichetta di vino e restituisci SOLO un oggetto JSON con questi campi (nessun testo aggiuntivo, nessun markdown):
+              text: `Sei un esperto di etichette di vino. Analizza l'immagine in due passaggi.
+
+PASSAGGIO 1 — Trascrivi nel campo "testo_visibile" TUTTO il testo che leggi sull'etichetta, riga per riga, esattamente come appare (produttore, nome, denominazione, annata, gradazione, volume, diciture varie).
+
+PASSAGGIO 2 — Sulla base SOLO di ciò che hai trascritto, compila gli altri campi.
+
+Restituisci SOLO questo oggetto JSON, senza markdown né testo aggiuntivo:
 {
-  "produttore": "nome del produttore/cantina",
-  "vino": "nome commerciale del vino",
-  "annata": "anno in formato 4 cifre oppure 'n.d.' se non visibile",
+  "testo_visibile": "tutto il testo letto, separato da | ",
+  "produttore": "nome della cantina/azienda produttrice",
+  "vino": "nome proprio o di fantasia del vino (es. 'La Rocca', 'Calvarino'). Se il vino non ha un nome proprio e si identifica solo con la denominazione, lascia '' ",
+  "denominazione": "denominazione/appellazione con sigla (es. 'Soave Classico DOC', 'Barolo DOCG', 'Toscana IGT'), oppure '' se assente",
+  "annata": "anno di vendemmia a 4 cifre, oppure 'n.d.' se non presente",
   "tipologia": "una di: Rosso fermo, Bianco fermo, Orange, Spumante, Spumante rosso, Sidro",
   "vitigno": "vitigno/i indicati sull'etichetta, oppure '' se non visibile"
 }
-Se un campo non è leggibile, usa stringa vuota. La tipologia deve essere esattamente una delle opzioni date.`,
+
+REGOLE:
+- ANNATA: è l'anno della vendemmia, di solito una sola data a 4 cifre vicino al nome del vino. NON confonderla con: gradazione alcolica (es. 13,5%), volume (es. 750 ml / 0,75 L), anno di fondazione della cantina (spesso preceduto da "dal", "since", "est."), codici di lotto. Nel dubbio, se vedi più anni, scegli quello plausibile come vendemmia; se nessuno è chiaramente la vendemmia, usa 'n.d.'.
+- DENOMINAZIONE vs VINO: la denominazione (Soave, Barolo, Chianti, Etna…) va SEMPRE in "denominazione", mai dentro "vino". In "vino" va solo il nome proprio/cru. Se l'etichetta riporta solo la denominazione senza nome proprio, "vino" = '' e "denominazione" valorizzata.
+- Non inventare: se un campo non è leggibile, usa '' (o 'n.d.' per l'annata).
+- La tipologia deve essere esattamente una delle opzioni date.
+
+ESEMPI di scomposizione corretta:
+- Etichetta "PIEROPAN — SOAVE CLASSICO — LA ROCCA — 2021" → produttore "Pieropan", vino "La Rocca", denominazione "Soave Classico DOC", annata "2021".
+- Etichetta "ABBAZIA DI NOVACELLA — SYLVANER — ALTO ADIGE VALLE ISARCO" senza anno → produttore "Abbazia di Novacella", vino "Sylvaner", denominazione "Alto Adige Valle Isarco DOC", annata "n.d.".`,
             },
           ],
         }],
