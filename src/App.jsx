@@ -586,7 +586,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
 
           {/* Tab switcher */}
-          <div className="m3-stagger-1" onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginBottom: 14, justifyContent: "center", overflowX: "auto", scrollbarWidth: "none", background: M3.surfaceContainerHighest, borderRadius: 50, padding: "4px 6px" }}>
+          <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginBottom: 14, justifyContent: "center", overflowX: "auto", scrollbarWidth: "none", background: M3.surfaceContainerHighest, borderRadius: 50, padding: "4px 6px" }}>
             {tabs.map(tab => {
               const active = cardTab === tab.id;
               return (
@@ -601,12 +601,12 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           {cardTab === "scheda" && (
             <>
               {(cantinaSW || vinoSW) && (
-                <div className="m3-stagger-2" style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
                   {cantinaSW && <SwBadge type="chiocciola" />}
                   {vinoSW && <SwBadge type="bottiglia" />}
                 </div>
               )}
-              <div className="m3-stagger-2" style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
                 {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
                   <div key={s.l} style={{ flex: "1 1 70px", background: "#7A7A72", borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#E8D8A0", fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
@@ -614,7 +614,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                   </div>
                 ))}
               </div>
-              <div className="m3-stagger-3" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 {[
                   { icon: IC.grape, label: "Vitigno",       val: wine.vitigno },
                   { icon: IC.timer, label: "Macerazione",   val: wine.macerazione },
@@ -628,7 +628,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
                 ))}
               </div>
               {wine.note && (
-                <div className="m3-stagger-4" style={{ background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)", borderLeft: `3px solid ${t.indicator}` }}>
+                <div style={{ background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)", borderLeft: `3px solid ${t.indicator}` }}>
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.notes}<span>Note</span></div>
                   <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
                 </div>
@@ -679,7 +679,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           )}
 
           {/* ── Azioni ── */}
-          <div className="m3-stagger-4">
+          <div>
             {!bevutoInfo ? (
               <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{ width: "100%", padding: "10px 24px", borderRadius: 20, border: "none", background: "#D4E0D0", color: "#2E4A2E", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, marginBottom: 8, boxShadow: "0 1px 2px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.wineglass} Segna come bevuto</span>
@@ -1552,7 +1552,6 @@ export default function Cantina() {
           from { opacity: 1; transform: translateY(0); }
           to   { opacity: 0; transform: translateY(-8px); }
         }
-        @keyframes m3FadeIn { from { opacity: 0; } to { opacity: 1; } }
         .m3-expand-content { animation: m3ContentIn 300ms cubic-bezier(0.2, 0, 0, 1) both; }
         .m3-closing { animation: m3ContentOut 260ms cubic-bezier(0.2, 0, 0, 1) both; overflow: hidden; }
         /* MD3 expand: height (grid-template-rows) + fade, coppia Emphasized */
@@ -1560,11 +1559,6 @@ export default function Cantina() {
         .m3-expand-grid.open { grid-template-rows: 1fr; transition: grid-template-rows 300ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium2 300ms (apertura) */ }
         .m3-expand-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 250ms cubic-bezier(0.3, 0, 0.8, 0.15); }
         .m3-expand-grid.open .m3-expand-inner { opacity: 1; transition: opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1); }
-        .m3-stagger-1 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 40ms both; }
-        .m3-stagger-2 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 80ms both; }
-        .m3-stagger-3 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 120ms both; }
-        .m3-stagger-4 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 160ms both; }
-        .m3-stagger-5 { animation: m3FadeIn 250ms cubic-bezier(0.2, 0, 0, 1) 200ms both; }
       `}</style>
 
       {/* ── App Bar ── */}
