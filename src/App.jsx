@@ -489,6 +489,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [closing, setClosing] = useState(false);
   const [rowsOpen, setRowsOpen] = useState(false);
+  const [headerPressed, setHeaderPressed] = useState(false);
+  const [headerHover, setHeaderHover] = useState(false);
   const cardRef = useRef(null);
 
   const tabs = [
@@ -540,7 +542,15 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
       boxShadow: expanded ? "0 1px 2px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.07)" : "0 1px 2px rgba(0,0,0,0.05)",
     }}>
       {/* ── Header ── */}
-      <div onClick={onToggle} style={{ display: "flex", alignItems: "stretch", minHeight: 68, cursor: "pointer" }}>
+      <div onClick={onToggle}
+        onPointerDown={() => setHeaderPressed(true)}
+        onPointerUp={() => setHeaderPressed(false)}
+        onPointerCancel={() => setHeaderPressed(false)}
+        onPointerLeave={() => { setHeaderPressed(false); setHeaderHover(false); }}
+        onPointerEnter={e => { if (e.pointerType === "mouse") setHeaderHover(true); }}
+        style={{ position: "relative", display: "flex", alignItems: "stretch", minHeight: 68, cursor: "pointer" }}>
+        {/* MD3 state layer: onSurface 10% pressed / 8% hover */}
+        <span aria-hidden="true" style={{ position: "absolute", inset: 0, background: M3.onSurface, opacity: headerPressed ? 0.10 : headerHover ? 0.08 : 0, transition: "opacity 120ms cubic-bezier(0.2,0,0,1)", pointerEvents: "none" }} />
         <div style={{ width: 4, flexShrink: 0, background: expanded ? t.indicator : "transparent", transition: "background 0.2s" }} />
         <div style={{ flex: 1, padding: "11px 12px", minWidth: 0 }}>
           <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 1 }}>
