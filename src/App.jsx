@@ -657,19 +657,22 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
   const overlayRef = useRef(null);
   const backBtnRef = useRef(null);
   const pushedRef = useRef(false);
+  const closingRef = useRef(false);
   const active = !closing;
+
+  const startClose = () => { if (closingRef.current) return; closingRef.current = true; setClosing(true); };
 
   useEffect(() => {
     if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
-    const onPop = () => setClosing(true);
+    const onPop = () => startClose();
     window.addEventListener("popstate", onPop);
     const raf = requestAnimationFrame(() => backBtnRef.current?.focus());
     return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
   }, []);
 
-  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> closing
-  const requestClose = () => window.history.back();
-  const onOverlayAnimEnd = () => { if (closing) onClose(); };
+  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> startClose
+  const requestClose = () => { if (closingRef.current) return; window.history.back(); };
+  const onOverlayAnimEnd = (e) => { if (e.target === e.currentTarget && closing) onClose(); };
   const onOverlayKeyDown = (e) => {
     if (e.key === "Escape") { e.preventDefault(); requestClose(); return; }
     if (e.key !== "Tab") return;
@@ -1220,6 +1223,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const lastFocusedRef = useRef(null);
 
   const handleOpen = (wineId) => (e) => {
+    if (selectedId != null) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedId(wineId);
   };
@@ -1300,6 +1304,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   } : null);
 
   const handleOpen = (uid) => (e) => {
+    if (selectedUid != null) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedUid(uid);
   };
