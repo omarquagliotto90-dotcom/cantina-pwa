@@ -637,7 +637,7 @@ function WebsiteView({ wine }) {
 }
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, active }) {
+function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
@@ -653,10 +653,50 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
     ...(bevutoInfo ? [{ id: "valutazione", label: "Voto", icon: (active) => (<svg width="18" height="18" viewBox="0 0 24 24" fill={active ? M3.primary : "none"} stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>) }] : []),
   ];
 
-  return (
-            <div style={{ padding: "0 14px 14px" }}>
-          <div style={{ height: 1, background: M3.outlineVariant, marginBottom: 10 }} />
+  const [closing, setClosing] = useState(false);
+  const overlayRef = useRef(null);
+  const backBtnRef = useRef(null);
+  const pushedRef = useRef(false);
+  const active = !closing;
 
+  useEffect(() => {
+    if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
+    const onPop = () => setClosing(true);
+    window.addEventListener("popstate", onPop);
+    const raf = requestAnimationFrame(() => backBtnRef.current?.focus());
+    return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
+  }, []);
+
+  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> closing
+  const requestClose = () => window.history.back();
+  const onOverlayAnimEnd = () => { if (closing) onClose(); };
+  const onOverlayKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); requestClose(); return; }
+    if (e.key !== "Tab") return;
+    const f = overlayRef.current?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (!f || f.length === 0) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
+
+  return (
+    <div ref={overlayRef} role="dialog" aria-modal="true" aria-label={wine.vino}
+      onKeyDown={onOverlayKeyDown} onAnimationEnd={onOverlayAnimEnd}
+      style={{ position: "fixed", inset: 0, zIndex: 45, background: M3.surface, display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)", animation: closing ? "slideOutX 250ms cubic-bezier(0.3,0,0.8,0.15) both" : "slideInX 300ms cubic-bezier(0.05,0.7,0.1,1) both" }}>
+      {/* Top bar */}
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: `1px solid ${M3.outlineVariant}`, background: M3.surface }}>
+        <button ref={backBtnRef} onClick={requestClose} aria-label="Indietro" style={{ width: 40, height: 40, borderRadius: 20, border: "none", background: "transparent", color: M3.onSurface, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.produttore}</div>
+          <div style={{ fontSize: 16, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.vino}</div>
+        </div>
+      </div>
+      {/* Scroll container interno */}
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", background: "#F4F3EE" }}>
+        <div style={{ padding: "14px 14px 28px" }}>
           {/* Tab switcher */}
           <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginBottom: 14, justifyContent: "center", overflowX: "auto", scrollbarWidth: "none", background: M3.surfaceContainerHighest, borderRadius: 50, padding: "4px 6px" }}>
             {tabs.map(tab => {
@@ -722,7 +762,7 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
           )}
 
           {/* ── Tab WEBSITE ── */}
-          {cardTab === "website" && (
+          {active && cardTab === "website" && (
             <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
               <WebsiteView wine={wine} />
             </div>
@@ -778,61 +818,34 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
               </div>
             )}
           </div>
-            </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bevutoInfo = null, ratings = {}, onRate, cardRefCallback }) {
+function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
-  const [closing, setClosing] = useState(false);
-  const [rowsOpen, setRowsOpen] = useState(false);
   const [headerPressed, setHeaderPressed] = useState(false);
   const [headerHover, setHeaderHover] = useState(false);
-  const cardRef = useRef(null);
-
-  const prevExpandedRef = useRef(expanded);
-  useEffect(() => {
-    const wasExpanded = prevExpandedRef.current;
-    prevExpandedRef.current = expanded;
-
-    if (expanded && !wasExpanded) {
-      // Apertura: contenuto montato a 0fr, poi rAF -> 1fr per animare height+fade (Emphasized Decelerate 300ms)
-      setClosing(false);
-      const r = requestAnimationFrame(() => setRowsOpen(true));
-      return () => cancelAnimationFrame(r);
-    }
-
-    if (!expanded && wasExpanded) {
-      // Chiusura: anima verso 0fr (Emphasized Accelerate 250ms), poi smonta
-      setRowsOpen(false);
-      setClosing(true);
-      const t = setTimeout(() => {
-        setClosing(false);
-      }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [expanded]);
 
   const currentRating = ratings[wine.id] || 0;
 
   return (
-    <div ref={el => { cardRef.current = el; if (cardRefCallback) cardRefCallback(el); }} style={{
+    <div style={{
       borderRadius: 12,
-      scrollMarginTop: 8,
-      border: expanded ? `1px solid ${t.indicator}55` : `1px solid ${M3.outlineVariant}`,
-      borderLeft: expanded ? `4px solid ${t.indicator}` : `1px solid ${M3.outlineVariant}`,
-      background: expanded ? "#F4F3EE" : M3.surface,
+      border: `1px solid ${M3.outlineVariant}`,
+      borderLeft: `1px solid ${M3.outlineVariant}`,
+      background: M3.surface,
       overflow: "hidden",
-      transition: expanded
-        ? "border-color 300ms cubic-bezier(0.2,0,0,1), background 300ms cubic-bezier(0.2,0,0,1), border-left-width 300ms cubic-bezier(0.2,0,0,1), box-shadow 300ms cubic-bezier(0.2,0,0,1)"
-        : "border-color 250ms cubic-bezier(0.3,0,1,1), background 200ms cubic-bezier(0.3,0,1,1), border-left-width 250ms cubic-bezier(0.3,0,1,1), box-shadow 200ms cubic-bezier(0.3,0,1,1)",
-      boxShadow: expanded ? "0 1px 2px rgba(0,0,0,0.10),0 2px 6px rgba(0,0,0,0.07)" : "0 1px 2px rgba(0,0,0,0.05)",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
     }}>
-      {/* ── Header ── */}
-      <div onClick={onToggle}
+      {/* ── Header (riga tappabile → apre il dettaglio) ── */}
+      <div onClick={onOpen} role="button" tabIndex={0}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(e); } }}
         onPointerDown={() => setHeaderPressed(true)}
         onPointerUp={() => setHeaderPressed(false)}
         onPointerCancel={() => setHeaderPressed(false)}
@@ -841,7 +854,7 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
         style={{ position: "relative", display: "flex", alignItems: "stretch", minHeight: 68, cursor: "pointer" }}>
         {/* MD3 state layer: onSurface 10% pressed / 8% hover */}
         <span aria-hidden="true" style={{ position: "absolute", inset: 0, background: M3.onSurface, opacity: headerPressed ? 0.10 : headerHover ? 0.08 : 0, transition: "opacity 120ms cubic-bezier(0.2,0,0,1)", pointerEvents: "none" }} />
-        <div style={{ width: 4, flexShrink: 0, background: expanded ? t.indicator : "transparent", transition: "background 0.2s" }} />
+        <div style={{ width: 4, flexShrink: 0, background: "transparent" }} />
         <div style={{ flex: 1, padding: "11px 12px", minWidth: 0 }}>
           <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 1 }}>
             {wine.produttore}
@@ -873,17 +886,8 @@ function WineCard({ wine, expanded, onToggle, onBevi, onElimina, onModifica, bev
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             {!bevutoInfo && <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", gap: 3 }}>{IC.bottle} {wine.bottiglie}</span>}
             {bevutoInfo && <span style={{ color: M3.onSurfaceVariant, display: "flex", alignItems: "center" }}>{IC.wineglassFull}</span>}
-            <span style={{ color: M3.onSurfaceVariant, transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 300ms cubic-bezier(0.2,0,0,1)", display: "flex", alignItems: "center" }}>{IC.chevronDown}</span>
+            <span style={{ color: M3.onSurfaceVariant, display: "flex", alignItems: "center" }}>{IC.chevronDown}</span>
           </div>
-        </div>
-      </div>
-
-      {/* ── Contenuto espanso: grid height + fade (Emphasized) ── */}
-      <div className={"m3-expand-grid" + (rowsOpen ? " open" : "")}>
-        <div className="m3-expand-inner">
-          {(expanded || closing) && (
-            <WineDetail wine={wine} bevutoInfo={bevutoInfo} ratings={ratings} onRate={onRate} onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} active={expanded} />
-          )}
         </div>
       </div>
     </div>
@@ -1212,22 +1216,17 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState(null);
-  const cardRefs = useRef({});
+  const [selectedId, setSelectedId] = useState(null);
+  const lastFocusedRef = useRef(null);
 
-  const handleToggle = (wineId) => {
-    // Stessa card: chiudi
-    if (expanded === wineId) { setExpanded(null); return; }
-
-    // Apri in-place — vale sia al primo tap sia al cambio card
-    setExpanded(wineId);
-
-    // Attendo la fine dell'apertura (300ms = Medium2, durata nota dell'animazione)
-    // così la card ha l'altezza FINALE: se più alta del viewport, nearest allinea
-    // l'header in cima; se ci sta già tutta e visibile, non muove nulla.
-    setTimeout(() => {
-      cardRefs.current[wineId]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 300);
+  const handleOpen = (wineId) => (e) => {
+    lastFocusedRef.current = e?.currentTarget || null;
+    setSelectedId(wineId);
+  };
+  const handleClose = () => {
+    setSelectedId(null);
+    const el = lastFocusedRef.current;
+    if (el) requestAnimationFrame(() => el.focus?.());
   };
 
   // 1:N — vino resta in Lista finché bottiglie > 0 (garantito da allWines a monte)
@@ -1253,7 +1252,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
       </div>
       {!compact && (
         <div style={{ display: "flex", gap: 7, padding: "4px 16px 6px", overflowX: "auto", scrollbarWidth: "none" }}>
-          {FILTERS.map(f => <FilterChip key={f} label={f} active={filter === f} onClick={() => { setFilter(f); setExpanded(null); }} />)}
+          {FILTERS.map(f => <FilterChip key={f} label={f} active={filter === f} onClick={() => { setFilter(f); setSelectedId(null); }} />)}
         </div>
       )}
       <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px" }}>
@@ -1271,36 +1270,43 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
             <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface }}>Nessun vino trovato</div>
           </div>
         ) : filtered.map(wine => (
-          <WineCard key={wine.id} wine={wine} expanded={expanded === wine.id}
-            onToggle={() => handleToggle(wine.id)}
-            cardRefCallback={el => { if (el) cardRefs.current[wine.id] = el; }}
-            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica}
-            ratings={ratings} onRate={onRate} />
+          <WineCard key={wine.id} wine={wine}
+            onOpen={handleOpen(wine.id)}
+            ratings={ratings} />
         ))}
       </div>
+      {selectedId != null && (() => {
+        const w = wines.find(x => x.id === selectedId);
+        if (!w) return null;
+        return (
+          <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
+            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} />
+        );
+      })()}
     </>
   );
 }
 
 // ─── Tab: Bevuti ──────────────────────────────────────────────────────────────
 function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
-  const [expanded, setExpanded] = useState(null);
-  const cardRefs = useRef({});
+  const [selectedUid, setSelectedUid] = useState(null);
+  const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
-  const handleToggle = (uid) => {
-    // Stessa card: chiudi
-    if (expanded === uid) { setExpanded(null); return; }
+  const resolveWine = (b) => wineMap[b.id] || (b.produttore ? {
+    id: b.id, produttore: b.produttore, vino: b.vino, annata: b.annata || "",
+    tipologia: b.tipologia || "Bianco fermo", prezzo: b.prezzo || 0, bottiglie: 0,
+    vitigno: "—", macerazione: "—", fermentazione: "—", malolattica: "—", note: "",
+  } : null);
 
-    // Apri in-place — vale sia al primo tap sia al cambio card
-    setExpanded(uid);
-
-    // Attendo la fine dell'apertura (300ms = Medium2) così la card ha l'altezza
-    // FINALE, poi porto in vista col minimo necessario (header in cima se più alta
-    // del viewport, nessun movimento se già visibile). Niente target su layout stale.
-    setTimeout(() => {
-      cardRefs.current[uid]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 300);
+  const handleOpen = (uid) => (e) => {
+    lastFocusedRef.current = e?.currentTarget || null;
+    setSelectedUid(uid);
+  };
+  const handleClose = () => {
+    setSelectedUid(null);
+    const el = lastFocusedRef.current;
+    if (el) requestAnimationFrame(() => el.focus?.());
   };
   const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo ?? b.prezzo ?? 0), 0);
 
@@ -1330,22 +1336,27 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         </div>
       </div>
       {[...bevuti].reverse().map(b => {
-        // Storico indipendente: se il vino non è più in cantina, ricostruisci dallo snapshot della bevuta
-        const wine = wineMap[b.id] || (b.produttore ? {
-          id: b.id, produttore: b.produttore, vino: b.vino, annata: b.annata || "",
-          tipologia: b.tipologia || "Bianco fermo", prezzo: b.prezzo || 0, bottiglie: 0,
-          vitigno: "—", macerazione: "—", fermentazione: "—", malolattica: "—", note: "",
-        } : null);
+        const wine = resolveWine(b);
         if (!wine) return null;
         return (
-          <WineCard key={b.uid} wine={wine} expanded={expanded === b.uid}
-            onToggle={() => handleToggle(b.uid)}
-            cardRefCallback={el => { if (el) cardRefs.current[b.uid] = el; }}
-            onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
+          <WineCard key={b.uid} wine={wine}
+            onOpen={handleOpen(b.uid)}
             bevutoInfo={{ data: b.data, nota: b.nota }}
-            ratings={ratings} onRate={onRate} />
+            ratings={ratings} />
         );
       })}
+      {selectedUid != null && (() => {
+        const b = bevuti.find(x => x.uid === selectedUid);
+        if (!b) return null;
+        const wine = resolveWine(b);
+        if (!wine) return null;
+        return (
+          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: b.data, nota: b.nota }}
+            ratings={ratings} onRate={onRate}
+            onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
+            onClose={handleClose} />
+        );
+      })()}
     </div>
   );
 }
@@ -1732,13 +1743,10 @@ export default function Cantina() {
         input, textarea, select { outline: none; }
         ::-webkit-scrollbar { width: 0; height: 0; }
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
+        @keyframes slideInX  { from { transform:translateX(100%) } to { transform:translateX(0) } }
+        @keyframes slideOutX { from { transform:translateX(0) } to { transform:translateX(100%) } }
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
-        /* MD3 expand: height (grid-template-rows) + fade, coppia Emphasized */
-        .m3-expand-grid { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 250ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium1 250ms (chiusura) */ }
-        .m3-expand-grid.open { grid-template-rows: 1fr; transition: grid-template-rows 300ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate, Medium2 300ms (apertura) */ }
-        .m3-expand-inner { overflow: hidden; min-height: 0; opacity: 0; transition: opacity 250ms cubic-bezier(0.05, 0.7, 0.1, 1); /* Emphasized Decelerate 250ms (chiusura) */ }
-        .m3-expand-grid.open .m3-expand-inner { opacity: 1; transition: opacity 300ms cubic-bezier(0.05, 0.7, 0.1, 1); }
       `}</style>
 
       {/* ── App Bar ── */}
