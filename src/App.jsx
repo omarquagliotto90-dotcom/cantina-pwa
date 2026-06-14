@@ -1221,13 +1221,15 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const lastFocusedRef = useRef(null);
+  const cooldownRef = useRef(0);
 
   const handleOpen = (wineId) => (e) => {
-    if (selectedId != null) return;
+    if (selectedId != null || Date.now() < cooldownRef.current) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedId(wineId);
   };
   const handleClose = () => {
+    cooldownRef.current = Date.now() + 500;
     setSelectedId(null);
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
@@ -1295,6 +1297,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
 function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
+  const cooldownRef = useRef(0);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
   const resolveWine = (b) => wineMap[b.id] || (b.produttore ? {
@@ -1304,11 +1307,12 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   } : null);
 
   const handleOpen = (uid) => (e) => {
-    if (selectedUid != null) return;
+    if (selectedUid != null || Date.now() < cooldownRef.current) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedUid(uid);
   };
   const handleClose = () => {
+    cooldownRef.current = Date.now() + 500;
     setSelectedUid(null);
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
@@ -1757,7 +1761,7 @@ export default function Cantina() {
       {/* ── App Bar ── */}
       <div style={{ flexShrink: 0, zIndex: 20, paddingTop: "env(safe-area-inset-top)", background: compact ? M3.surfaceContainer : M3.surface, transition: "background 0.25s cubic-bezier(0.2,0,0,1)" }}>
         <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 16px", gap: 12 }}>
-          <div style={{ flex: 1, fontSize: 22, fontWeight: 400, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.3, lineHeight: 1 }}>La Mia Cantina</div>
+          <div style={{ flex: 1, fontSize: 22, fontWeight: 400, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.3, lineHeight: 1 }}>La Mia Cantina<span style={{ fontSize: 10, fontWeight: 500, opacity: 0.4, marginLeft: 6, verticalAlign: "super" }}>b2</span></div>
           <div style={{ padding: "0 12px", height: 28, borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer, display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", flexShrink: 0 }}>
             <span style={{display:"flex",alignItems:"center",gap:5}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg> {totBottiglie} · ~{totValore}€</span>
           </div>
