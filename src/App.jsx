@@ -734,7 +734,7 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
                   { icon: IC.grape, label: "Vitigno",       val: wine.vitigno },
                   { icon: IC.timer, label: "Macerazione",   val: wine.macerazione },
                   { icon: IC.flask, label: "Fermentazione", val: wine.fermentazione },
-                  { icon: IC.sync,  label: "Malolattica",   val: wine.malolattica },
+                  { icon: IC.sync,  label: "Legno",         val: wine.malolattica },
                 ].map(s => (
                   <div key={s.label} style={{ background: "#6B8FA8", borderRadius: 12, padding: "11px 12px", boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)" }}>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{s.icon}<span>{s.label}</span></div>
@@ -1029,7 +1029,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             {field("vitigno", "Vitigno")}
             {field("macerazione", "Macerazione")}
             {field("fermentazione", "Fermentazione")}
-            {field("malolattica", "Malolattica")}
+            {field("malolattica", "Legno")}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>Note</div>
               <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} rows={3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
@@ -1123,7 +1123,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {schedaError && (
           <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>{schedaError}</div>
         )}
-        {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Malolattica")}
+        {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Legno")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
         {formError && (
