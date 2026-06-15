@@ -85,7 +85,7 @@ Regole rigorose:
       if (typeof prezzo !== "number" || !Number.isFinite(prezzo) || prezzo <= 0) {
         prezzo = null;
       }
-      if (prezzo != null) prezzo = Math.round(prezzo * 100) / 100;
+      if (prezzo != null) prezzo = Math.ceil(prezzo * 2) / 2;
       // Difensivo: se un campo testuale torna come oggetto/array, lo appiattiamo in stringa
       const toStr = (v) => {
         if (v == null) return "";
