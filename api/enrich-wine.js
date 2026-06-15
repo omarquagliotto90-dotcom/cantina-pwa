@@ -76,12 +76,16 @@ Regole rigorose:
       // Normalizza prezzo: numero o null, mai stringa
       let prezzo = parsed.prezzo_stimato;
       if (typeof prezzo === "string") {
-        const n = parseFloat(prezzo.replace(",", "."));
-        prezzo = Number.isFinite(n) ? n : null;
+        // Estrae tutti i numeri (gestisce intervalli tipo "21,99 - 23,00") e ne fa la media
+        const nums = (prezzo.replace(/,/g, ".").match(/\d+(\.\d+)?/g) || [])
+          .map(parseFloat)
+          .filter(n => Number.isFinite(n) && n > 0);
+        prezzo = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
       }
       if (typeof prezzo !== "number" || !Number.isFinite(prezzo) || prezzo <= 0) {
         prezzo = null;
       }
+      if (prezzo != null) prezzo = Math.round(prezzo * 100) / 100;
       // Difensivo: se un campo testuale torna come oggetto/array, lo appiattiamo in stringa
       const toStr = (v) => {
         if (v == null) return "";
@@ -106,3 +110,4 @@ Regole rigorose:
     return res.status(500).json({ error: err.message });
   }
 }
+
