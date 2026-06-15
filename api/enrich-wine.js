@@ -36,7 +36,7 @@ export default async function handler(req, res) {
           {
             type: "web_search_20250305",
             name: "web_search",
-            max_uses: 1,
+            max_uses: 2,
           },
         ],
         messages: [{
