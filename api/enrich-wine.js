@@ -30,13 +30,13 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2000,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1000,
         tools: [
           {
             type: "web_search_20250305",
             name: "web_search",
-            max_uses: 4,
+            max_uses: 1,
           },
         ],
         messages: [{
