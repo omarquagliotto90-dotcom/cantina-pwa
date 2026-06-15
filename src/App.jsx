@@ -929,8 +929,8 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
     try {
       const response = await fetch("/api/analyze-label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64, mediaType: imageMime }) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || response.status);
-      if (data.raw !== undefined) throw new Error("Riconoscimento non riuscito. Puoi compilare manualmente.");
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (data.raw !== undefined) throw new Error(`Parse fallito. Risposta: ${data.raw?.slice(0, 120)}`);
       const base = {
         produttore: data.produttore || "",
         vino: data.vino || "",
@@ -942,7 +942,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
       setForm(prev => ({ ...prev, produttore: base.produttore || prev.produttore, vino: base.vino || prev.vino, denominazione: base.denominazione, annata: base.annata || prev.annata, tipologia: base.tipologia || prev.tipologia, vitigno: base.vitigno || prev.vitigno }));
       setModo("manuale");
     } catch (err) {
-      setAiError("Riconoscimento non riuscito. Puoi compilare manualmente.");
+      setAiError(err.message || "Riconoscimento non riuscito. Puoi compilare manualmente.");
       setModo("manuale");
     } finally {
       setAiLoading(false);
