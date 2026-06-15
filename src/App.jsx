@@ -1703,6 +1703,7 @@ export default function Cantina() {
       if (data.macerazione) patch.macerazione = data.macerazione;
       if (data.malolattica) patch.malolattica = data.malolattica;
       if (data.note) patch.note = data.note;
+      if (data.prezzo_stimato && !(wine.prezzo > 0)) patch.prezzo = data.prezzo_stimato;
       if (Object.keys(patch).length > 0) {
         setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...patch } : w));
         setSelectedWineForScheda(prev => prev ? { ...prev, ...patch } : prev);
