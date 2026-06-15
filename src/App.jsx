@@ -906,7 +906,6 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
   const [imageMime, setImageMime] = useState("image/jpeg");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(null);
-  const [aiFase, setAiFase] = useState("vision");
   const fileRef = useRef();
 
   const handleFotoChange = (e) => {
@@ -926,7 +925,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
 
   const handleAnalizzaEtichetta = async () => {
     if (!imageBase64) return;
-    setAiLoading(true); setAiError(null); setAiFase("vision");
+    setAiLoading(true); setAiError(null);
     try {
       const response = await fetch("/api/analyze-label", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64, mediaType: imageMime }) });
       const data = await response.json();
@@ -941,30 +940,6 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
         vitigno: data.vitigno || "",
       };
       setForm(prev => ({ ...prev, produttore: base.produttore || prev.produttore, vino: base.vino || prev.vino, denominazione: base.denominazione, annata: base.annata || prev.annata, tipologia: base.tipologia || prev.tipologia, vitigno: base.vitigno || prev.vitigno }));
-      // Fase 2: arricchimento web — un suo fallimento non perde i dati base
-      if (base.produttore && (base.vino || base.denominazione !== "n.d.")) {
-        setAiFase("web");
-        const queryVino = [base.vino, base.denominazione !== "n.d." ? base.denominazione : ""].filter(Boolean).join(" ");
-        try {
-          const enrichRes = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: base.produttore, vino: queryVino, annata: base.annata }) });
-          const enrich = await enrichRes.json();
-          if (enrichRes.ok && enrich.raw === undefined) {
-            setForm(prev => ({
-              ...prev,
-              vitigno: prev.vitigno || enrich.vitigno || "",
-              macerazione: prev.macerazione || enrich.macerazione || "",
-              fermentazione: prev.fermentazione || enrich.fermentazione || "",
-              malolattica: prev.malolattica || enrich.malolattica || "",
-              note: prev.note || enrich.note || "",
-              prezzo: (!prev.prezzo && enrich.prezzo_stimato) ? enrich.prezzo_stimato : prev.prezzo,
-            }));
-          } else {
-            setAiError("Riconoscimento riuscito, ma la ricerca web non è andata a buon fine. Campi tecnici da compilare a mano.");
-          }
-        } catch {
-          setAiError("Riconoscimento riuscito, ma la ricerca web non è andata a buon fine. Campi tecnici da compilare a mano.");
-        }
-      }
       setModo("manuale");
     } catch (err) {
       setAiError("Riconoscimento non riuscito. Puoi compilare manualmente.");
@@ -1027,8 +1002,8 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             ) : (
               <div style={{ padding: "24px 0" }}>
                 <div style={{ marginBottom: 12, color: M3.primary, animation: "spin 1s linear infinite" }}>{IC.ai}</div>
-                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>{aiFase === "web" ? "Ricerca info sul web…" : "Analisi AI in corso…"}</div>
-                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{aiFase === "web" ? "Scheda tecnica e stima prezzo (fino a 1 minuto)" : "Riconoscimento produttore, vino e annata"}</div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 6 }}>{"Analisi AI in corso…"}</div>
+                <div style={{ fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{"Riconoscimento produttore, vino e annata"}</div>
               </div>
             )}
           </div>
@@ -1216,7 +1191,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 }
 
 // ─── Tab: Lista ───────────────────────────────────────────────────────────────
-function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate }) {
+function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, onWineOpen, onWineClose }) {
   const [filter, setFilter] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
@@ -1227,10 +1202,13 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     if (selectedId != null || Date.now() < cooldownRef.current) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedId(wineId);
+    const w = wines.find(x => x.id === wineId);
+    if (w && onWineOpen) onWineOpen(w);
   };
   const handleClose = () => {
     cooldownRef.current = Date.now() + 500;
     setSelectedId(null);
+    if (onWineClose) onWineClose();
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
   };
@@ -1485,6 +1463,8 @@ export default function Cantina() {
   const [pendingModifica, setPendingModifica] = useState(null);
   const [compact, setCompact] = useState(false);
   const [fabVisible, setFabVisible] = useState(true);
+  const [selectedWineForScheda, setSelectedWineForScheda] = useState(null);
+  const [schedaFabLoading, setSchedaFabLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [ratings, setRatings] = useState({});
@@ -1708,6 +1688,33 @@ export default function Cantina() {
     }
   };
 
+  const handleSchedaTecnica = async () => {
+    if (!selectedWineForScheda || schedaFabLoading) return;
+    setSchedaFabLoading(true);
+    const wine = selectedWineForScheda;
+    try {
+      const queryVino = [wine.vino, wine.denominazione && wine.denominazione !== "n.d." ? wine.denominazione : ""].filter(Boolean).join(" ");
+      const res = await fetch("/api/enrich-wine", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: wine.produttore, vino: queryVino, annata: wine.annata }) });
+      const data = await res.json();
+      if (!res.ok || data.raw !== undefined) throw new Error(data.error || "Ricerca non riuscita");
+      const patch = {};
+      if (data.vitigno) patch.vitigno = data.vitigno;
+      if (data.fermentazione) patch.fermentazione = data.fermentazione;
+      if (data.macerazione) patch.macerazione = data.macerazione;
+      if (data.malolattica) patch.malolattica = data.malolattica;
+      if (data.note) patch.note = data.note;
+      if (Object.keys(patch).length > 0) {
+        setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...patch } : w));
+        setSelectedWineForScheda(prev => prev ? { ...prev, ...patch } : prev);
+        await sb.patch("wines", "id", wine.id, patch);
+      }
+    } catch {
+      setDbError("Scheda tecnica non trovata. Riprova o compila a mano.");
+    } finally {
+      setSchedaFabLoading(false);
+    }
+  };
+
   const handleRate = async (wineId, score) => {
     setDbError(null);
     const prevScore = ratings[wineId] ?? 0;
@@ -1778,17 +1785,25 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
       {/* ── Extended FAB ── */}
       {tab === "lista" && (
-        <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 20, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
-          <button onClick={() => setShowAggiungi(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)" }}>
-            <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
-          </button>
+        <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
+          {selectedWineForScheda ? (
+            <button onClick={handleSchedaTecnica} disabled={schedaFabLoading} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: schedaFabLoading ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", opacity: schedaFabLoading ? 0.7 : 1 }}>
+              {schedaFabLoading
+                ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Ricerca in corso…</span>
+                : <span style={{ display: "flex", alignItems: "center", gap: 8 }}><SchedaTecnicaIcon size={18} /> Scheda tecnica</span>}
+            </button>
+          ) : (
+            <button onClick={() => setShowAggiungi(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)" }}>
+              <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
+            </button>
+          )}
         </div>
       )}
 
