@@ -77,10 +77,13 @@ ESEMPI:
 
     const data = await anthropicRes.json();
     if (!anthropicRes.ok) {
-      return res.status(502).json({ error: data.error?.message || "Anthropic error" });
+      const errMsg = data.error?.message || JSON.stringify(data);
+      console.error("Anthropic error", anthropicRes.status, errMsg);
+      return res.status(502).json({ error: `[${anthropicRes.status}] ${errMsg}` });
     }
 
     const text = (data.content || []).map(c => c.text || "").join("").trim();
+    console.log("analyze-label raw text:", text.slice(0, 300));
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     const clean = start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
@@ -88,7 +91,8 @@ ESEMPI:
     try {
       const parsed = JSON.parse(clean);
       return res.status(200).json(parsed);
-    } catch {
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr.message, "raw:", text.slice(0, 200));
       return res.status(200).json({ raw: text });
     }
 
