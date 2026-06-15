@@ -81,7 +81,9 @@ ESEMPI:
     }
 
     const text = (data.content || []).map(c => c.text || "").join("").trim();
-    const clean = text.replace(/```json|```/g, "").trim();
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    const clean = start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
 
     try {
       const parsed = JSON.parse(clean);
