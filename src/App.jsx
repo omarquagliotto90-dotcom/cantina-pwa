@@ -1203,10 +1203,15 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const lastFocusedRef = useRef(null);
   const cooldownRef = useRef(0);
   const listRef = useRef(null);
+  const ghostBlockRef = useRef(null);
   const armCooldown = () => {
     cooldownRef.current = Date.now() + 700;
     if (listRef.current) listRef.current.style.pointerEvents = 'none';
-    setTimeout(() => { if (listRef.current) listRef.current.style.pointerEvents = ''; }, 700);
+    if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'auto';
+    setTimeout(() => {
+      if (listRef.current) listRef.current.style.pointerEvents = '';
+      if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'none';
+    }, 700);
   };
 
   const handleOpen = (wineId) => (e) => {
@@ -1278,6 +1283,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} onInitClose={armCooldown} />
         );
       })()}
+      <div ref={ghostBlockRef} style={{ position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none' }} />
     </>
   );
 }
@@ -1288,10 +1294,15 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   const lastFocusedRef = useRef(null);
   const cooldownRef = useRef(0);
   const listRef = useRef(null);
+  const ghostBlockRef = useRef(null);
   const armCooldown = () => {
     cooldownRef.current = Date.now() + 700;
     if (listRef.current) listRef.current.style.pointerEvents = 'none';
-    setTimeout(() => { if (listRef.current) listRef.current.style.pointerEvents = ''; }, 700);
+    if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'auto';
+    setTimeout(() => {
+      if (listRef.current) listRef.current.style.pointerEvents = '';
+      if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'none';
+    }, 700);
   };
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
@@ -1361,6 +1372,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
             onClose={handleClose} onInitClose={armCooldown} />
         );
       })()}
+      <div ref={ghostBlockRef} style={{ position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none' }} />
     </div>
   );
 }
