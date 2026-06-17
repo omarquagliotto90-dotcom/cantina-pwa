@@ -1067,7 +1067,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
     produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "n.d.", annata: wine.annata || "",
     tipologia: wine.tipologia || "Bianco fermo", bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
     vitigno: wine.vitigno || "", macerazione: wine.macerazione || "", fermentazione: wine.fermentazione || "",
-    malolattica: wine.malolattica || "", note: wine.note || "",
+    malolattica: wine.malolattica || "", note: wine.note || "", note_cantina: wine.note_cantina || "",
   });
   const [formError, setFormError] = useState(null);
   const [schedaLoading, setSchedaLoading] = useState(false);
@@ -1088,6 +1088,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         macerazione: data.macerazione || prev.macerazione,
         malolattica: data.malolattica || prev.malolattica,
         note: data.note || prev.note,
+        note_cantina: data.note_cantina || prev.note_cantina,
       }));
     } catch (err) {
       setSchedaError("Scheda tecnica non trovata sul web. Puoi compilare a mano.");
@@ -1137,6 +1138,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
         {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Legno")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
+        {field("note_cantina", "🏛 Note cantina", "text", { textarea: true, rows: 4 })}
         {formError && (
           <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 10 }}>{formError}</div>
         )}
@@ -1746,6 +1748,7 @@ export default function Cantina() {
       if (data.macerazione) patch.macerazione = data.macerazione;
       if (data.malolattica) patch.malolattica = data.malolattica;
       if (data.note) patch.note = data.note;
+      if (data.note_cantina) patch.note_cantina = data.note_cantina;
       if (data.prezzo_stimato) patch.valore = data.prezzo_stimato;
       if (Object.keys(patch).length > 0) {
         setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...patch } : w));
