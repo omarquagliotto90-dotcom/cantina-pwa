@@ -722,7 +722,12 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
                 </div>
               )}
               <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
-                {[{ l: "Prezzo", v: `~${wine.prezzo}€` }, { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie }, { l: "Valore", v: `~${totalVal}€` }].map(s => (
+                {[
+                  { l: "Acquisto", v: `~${wine.prezzo}€` },
+                  { l: "Valore", v: wine.valore != null ? `~${wine.valore}€` : "—" },
+                  { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie },
+                  { l: "Giacenza €", v: `~${totalVal}€` },
+                ].map(s => (
                   <div key={s.l} style={{ flex: "1 1 70px", background: "#7A7A72", borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
                     <div style={{ fontSize: 17, fontWeight: 700, color: "#E8D8A0", fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
                     <div style={{ fontSize: 10, color: "rgba(232,216,160,0.7)", textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
@@ -1240,7 +1245,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         </div>
       )}
       <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px" }}>
-        {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Valore", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
+        {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Costo", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
           <div key={s.l} style={{ flex: 1, background: M3.surfaceContainerHighest, boxShadow: "none", border: "none", borderRadius: 12, padding: compact ? "6px 4px" : "10px 4px", textAlign: "center", minWidth: 0, transition: "padding 0.3s cubic-bezier(0.2,0,0,1)" }}>
             <div style={{ fontSize: compact ? 13 : 16, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.2 }}>{s.v}</div>
             <div style={{ fontSize: 9, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginTop: 2, fontWeight: 500 }}>{s.l}</div>
@@ -1354,6 +1359,7 @@ function TabStatistiche({ wines, bevuti }) {
   const cantina = wines;
   const totB = cantina.reduce((a, w) => a + w.bottiglie, 0);
   const totV = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
+  const totMercato = cantina.reduce((a, w) => a + (w.valore || 0) * w.bottiglie, 0);
   const totBevuto = bevuti.reduce((a, b) => { const w = wines.find(x => x.id === b.id); return a + (w?.prezzo || 0); }, 0);
   const swCount = cantina.filter(w => hasCantina(w.produttore)).reduce((a, w) => a + w.bottiglie, 0);
 
@@ -1386,7 +1392,7 @@ function TabStatistiche({ wines, bevuti }) {
     <div style={{ padding: "12px 16px 100px" }}>
       <Card>
         <div style={{ display: "flex", gap: 8, justifyContent: "space-around", flexWrap: "wrap" }}>
-          {[{ l: "Bottiglie", v: totB, s: "in cantina" }, { l: "Valore", v: `~${totV}€`, s: "stimato" }, { l: "Referenze", v: cantina.length }, { l: "Bevuti", v: bevuti.length, s: totBevuto ? `~${totBevuto}€` : "" }].map(s => (
+          {[{ l: "Bottiglie", v: totB, s: "in cantina" }, { l: "Costo", v: `~${totV}€`, s: "acquisto" }, { l: "Mercato", v: `~${totMercato}€`, s: "stimato" }, { l: "Referenze", v: cantina.length }, { l: "Bevuti", v: bevuti.length, s: totBevuto ? `~${totBevuto}€` : "" }].map(s => (
             <div key={s.l} style={{ flex: "1 1 70px", textAlign: "center" }}>
               <div style={{ fontSize: 22, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
               <div style={{ fontSize: 11, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", fontWeight: 500 }}>{s.l}</div>
@@ -1703,7 +1709,7 @@ export default function Cantina() {
       if (data.macerazione) patch.macerazione = data.macerazione;
       if (data.malolattica) patch.malolattica = data.malolattica;
       if (data.note) patch.note = data.note;
-      if (data.prezzo_stimato && !(wine.prezzo > 0)) patch.prezzo = data.prezzo_stimato;
+      if (data.prezzo_stimato) patch.valore = data.prezzo_stimato;
       if (Object.keys(patch).length > 0) {
         setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...patch } : w));
         setSelectedWineForScheda(prev => prev ? { ...prev, ...patch } : prev);
