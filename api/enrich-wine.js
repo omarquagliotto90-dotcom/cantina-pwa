@@ -31,13 +31,15 @@ Restituisci SOLO un oggetto JSON (nessun markdown, nessun testo prima o dopo) co
   "macerazione": "descrizione sintetica (es. '15 giorni su bucce'), oppure ''",
   "fermentazione": "descrizione sintetica (es. 'acciaio, lieviti indigeni'), oppure ''",
   "malolattica": "affinamento in legno: utilizzo del legno (sì/no), tempo in legno, tipo di legno (es. 'barrique usate, 12 mesi') ed eventuale presenza di fermentazione malolattica. Oppure ''",
-  "note": "descrizione del vino in 2-3 frasi in italiano, oppure ''",
+  "note": "descrizione del VINO specifico (stile, profilo organolettico) in 2-3 frasi in italiano, oppure ''",
+  "note_cantina": "descrizione della CANTINA/produttore in 2-3 frasi in italiano: dove si trova, filosofia e approccio in vigna e in cantina (es. biologico, biodinamico, naturale), storia o dimensione. Oppure ''",
   "prezzo_stimato": numero in euro per bottiglia 0.75L (es. 18.50), oppure null
 }
 
 Regole rigorose:
 - NON inventare dati: se un'informazione non emerge dalla ricerca, usa '' (o null per il prezzo). Non scrivere supposizioni o frasi come 'probabile' o 'non specificato'.
-- I dati devono riferirsi a QUESTO vino specifico (e se possibile a questa annata), non ad altri vini dello stesso produttore.
+- I dati tecnici e "note" devono riferirsi a QUESTO vino specifico (e se possibile a questa annata), non ad altri vini dello stesso produttore.
+- "note_cantina" invece descrive il produttore/azienda nel suo complesso, non il singolo vino.
 - prezzo_stimato deve essere un numero, non una stringa né un intervallo.`;
 
   try {
@@ -99,6 +101,7 @@ Regole rigorose:
         fermentazione: toStr(parsed.fermentazione),
         malolattica: toStr(parsed.malolattica),
         note: toStr(parsed.note),
+        note_cantina: toStr(parsed.note_cantina),
         prezzo_stimato: prezzo,
       });
     } catch {
