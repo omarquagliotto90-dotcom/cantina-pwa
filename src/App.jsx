@@ -1025,7 +1025,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             {field("annata", "Annata")}
             {field("tipologia", "Tipologia", "text", { select: true })}
             {field("bottiglie", "N. bottiglie", "number")}
-            {field("prezzo", "Prezzo (€/bot.)", "number")}
+            {field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
             {field("vitigno", "Vitigno")}
             {field("macerazione", "Macerazione")}
             {field("fermentazione", "Fermentazione")}
@@ -1111,7 +1111,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
           </div>
         </div>
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Dati principali</div>
-        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo (€/bottiglia)", "number")}
+        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
         <button onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
