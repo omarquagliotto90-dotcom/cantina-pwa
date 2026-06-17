@@ -1201,28 +1201,15 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const lastFocusedRef = useRef(null);
-  const cooldownRef = useRef(0);
-  const listRef = useRef(null);
-  const ghostBlockRef = useRef(null);
-  const armCooldown = () => {
-    cooldownRef.current = Date.now() + 700;
-    if (listRef.current) listRef.current.style.pointerEvents = 'none';
-    if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'auto';
-    setTimeout(() => {
-      if (listRef.current) listRef.current.style.pointerEvents = '';
-      if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'none';
-    }, 700);
-  };
 
   const handleOpen = (wineId) => (e) => {
-    if (selectedId != null || Date.now() < cooldownRef.current) return;
+    if (selectedId != null) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedId(wineId);
     const w = wines.find(x => x.id === wineId);
     if (w && onWineOpen) onWineOpen(w);
   };
   const handleClose = () => {
-    armCooldown();
     setSelectedId(null);
     if (onWineClose) onWineClose();
     const el = lastFocusedRef.current;
@@ -1263,7 +1250,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
           </div>
         ))}
       </div>
-      <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 7, padding: "0 16px 100px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "0 16px 100px" }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "48px 20px", color: M3.onSurfaceVariant }}>
             <div style={{ marginBottom: 10, color: M3.onSurfaceVariant, opacity:0.5 }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
@@ -1280,10 +1267,9 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         if (!w) return null;
         return (
           <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
-            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} onInitClose={armCooldown} />
+            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} />
         );
       })()}
-      <div ref={ghostBlockRef} style={{ position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none' }} />
     </>
   );
 }
@@ -1292,18 +1278,6 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
 function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
-  const cooldownRef = useRef(0);
-  const listRef = useRef(null);
-  const ghostBlockRef = useRef(null);
-  const armCooldown = () => {
-    cooldownRef.current = Date.now() + 700;
-    if (listRef.current) listRef.current.style.pointerEvents = 'none';
-    if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'auto';
-    setTimeout(() => {
-      if (listRef.current) listRef.current.style.pointerEvents = '';
-      if (ghostBlockRef.current) ghostBlockRef.current.style.pointerEvents = 'none';
-    }, 700);
-  };
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
   const resolveWine = (b) => wineMap[b.id] || (b.produttore ? {
@@ -1313,12 +1287,11 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   } : null);
 
   const handleOpen = (uid) => (e) => {
-    if (selectedUid != null || Date.now() < cooldownRef.current) return;
+    if (selectedUid != null) return;
     lastFocusedRef.current = e?.currentTarget || null;
     setSelectedUid(uid);
   };
   const handleClose = () => {
-    armCooldown();
     setSelectedUid(null);
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
@@ -1336,7 +1309,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   }
 
   return (
-    <div ref={listRef} style={{ padding: "12px 16px 100px", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ padding: "12px 16px 100px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ background: M3.primaryContainer, borderRadius: 12, padding: "14px 16px", marginBottom: 4 }}>
         <div style={{ fontSize: 11, color: M3.onPrimaryContainer, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginBottom: 6, opacity: 0.8 }}>Archivio degustazioni</div>
         <div style={{ display: "flex", gap: 24 }}>
@@ -1369,10 +1342,9 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
           <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
-            onClose={handleClose} onInitClose={armCooldown} />
+            onClose={handleClose} />
         );
       })()}
-      <div ref={ghostBlockRef} style={{ position: 'fixed', inset: 0, zIndex: 44, pointerEvents: 'none' }} />
     </div>
   );
 }
