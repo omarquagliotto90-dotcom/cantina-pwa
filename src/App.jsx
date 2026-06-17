@@ -637,7 +637,7 @@ function WebsiteView({ wine }) {
 }
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose }) {
+function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose, onInitClose }) {
   const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
@@ -664,7 +664,7 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
 
   useEffect(() => {
     if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
-    const onPop = () => startClose();
+    const onPop = () => { onInitClose?.(); startClose(); };
     window.addEventListener("popstate", onPop);
     const raf = requestAnimationFrame(() => backBtnRef.current?.focus());
     return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
@@ -1202,6 +1202,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   const [selectedId, setSelectedId] = useState(null);
   const lastFocusedRef = useRef(null);
   const cooldownRef = useRef(0);
+  const armCooldown = () => { cooldownRef.current = Date.now() + 600; };
 
   const handleOpen = (wineId) => (e) => {
     if (selectedId != null || Date.now() < cooldownRef.current) return;
@@ -1211,7 +1212,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     if (w && onWineOpen) onWineOpen(w);
   };
   const handleClose = () => {
-    cooldownRef.current = Date.now() + 500;
+    armCooldown();
     setSelectedId(null);
     if (onWineClose) onWineClose();
     const el = lastFocusedRef.current;
@@ -1269,7 +1270,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         if (!w) return null;
         return (
           <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
-            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} />
+            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} onInitClose={armCooldown} />
         );
       })()}
     </>
@@ -1281,6 +1282,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
   const cooldownRef = useRef(0);
+  const armCooldown = () => { cooldownRef.current = Date.now() + 600; };
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
   const resolveWine = (b) => wineMap[b.id] || (b.produttore ? {
@@ -1295,7 +1297,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
     setSelectedUid(uid);
   };
   const handleClose = () => {
-    cooldownRef.current = Date.now() + 500;
+    armCooldown();
     setSelectedUid(null);
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
@@ -1346,7 +1348,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
           <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
-            onClose={handleClose} />
+            onClose={handleClose} onInitClose={armCooldown} />
         );
       })()}
     </div>
