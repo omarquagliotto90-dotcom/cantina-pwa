@@ -664,7 +664,7 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
 
   useEffect(() => {
     if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
-    const onPop = () => { onInitClose?.(); startClose(); };
+    const onPop = () => { onInitClose?.(); closingRef.current = true; onClose?.(); };
     window.addEventListener("popstate", onPop);
     const raf = requestAnimationFrame(() => backBtnRef.current?.focus());
     return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
