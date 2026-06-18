@@ -410,6 +410,15 @@ function TipoLabel({ tipo, size = 13, color = "currentColor" }) {
   return <span style={{ fontSize: size, lineHeight: 1 }}>{t.label}</span>;
 }
 
+function TipoBadge({ tipo }) {
+  const t = TIPO[tipo] || TIPO["Bianco fermo"];
+  return (
+    <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
+      <TipoLabel tipo={tipo} size={13} color={t.onContainer} /> {tipo}
+    </span>
+  );
+}
+
 function SwBadge({ type }) {
   if (type === "chiocciola") return (
     <span title="Cantina premiata Slow Wine 2025" style={{ fontSize: 13, background: "#E8F5E9", color: "#2E7D32", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontFamily: "'Roboto', sans-serif", letterSpacing: 0.1, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -837,7 +846,6 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
 }
 
 function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
-  const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
   const totalVal = wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
@@ -869,9 +877,7 @@ function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
                 {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display: "inline-flex", verticalAlign: "middle" }}>{IC.verified}</span>}
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
-                  <TipoLabel tipo={wine.tipologia} size={13} color={t.onContainer} /> {wine.tipologia}
-                </span>
+                <TipoBadge tipo={wine.tipologia} />
                 <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
                 <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
                 {wine.denominazione && wine.denominazione !== "n.d." && (
@@ -930,9 +936,7 @@ function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
             </div>
           )}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
-              <TipoLabel tipo={wine.tipologia} size={13} color={t.onContainer} /> {wine.tipologia}
-            </span>
+            <TipoBadge tipo={wine.tipologia} />
             <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
             {bevutoInfo && currentRating > 0 && (
               <span style={{ fontSize: 11, letterSpacing: 1, display: "inline-flex", gap: 2 }}>
