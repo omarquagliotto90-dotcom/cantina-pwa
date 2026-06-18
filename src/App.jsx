@@ -660,8 +660,6 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
   const closingRef = useRef(false);
   const active = !closing;
 
-  const startClose = () => { if (closingRef.current) return; closingRef.current = true; setClosing(true); };
-
   useEffect(() => {
     if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
     const onPop = () => { onInitClose?.(); closingRef.current = true; onClose?.(); };
@@ -670,7 +668,7 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
     return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
   }, []);
 
-  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> startClose
+  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> onPop (closingRef + onClose)
   const requestClose = () => { if (closingRef.current) return; window.history.back(); };
   const onOverlayAnimEnd = (e) => { if (e.target === e.currentTarget && closing) onClose(); };
   const onOverlayKeyDown = (e) => {
