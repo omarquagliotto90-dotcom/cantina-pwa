@@ -1512,40 +1512,6 @@ function TabStatistiche({ wines, bevuti }) {
 }
 
 // ─── App principale ───────────────────────────────────────────────────────────
-function DiagOverlay() {
-  const [lines, setLines] = useState([]);
-  const t0 = useRef(performance.now());
-  useEffect(() => {
-    const fmtTarget = (tg) => {
-      if (!tg || !tg.tagName) return "—";
-      const role = tg.getAttribute ? (tg.getAttribute("role") || "") : "";
-      const cls = (typeof tg.className === "string" && tg.className) ? "." + tg.className.split(" ")[0].slice(0, 10) : "";
-      const inBtn = tg.closest && tg.closest('[role="button"]') ? " [inCard]" : "";
-      const txt = (tg.textContent || "").trim().replace(/\s+/g, " ").slice(0, 16);
-      return `${tg.tagName.toLowerCase()}${role ? "/" + role : ""}${cls}${inBtn}${txt ? ' "' + txt + '"' : ""}`;
-    };
-    const log = (label) => (ev) => {
-      const dt = (performance.now() - t0.current).toFixed(0);
-      const dlg = document.querySelector('[role="dialog"]') ? "Y" : "N";
-      let xy = "";
-      if (ev && ev.clientX != null) xy = ` @${Math.round(ev.clientX)},${Math.round(ev.clientY)}`;
-      else if (ev && ev.changedTouches && ev.changedTouches[0]) xy = ` @${Math.round(ev.changedTouches[0].clientX)},${Math.round(ev.changedTouches[0].clientY)}`;
-      let extra = "";
-      if (label === "popstate") extra = ` hL=${history.length} st=${JSON.stringify(history.state)}`;
-      else if (label === "animationend" && ev) extra = ` [${ev.animationName}]`;
-      const line = `+${dt} ${label} dlg=${dlg}${xy} ${fmtTarget(ev && ev.target)}${extra}`;
-      setLines((p) => [...p.slice(-18), line]);
-    };
-    const evs = ["popstate", "pointerdown", "touchstart", "touchend", "click", "animationend"];
-    const fns = evs.map((k) => { const f = log(k); window.addEventListener(k, f, true); return [k, f]; });
-    return () => fns.forEach(([k, f]) => window.removeEventListener(k, f, true));
-  }, []);
-  return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 99999, pointerEvents: "none", background: "rgba(0,0,0,0.82)", color: "#3CFF6E", font: "10px/1.3 monospace", padding: "calc(env(safe-area-inset-top) + 3px) 6px 4px", maxHeight: "42vh", overflow: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
-      {lines.length === 0 ? "DIAG attivo — apri un vino e chiudi con swipe-back…" : lines.join("\n")}
-    </div>
-  );
-}
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
@@ -1859,8 +1825,6 @@ export default function Cantina() {
         @keyframes spin     { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
       `}</style>
-
-      <DiagOverlay />
 
       {/* ── App Bar ── */}
       <div style={{ flexShrink: 0, zIndex: 20, paddingTop: "env(safe-area-inset-top)", background: compact ? M3.surfaceContainer : M3.surface, transition: "background 0.25s cubic-bezier(0.2,0,0,1)" }}>
