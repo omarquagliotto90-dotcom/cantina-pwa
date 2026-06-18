@@ -848,6 +848,54 @@ function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
 
   const currentRating = ratings[wine.id] || 0;
 
+  if (!bevutoInfo) {
+    return (
+      <div style={{ background: M3.surface, borderBottom: `1px solid ${M3.outlineVariant}` }}>
+        <div onClick={onOpen} role="button" tabIndex={0}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(e); } }}
+          onPointerDown={() => setHeaderPressed(true)}
+          onPointerUp={() => setHeaderPressed(false)}
+          onPointerCancel={() => setHeaderPressed(false)}
+          onPointerLeave={() => { setHeaderPressed(false); setHeaderHover(false); }}
+          onPointerEnter={e => { if (e.pointerType === "mouse") setHeaderHover(true); }}
+          style={{ position: "relative", cursor: "pointer" }}>
+          <span aria-hidden="true" style={{ position: "absolute", inset: 0, background: M3.onSurface, opacity: headerPressed ? 0.10 : headerHover ? 0.08 : 0, transition: "opacity 120ms cubic-bezier(0.2,0,0,1)", pointerEvents: "none" }} />
+          <div style={{ position: "relative", display: "flex", alignItems: "center", minHeight: 56 }}>
+            <div style={{ flex: 1, padding: "12px 4px 6px 16px", minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 2 }}>
+                {wine.produttore}
+                {cantinaSW && <span style={{ marginLeft: 4, color: "#2E7D32", display: "inline-flex", verticalAlign: "middle" }}>{IC.eco}</span>}
+              </div>
+              <div style={{ fontSize: 15, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, lineHeight: 1.3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {wine.annata} {wine.vino}
+                {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display: "inline-flex", verticalAlign: "middle" }}>{IC.verified}</span>}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <TipoLabel tipo={wine.tipologia} size={13} color={t.onContainer} /> {wine.tipologia}
+                </span>
+                <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
+                <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>{wine.annata}</span>
+                {wine.denominazione && wine.denominazione !== "n.d." && (
+                  <>
+                    <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
+                    <span style={{ fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.denominazione}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", padding: "0 12px", flexShrink: 0, color: M3.onSurfaceVariant }}>
+              {IC.chevronDown}
+            </div>
+          </div>
+          <div style={{ position: "relative", padding: "0 16px 11px", fontSize: 11, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
+            {wine.bottiglie} {wine.bottiglie === 1 ? "bottiglia" : "bottiglie"} · ~{wine.prezzo}€/bott
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       borderRadius: 12,
@@ -1258,7 +1306,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 7, padding: "0 16px 100px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 0, padding: "0 0 100px" }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "48px 20px", color: M3.onSurfaceVariant }}>
             <div style={{ marginBottom: 10, color: M3.onSurfaceVariant, opacity:0.5 }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
