@@ -982,7 +982,11 @@ function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onE
 }
 
 function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
-  const totalVal = wine.prezzo * wine.bottiglie;
+  // F23: nei Bevuti il numero è il valore di UNA bottiglia consumata
+  // (valore di mercato, fallback prezzo d'acquisto), non la giacenza.
+  const totalVal = bevutoInfo
+    ? ((wine.valore || 0) || (wine.prezzo || 0))
+    : wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
 
@@ -1460,7 +1464,13 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
     const el = lastFocusedRef.current;
     if (el) requestAnimationFrame(() => el.focus?.());
   };
-  const totalSpeso = bevuti.reduce((a, b) => a + (wineMap[b.id]?.prezzo ?? b.prezzo ?? 0), 0);
+  // F23: valore di mercato se valorizzato, altrimenti prezzo d'acquisto
+  // (live, poi snapshot storico per i vini non più in wines).
+  const valoreBevuta = (b) => {
+    const w = wineMap[b.id];
+    return (w?.valore || 0) || (w?.prezzo ?? b.prezzo ?? 0);
+  };
+  const totalSpeso = bevuti.reduce((a, b) => a + valoreBevuta(b), 0);
 
   if (bevuti.length === 0) {
     return (
