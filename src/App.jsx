@@ -1411,7 +1411,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         </div>
       )}
       <div style={{ display: "flex", gap: 8, padding: compact ? "4px 16px 6px" : "0 16px 8px" }}>
-        {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Costo", v: `~${totalV}€` }, { l: "Media/ref", v: `~${filtered.length ? Math.round(totalV / filtered.length) : 0}€` }].map(s => (
+        {[{ l: "Referenze", v: filtered.length }, { l: "Bottiglie", v: totalB }, { l: "Costo", v: `~${totalV}€` }, { l: "Media/bott", v: `~${totalB ? Math.round(totalV / totalB) : 0}€` }].map(s => (
           <div key={s.l} style={{ flex: 1, background: M3.surfaceContainerHighest, boxShadow: "none", border: "none", borderRadius: 12, padding: compact ? "6px 4px" : "10px 4px", textAlign: "center", minWidth: 0, transition: "padding 0.3s cubic-bezier(0.2,0,0,1)" }}>
             <div style={{ fontSize: compact ? 13 : 16, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.2 }}>{s.v}</div>
             <div style={{ fontSize: 9, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginTop: 2, fontWeight: 500 }}>{s.l}</div>
