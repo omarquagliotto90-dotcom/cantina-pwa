@@ -1829,8 +1829,9 @@ export default function Cantina() {
     const current = wines.find(w => w.id === wineId);
     // Snapshot dati vino: bevuti è uno storico indipendente da wines
     const snap = current ? { produttore: current.produttore, vino: current.vino, annata: current.annata, tipologia: current.tipologia, prezzo: current.prezzo } : {};
-    // A2b: rating 0 (non valutato) diventa NULL, non più un sentinel numerico
-    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || null, ...snap };
+    // A2b: rating 0 (non valutato) diventa NULL; consumed_on (date) sostituisce
+    // bevuti.data (testo) come fonte della data — non viene più scritta.
+    const row = { uid, wine_id: wineId, nota: nota || "", rating: rating || null, ...snap };
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevRatings = ratings;
