@@ -82,11 +82,24 @@ function normalizzaWine(w) {
   return {
     ...w,
     slowVinoBott: !!w.slow_vino_bott,
+    // A2b: annata ora è smallint|NULL nel DB — per il display resta il numero reale
+    // o il placeholder "n.d.", stesso pattern degli altri campi opzionali.
+    annata: w.annata ?? "n.d.",
     denominazione: w.denominazione || "n.d.",
     macerazione:   w.macerazione   || "—",
     fermentazione: w.fermentazione || "—",
     malolattica:   w.malolattica   || "—",
   };
+}
+
+// A2b: converte il valore del form annata (numero, stringa numerica, "n.d." o vuoto)
+// in smallint|NULL per la scrittura su DB.
+function annataDaForm(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (s === "" || s === "n.d.") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
 }
 
 // Risolve una bevuta al vino corrente in cantina, o ricostruisce un vino
@@ -1458,7 +1471,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     .filter(w => filter === "Tutti" || w.tipologia === filter)
     .filter(w => {
       const q = search.toLowerCase();
-      return !q || w.produttore.toLowerCase().includes(q) || w.vino.toLowerCase().includes(q) || w.annata.includes(q) || (w.vitigno || "").toLowerCase().includes(q);
+      return !q || w.produttore.toLowerCase().includes(q) || w.vino.toLowerCase().includes(q) || String(w.annata).includes(q) || (w.vitigno || "").toLowerCase().includes(q);
     });
 
   const totalB = filtered.reduce((a, w) => a + w.bottiglie, 0);
@@ -1886,12 +1899,13 @@ export default function Cantina() {
     try {
       // Dedup: se esiste già lo stesso vino (produttore+vino+annata), incrementa bottiglie invece di creare una riga nuova.
       // Match case/space-insensitive; include righe a 0 bottiglie (storico) → riappaiono in Lista.
-      const norm = s => (s || "").trim().toLowerCase();
-      const formAnnata = form.annata || "n.d.";
+      // norm() gestisce anche annata numerica/NULL (A2b), non solo stringhe.
+      const norm = s => (s == null ? "" : String(s)).trim().toLowerCase();
+      const annataNum = annataDaForm(form.annata);
       const existing = wines.find(w =>
         norm(w.produttore) === norm(form.produttore) &&
         norm(w.vino) === norm(form.vino) &&
-        norm(w.annata) === norm(formAnnata)
+        norm(w.annata === "n.d." ? null : w.annata) === norm(annataNum)
       );
       if (existing) {
         const nuoveBottiglie = (existing.bottiglie || 0) + form.bottiglie;
@@ -1910,9 +1924,9 @@ export default function Cantina() {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
       }).then(r => { if (!r.ok) throw new Error(`max-id fetch ${r.status}`); return r.json(); });
       const nextId = ((maxRow[0]?.id) || 0) + 1;
-      // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato"
-      // (annata resta "n.d." per ora: la colonna è ancora NOT NULL finché non parte la migrazione SQL)
-      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: opzionale(form.denominazione, "n.d."), annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: opzionale(form.macerazione, "—"), fermentazione: opzionale(form.fermentazione, "—"), malolattica: opzionale(form.malolattica, "—"), slow_vino_bott: false };
+      // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato".
+      // annata è ora smallint|NULL, prezzo 0 diventa NULL (sconosciuto).
+      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: opzionale(form.denominazione, "n.d."), annata: annataNum, tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: Number(form.prezzo) || null, vitigno: form.vitigno || "", note: form.note || "", macerazione: opzionale(form.macerazione, "—"), fermentazione: opzionale(form.fermentazione, "—"), malolattica: opzionale(form.malolattica, "—"), slow_vino_bott: false };
       const inserted = await sb.insert("wines", row);
       if (!inserted) throw new Error("insert failed");
       setWines(prev => [...prev, normalizzaWine(inserted)]);
@@ -1926,9 +1940,11 @@ export default function Cantina() {
   const handleSalvaModifica = async (form) => {
     setDbError(null);
     const wine = pendingModifica;
-    // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato"
+    // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato".
+    // annata è ora smallint|NULL, prezzo 0 diventa NULL (sconosciuto).
     const fields = {
-      ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo),
+      ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) || null,
+      annata: annataDaForm(form.annata),
       denominazione: opzionale(form.denominazione, "n.d."),
       macerazione: opzionale(form.macerazione, "—"),
       fermentazione: opzionale(form.fermentazione, "—"),
