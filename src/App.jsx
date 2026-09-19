@@ -1426,8 +1426,10 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
 function ModalBevi({ wine, onConferma, onAnnulla }) {
   const [nota, setNota] = useState("");
   const [rating, setRating] = useState(0);
+  // Data apertura: default oggi, modificabile (non oltre oggi)
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [dataApertura, setDataApertura] = useState(todayIso);
   if (!wine) return null;
-  const today = formatDataIt(new Date());
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.4)" }} onClick={onAnnulla}>
@@ -1436,7 +1438,11 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
         <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 4, display:"flex", alignItems:"center", gap:8 }}>{IC.wineglass} Segna come bevuto</div>
         <div style={{ fontSize: 14, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 16 }}>{wine.produttore} · {wine.vino} · {wine.annata}</div>
         <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-          <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.calendar} Data apertura: <strong style={{ color: M3.onSurface }}>{today}</strong></span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {IC.calendar} Data apertura:
+            <input type="date" value={dataApertura} max={todayIso} onChange={e => setDataApertura(e.target.value || todayIso)}
+              style={{ border: "none", background: "none", fontSize: 16, fontWeight: 700, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", padding: 0 }} />
+          </label>
         </div>
         <div style={{ marginBottom: 16 }}>
           <div style={{ ...S.meta, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "center" }}>Valutazione (opzionale)</div>
@@ -1448,7 +1454,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => onConferma(nota, today, rating)} style={{ flex: 1, padding: "11px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Conferma</button>
+          <button onClick={() => onConferma(nota, dataApertura, rating)} style={{ flex: 1, padding: "11px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Conferma</button>
         </div>
       </div>
     </div>
@@ -1822,27 +1828,26 @@ export default function Cantina() {
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
 
-  const handleConferma = async (nota, data, rating) => {
+  const handleConferma = async (nota, dataIso, rating) => {
     setDbError(null);
     const wineId = pendingBevi.id;
     const current = wines.find(w => w.id === wineId);
     // Snapshot dati vino: bevuti è uno storico indipendente da wines
     const snap = current ? { produttore: current.produttore, vino: current.vino, annata: current.annata, tipologia: current.tipologia, prezzo: current.prezzo } : {};
     // A3: RPC atomica — insert bevuta + decremento bottiglie in un'unica transazione.
-    // uid e consumed_on li assegna il DB: uid temporaneo negativo finché non risponde.
+    // uid lo assegna il DB: uid temporaneo negativo finché non risponde.
     const tempUid = -Date.now();
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevRatings = ratings;
     const prevWines = wines;
-    // Update ottimistico
-    const consumedOnOttimistico = new Date().toISOString().slice(0, 10);
-    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data, consumedOn: consumedOnOttimistico, nota: nota || "", ...snap }]);
+    // Update ottimistico (data apertura scelta nel modale, non necessariamente oggi)
+    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data: formatDataIt(dataIso), consumedOn: dataIso, nota: nota || "", ...snap }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
-    const result = await sb.rpc("bevi_bottiglia", { p_wine_id: wineId, p_nota: nota || "", p_rating: rating || null });
+    const result = await sb.rpc("bevi_bottiglia", { p_wine_id: wineId, p_nota: nota || "", p_rating: rating || null, p_consumed_on: dataIso });
     if (!result) {
       setBevuti(prevBevuti);
       setRatings(prevRatings);
