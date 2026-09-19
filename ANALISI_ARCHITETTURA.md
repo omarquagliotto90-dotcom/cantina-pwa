@@ -83,12 +83,28 @@ bottiglie    1 riga per bottiglia fisica
 
 80 produttori distinti su 125 vini, il nome è ripetuto come stringa in `wines`, in `bevuti` e come **chiave primaria** di `wine_websites`.
 
-Conseguenze misurate:
+Conseguenze misurate (rimisurate il 19/09/2026, vedi correzione sotto):
 
-- **3 righe su 29** in `wine_websites` non corrispondono ad alcun produttore in `wines` (refusi, rinomine, spazi)
-- il lookup del sito è un match esatto su testo: `"Pieropan"` e `"Pieropan "` sono due produttori diversi
+- **"Vina Krapez" e "Vina Krapež"** sono lo stesso produttore scritto in due modi:
+  due righe distinte, due voci di cache, due schede. È l'unica collisione su 80
+  produttori, ma è reale e nessun vincolo la impedisce
+- **3 righe su 29** in `wine_websites` non corrispondono ad alcun produttore in
+  `wines`: sono residui di vini eliminati o refusi già corretti (`Fattoria
+  Milziade Antano`, `Francesco Tollador`, `Valentini`). Non danno fastidio, ma
+  nessuno li ripulirà mai perché non c'è una FK
 - rinominare un produttore significa aggiornare 3 tabelle a mano
-- **Slow Wine è spaccato in due fonti di verità**: `SW_CANTINA_CHIOCCIOLA` è un `Set` hardcoded nel bundle (6 nomi), mentre `slow_vino_bott` è una colonna del DB. Aggiornare la guida 2026 richiederà un deploy. `SW_VINO_BOTTIGLIA` è dichiarato e **mai letto**: codice morto.
+- **Slow Wine è spaccato in due fonti di verità**: `SW_CANTINA_CHIOCCIOLA` è un
+  `Set` hardcoded nel bundle (6 nomi), mentre `slow_vino_bott` è una colonna del
+  DB. Aggiornare la guida 2026 richiederà un deploy. `SW_VINO_BOTTIGLIA` è
+  dichiarato e **mai letto**: codice morto.
+
+> **Correzione (19/09/2026).** In una prima stesura avevo scritto che il lookup
+> del sito produttore "fallisce silenziosamente su spazi e maiuscole". I dati non
+> lo confermano: 26 righe su 29 combaciano con un match **esatto**, e il confronto
+> normalizzato (`lower(trim(...))`) restituisce esattamente le stesse 26. Oggi la
+> cache dei siti funziona. La fragilità del match esatto resta un rischio
+> strutturale, non un guasto in corso: P3 va giustificato sulla manutenibilità,
+> non su un danno attuale.
 
 Proposta:
 
@@ -107,7 +123,9 @@ wines.produttore_id  → FK produttori(id)
 
 `wine_websites` viene assorbita (è già 1:1 con il produttore). La chiocciola Slow Wine smette di essere codice.
 
-**Costo:** medio. **Beneficio:** alto e immediato sui siti produttore, che oggi falliscono silenziosamente e ricadono su Google.
+**Costo:** medio. **Beneficio:** manutenibilità, non un guasto da riparare. Toglie
+Slow Wine dal bundle, rende sicura la rinomina di un produttore, unifica i due
+"Krapez" e apre le statistiche per regione. Nulla di questo si vede il giorno dopo.
 
 ## D4 · `bevuti`: il contratto dello snapshot non è scritto, e i tipi sono divergenti
 

@@ -253,9 +253,14 @@ una migrazione di sicurezza.
    il `Set` sparisce dal bundle. `SW_VINO_BOTTIGLIA` è codice morto: si elimina.
 6. `salva_sito_produttore` scrive su `produttori`.
 
-**Beneficio immediato:** il lookup del sito smette di essere un match esatto su testo
-libero, quindi smette di fallire in silenzio su spazi e maiuscole.
+**Beneficio:** manutenibilità, non un guasto da riparare — vedi la correzione in
+`ANALISI_ARCHITETTURA.md` (D3): oggi la cache dei siti combacia su 26 righe su 29
+con match esatto, e normalizzare non cambierebbe nulla. Quello che P3 risolve è
+Slow Wine hardcoded nel bundle, la rinomina di un produttore che oggi tocca 3
+tabelle a mano, l'unica collisione reale ("Vina Krapez" / "Vina Krapež") e le
+statistiche per regione.
 **Rischio:** medio — tocca `WebsiteView` e i badge Slow Wine.
+**Priorità:** più bassa di quanto sembrasse. Non c'è urgenza.
 
 ---
 
