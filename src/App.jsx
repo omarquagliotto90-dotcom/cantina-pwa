@@ -73,6 +73,16 @@ const sb = {
       const res = await (await sbFetch(`${table}?${column}=eq.${value}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(data) })).json();
       return Array.isArray(res) ? res[0] : res;
     } catch { return null; }
+  },
+  // A3: chiama una funzione RPC Postgres (SECURITY DEFINER). Restituisce l'oggetto
+  // di risposta, `true` per le funzioni void (204 senza corpo), o `null` su errore.
+  async rpc(fn, args = {}) {
+    try {
+      const r = await sbFetch(`rpc/${fn}`, { method: "POST", body: JSON.stringify(args) });
+      if (r.status === 204) return true;
+      const text = await r.text();
+      return text ? JSON.parse(text) : true;
+    } catch { return null; }
   }
 };
 
@@ -591,7 +601,7 @@ function BottleImage({ wine, active }) {
         });
         if (bestUrl && !cancelled) {
           imgSessionCache.set(wine.id, bestUrl);
-          sb.upsert("wine_images", { wine_id: wine.id, image_url: bestUrl }, "wine_id").catch(() => {});
+          sb.rpc("salva_immagine_vino", { p_wine_id: wine.id, p_image_url: bestUrl }); // A3: RPC (best-effort, cache)
           setUrl(bestUrl); setStatus("found");
         } else {
           imgSessionCache.set(wine.id, "NOT_FOUND");
@@ -663,7 +673,7 @@ function WebsiteView({ wine }) {
         const found = data.url || getGoogleFallback(wine.produttore, wine.vino);
         const src = data.source || "serper";
         websiteCache[key] = { url: found, source: src };
-        sb.upsert("wine_websites", { produttore: key, url: found, source: src }, "produttore").catch(() => {});
+        sb.rpc("salva_sito_produttore", { p_produttore: key, p_url: found, p_source: src }); // A3: RPC (best-effort, cache)
         if (!cancelled) { setUrl(found); setSource(src); setStatus("loading"); }
       } catch {
         const fallback = getGoogleFallback(wine.produttore, wine.vino);
@@ -1795,101 +1805,71 @@ export default function Cantina() {
     setDbError(null);
     const current = wines.find(w => w.id === wine.id);
     const qty = current?.bottiglie ?? wine.bottiglie ?? 0;
-    if (qty > 1) {
-      // Decrementa di 1: la riga resta in cantina
-      const prevWines = wines;
-      setWines(prev => prev.map(w => w.id === wine.id ? { ...w, bottiglie: qty - 1 } : w));
-      const patched = await sb.patch("wines", "id", wine.id, { bottiglie: qty - 1 });
-      if (!patched) {
-        setWines(prevWines);
-        setDbError("Errore: rimozione bottiglia non riuscita");
-      }
-      return;
-    }
-    // Ultima bottiglia (qty <= 1): elimina la riga
     const prevWines = wines;
-    setWines(prev => prev.filter(w => w.id !== wine.id));
-    const ok = await sb.delete("wines", "id", wine.id);
-    if (!ok) {
-      setWines(prevWines);
-      setDbError("Errore: eliminazione non riuscita");
-      return;
+    // A3: RPC atomica — decrementa, o elimina la riga (CASCADE su wine_images) se restava l'ultima
+    if (qty > 1) {
+      setWines(prev => prev.map(w => w.id === wine.id ? { ...w, bottiglie: qty - 1 } : w));
+    } else {
+      setWines(prev => prev.filter(w => w.id !== wine.id));
+      imgSessionCache.delete(wine.id);
     }
-    // P4: rimuovi l'immagine associata (evita orphan ed eredità su id riusati). I bevuti NON si toccano: sono storico.
-    imgSessionCache.delete(wine.id);
-    sb.delete("wine_images", "wine_id", wine.id).catch(() => {});
+    const result = await sb.rpc("elimina_bottiglia", { p_wine_id: wine.id });
+    if (!result) {
+      setWines(prevWines);
+      setDbError(qty > 1 ? "Errore: rimozione bottiglia non riuscita" : "Errore: eliminazione non riuscita");
+    }
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
 
   const handleConferma = async (nota, data, rating) => {
     setDbError(null);
-    const uid = Date.now();
     const wineId = pendingBevi.id;
     const current = wines.find(w => w.id === wineId);
     // Snapshot dati vino: bevuti è uno storico indipendente da wines
     const snap = current ? { produttore: current.produttore, vino: current.vino, annata: current.annata, tipologia: current.tipologia, prezzo: current.prezzo } : {};
-    // A2b: rating 0 (non valutato) diventa NULL; consumed_on (date) sostituisce
-    // bevuti.data (testo) come fonte della data — non viene più scritta.
-    const row = { uid, wine_id: wineId, nota: nota || "", rating: rating || null, ...snap };
+    // A3: RPC atomica — insert bevuta + decremento bottiglie in un'unica transazione.
+    // uid e consumed_on li assegna il DB: uid temporaneo negativo finché non risponde.
+    const tempUid = -Date.now();
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevRatings = ratings;
     const prevWines = wines;
-    // Update ottimistico (consumedOn stimato lato client: il default reale lo assegna il DB)
+    // Update ottimistico
     const consumedOnOttimistico = new Date().toISOString().slice(0, 10);
-    setBevuti(prev => [...prev, { uid, id: wineId, data, consumedOn: consumedOnOttimistico, nota: nota || "", ...snap }]);
+    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data, consumedOn: consumedOnOttimistico, nota: nota || "", ...snap }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
-    let insertedOk = false;
-    try {
-      const inserted = await sb.insert("bevuti", row);
-      if (!inserted) throw new Error("insert bevuti failed");
-      insertedOk = true;
-      // F4 / P3: PATCH bottiglie su Supabase, con verifica esito
-      if (current) {
-        const patched = await sb.patch("wines", "id", wineId, { bottiglie: Math.max(0, (current.bottiglie || 1) - 1) });
-        if (!patched) throw new Error("patch bottiglie failed");
-      }
-    } catch (e) {
-      // N1: se la bevuta era già stata scritta sul DB, compensala per evitare la riga fantasma
-      if (insertedOk) await sb.delete("bevuti", "uid", uid);
-      // Rollback: ripristina stato pre-azione
+    const result = await sb.rpc("bevi_bottiglia", { p_wine_id: wineId, p_nota: nota || "", p_rating: rating || null });
+    if (!result) {
       setBevuti(prevBevuti);
       setRatings(prevRatings);
       setWines(prevWines);
       setDbError("Errore: bevuta non registrata");
+      return;
     }
+    // Riallinea l'entry ottimistica con uid e consumed_on reali assegnati dal DB
+    setBevuti(prev => prev.map(b => b.uid === tempUid ? { ...b, uid: result.uid, consumedOn: result.consumed_on } : b));
   };
 
   const handleRiporta = async (uid) => {
     setDbError(null);
     const entry = bevuti.find(b => b.uid === uid);
     if (!entry) return;
-    const current = wines.find(w => w.id === entry.id);
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevWines = wines;
     // Ottimistico: rimuovi la bevuta e riaccredita la bottiglia
     setBevuti(prev => prev.filter(b => b.uid !== uid));
     setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: (w.bottiglie || 0) + 1 } : w));
-    const ok = await sb.delete("bevuti", "uid", uid);
-    if (!ok) {
+    // A3: RPC atomica — elimina bevuta + riaccredito bottiglia in un'unica transazione
+    const result = await sb.rpc("riporta_bottiglia", { p_uid: uid });
+    if (!result) {
       setBevuti(prevBevuti);
       setWines(prevWines);
       setDbError("Errore: ripristino non riuscito");
-      return;
-    }
-    // P1: riaccredita la bottiglia anche su Supabase
-    if (current) {
-      const patched = await sb.patch("wines", "id", entry.id, { bottiglie: (current.bottiglie || 0) + 1 });
-      if (!patched) {
-        // delete bevuti già committato: riallinea lo state al DB
-        setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
-        setDbError("Bevuta rimossa, ma bottiglia non riaccreditata sul DB");
-      }
     }
   };
 
@@ -1897,43 +1877,20 @@ export default function Cantina() {
     setDbError(null);
     setShowAggiungi(false);
     setTab("lista");
-    try {
-      // Dedup: se esiste già lo stesso vino (produttore+vino+annata), incrementa bottiglie invece di creare una riga nuova.
-      // Match case/space-insensitive; include righe a 0 bottiglie (storico) → riappaiono in Lista.
-      // norm() gestisce anche annata numerica/NULL (A2b), non solo stringhe.
-      const norm = s => (s == null ? "" : String(s)).trim().toLowerCase();
-      const annataNum = annataDaForm(form.annata);
-      const existing = wines.find(w =>
-        norm(w.produttore) === norm(form.produttore) &&
-        norm(w.vino) === norm(form.vino) &&
-        norm(w.annata === "n.d." ? null : w.annata) === norm(annataNum)
-      );
-      if (existing) {
-        const nuoveBottiglie = (existing.bottiglie || 0) + form.bottiglie;
-        const prevWines = wines;
-        // Ottimistico: aggiorna solo le bottiglie, i dati in cantina restano la fonte di verità
-        setWines(prev => prev.map(w => w.id === existing.id ? { ...w, bottiglie: nuoveBottiglie } : w));
-        const patched = await sb.patch("wines", "id", existing.id, { bottiglie: nuoveBottiglie });
-        if (!patched) {
-          setWines(prevWines);
-          setDbError("Errore: aggiornamento bottiglie non riuscito");
-        }
-        return;
-      }
-      // id è integer senza autoincrement: legge il max corrente e usa max+1
-      const maxRow = await fetch(`${SB_URL}/rest/v1/wines?select=id&order=id.desc&limit=1`, {
-        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
-      }).then(r => { if (!r.ok) throw new Error(`max-id fetch ${r.status}`); return r.json(); });
-      const nextId = ((maxRow[0]?.id) || 0) + 1;
-      // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato".
-      // annata è ora smallint|NULL, prezzo 0 diventa NULL (sconosciuto).
-      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: opzionale(form.denominazione, "n.d."), annata: annataNum, tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: Number(form.prezzo) || null, vitigno: form.vitigno || "", note: form.note || "", macerazione: opzionale(form.macerazione, "—"), fermentazione: opzionale(form.fermentazione, "—"), malolattica: opzionale(form.malolattica, "—"), slow_vino_bott: false };
-      const inserted = await sb.insert("wines", row);
-      if (!inserted) throw new Error("insert failed");
-      setWines(prev => [...prev, normalizzaWine(inserted)]);
-    } catch (e) {
-      setDbError("Errore salvataggio vino");
-    }
+    // A3: RPC atomica — incrementa se esiste già lo stesso produttore+vino+annata
+    // (upsert sull'indice UNIQUE normalizzato di A2a), altrimenti inserisce una riga nuova.
+    const result = await sb.rpc("aggiungi_o_incrementa", {
+      p_produttore: form.produttore, p_vino: form.vino,
+      p_denominazione: opzionale(form.denominazione, "n.d."), p_annata: annataDaForm(form.annata),
+      p_tipologia: form.tipologia, p_bottiglie: form.bottiglie, p_prezzo: Number(form.prezzo) || null,
+      p_vitigno: form.vitigno || "", p_note: form.note || "",
+      p_macerazione: opzionale(form.macerazione, "—"), p_fermentazione: opzionale(form.fermentazione, "—"),
+      p_malolattica: opzionale(form.malolattica, "—"),
+    });
+    if (!result) { setDbError("Errore salvataggio vino"); return; }
+    setWines(prev => prev.some(w => w.id === result.id)
+      ? prev.map(w => w.id === result.id ? normalizzaWine(result) : w)
+      : [...prev, normalizzaWine(result)]);
   };
 
   const handleModifica = (wine) => setPendingModifica(wine);
@@ -1954,8 +1911,15 @@ export default function Cantina() {
     const prevWines = wines;
     setWines(prev => prev.map(w => w.id === wine.id ? normalizzaWine({ ...w, ...fields }) : w));
     setPendingModifica(null);
-    const saved = await sb.upsert("wines", { id: wine.id, ...fields }, "id");
-    if (!saved) {
+    // A3: RPC atomica al posto dell'upsert diretto
+    const result = await sb.rpc("modifica_vino", {
+      p_id: wine.id, p_produttore: fields.produttore, p_vino: fields.vino,
+      p_denominazione: fields.denominazione, p_annata: fields.annata, p_tipologia: fields.tipologia,
+      p_bottiglie: fields.bottiglie, p_prezzo: fields.prezzo, p_vitigno: fields.vitigno || "",
+      p_note: fields.note || "", p_note_cantina: fields.note_cantina || "",
+      p_macerazione: fields.macerazione, p_fermentazione: fields.fermentazione, p_malolattica: fields.malolattica,
+    });
+    if (!result) {
       setWines(prevWines);
       setDbError("Errore: modifiche non salvate");
     }
@@ -1981,7 +1945,12 @@ export default function Cantina() {
       if (Object.keys(patch).length > 0) {
         setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...patch } : w));
         setSelectedWineForScheda(prev => prev ? { ...prev, ...patch } : prev);
-        await sb.patch("wines", "id", wine.id, patch);
+        // A3: RPC atomica — aggiorna solo i campi forniti dall'AI
+        await sb.rpc("aggiorna_scheda_tecnica", {
+          p_id: wine.id, p_vitigno: patch.vitigno ?? null, p_fermentazione: patch.fermentazione ?? null,
+          p_macerazione: patch.macerazione ?? null, p_malolattica: patch.malolattica ?? null,
+          p_note: patch.note ?? null, p_note_cantina: patch.note_cantina ?? null, p_valore: patch.valore ?? null,
+        });
       }
     } catch {
       setDbError("Scheda tecnica non trovata. Riprova o compila a mano.");
@@ -1994,13 +1963,11 @@ export default function Cantina() {
     setDbError(null);
     const prevScore = ratings[wineId] ?? 0;
     setRatings(prev => ({ ...prev, [wineId]: score }));
-    // N3: il rating è per-vino, ma in DB c'è una riga per bevuta → patcha tutte le bevute del vino
-    const targets = bevuti.filter(b => b.id === wineId);
-    if (targets.length > 0) {
-      const results = await Promise.all(
-        targets.map(b => sb.patch("bevuti", "uid", b.uid, { rating: score }))
-      );
-      if (results.some(r => !r)) {
+    // N3: il rating è per-vino, ma in DB c'è una riga per bevuta.
+    // A3: RPC atomica — aggiorna tutte le bevute del vino in un'unica transazione.
+    if (bevuti.some(b => b.id === wineId)) {
+      const result = await sb.rpc("valuta_vino", { p_wine_id: wineId, p_rating: score });
+      if (!result) {
         setRatings(prev => ({ ...prev, [wineId]: prevScore }));
         setDbError("Errore: valutazione non salvata");
       }
