@@ -122,6 +122,32 @@ function resolveWine(wineMap, b) {
   } : null);
 }
 
+// Rating mostrato per vino, a partire dalle righe di `bevuti`.
+//
+// Il rating in DB è PER BEVUTA (decisione aperta Q3), mentre la UI ne mostra
+// uno solo per vino. Prima si prendeva il massimo: ma dopo lo stopgap di P0 la
+// RPC `valuta_vino` scrive sulla bevuta PIÙ RECENTE, quindi leggere il massimo
+// avrebbe fatto "tornare indietro" il voto appena dato. Qui si legge dove si
+// scrive: il voto della bevuta più recente fra quelle valutate.
+//
+// "fra quelle valutate" e non "la più recente in assoluto": altrimenti una
+// bevuta nuova senza voto nasconderebbe un voto precedente. Dopo una scrittura
+// le due definizioni coincidono comunque, perché la più recente diventa valutata.
+function ratingPerVino(bevute) {
+  const piuRecente = {};
+  for (const b of bevute) {
+    if (b.wine_id == null || b.rating == null) continue;
+    const corrente = piuRecente[b.wine_id];
+    const piuNuova = !corrente ||
+      b.consumed_on > corrente.consumed_on ||
+      (b.consumed_on === corrente.consumed_on && b.uid > corrente.uid);
+    if (piuNuova) piuRecente[b.wine_id] = b;
+  }
+  return Object.fromEntries(
+    Object.entries(piuRecente).map(([wineId, b]) => [wineId, Number(b.rating)])
+  );
+}
+
 // Valore di mercato stimato di UNA bottiglia: stima AI se presente,
 // altrimenti fallback al prezzo d'acquisto (migliore stima disponibile).
 function valoreBottiglia(wine) {
@@ -451,18 +477,26 @@ const IC = {
   spumante: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2h6v4l2 3v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9l2-3V2z"/><line x1="5" y1="9" x2="13" y2="9"/><path d="M17 7c0 2.5-2 4-2 4h4s-2-1.5-2-4z"/><line x1="17" y1="11" x2="17" y2="17"/><line x1="15" y1="17" x2="19" y2="17"/><line x1="20" y1="4" x2="21" y2="3"/><line x1="22" y1="6" x2="23" y2="6"/><line x1="20" y1="8" x2="21" y2="9"/></svg>,
 };
 
-// ─── Slow Wine 2025 ───────────────────────────────────────────────────────────
-const SW_CANTINA_CHIOCCIOLA = new Set([
-  "Pieropan", "Ca' dei Zago", "Bele Casel", "Miotto", "Malibràn", "Occhipinti",
-]);
-const SW_VINO_BOTTIGLIA = new Set([
-  "Bertani|Valpolicella Classico Superiore Ognisanti 2022",
-  "Ca' dei Zago|Vigneto Mariarosa",
-  "Bele Casel|Asolo Prosecco Superiore Extra Brut 2023",
-]);
-const hasCantina = (produttore) => SW_CANTINA_CHIOCCIOLA.has(produttore);
+// ─── Anagrafica produttori (P3) ──────────────────────────────────────────────
+// Caricata una volta da `useCantinaData` e tenuta qui a livello di modulo, come
+// già si fa per le cache immagini: evita di far passare la lista come prop
+// attraverso Lista → Card → Detail solo per leggere due campi.
+//
+// Sostituisce i Set hardcoded di Slow Wine: la chiocciola ora è
+// `produttori.slow_chiocciola`, aggiornabile con un UPDATE invece di un deploy.
+// (`SW_VINO_BOTTIGLIA` era dichiarato e mai letto: rimosso.)
+const produttoriByNome = new Map();
 
-const websiteCache = {};
+const normNome = (s) => (s || "").trim().toLowerCase();
+
+function setProduttori(righe) {
+  produttoriByNome.clear();
+  for (const p of righe) produttoriByNome.set(p.nome_norm || normNome(p.nome), p);
+}
+
+const produttoreDi = (nome) => produttoriByNome.get(normNome(nome)) || null;
+
+const hasCantina = (produttore) => !!produttoreDi(produttore)?.slow_chiocciola;
 
 function getGoogleFallback(produttore, vino) {
   const q = encodeURIComponent(`${produttore} ${vino || ""} cantina sito ufficiale`);
@@ -655,25 +689,28 @@ function WebsiteView({ wine }) {
     let cancelled = false;
     async function findWebsite() {
       const key = wine.produttore;
-      if (websiteCache[key]) {
-        if (!cancelled) { setUrl(websiteCache[key].url); setSource(websiteCache[key].source); setStatus("loading"); }
+      // P3: il sito arriva con l'anagrafica già caricata all'avvio — nessuna
+      // query per vino. Prima si interrogava `wine_websites` con
+      //   `wine_websites?produttore=eq.X&select=url,source` + `?order=...`
+      // cioè due `?` nella stessa query string: PostgREST rispondeva 400,
+      // `sb.get` inghiottiva l'errore e tornava [], quindi la cache non veniva
+      // MAI letta e ogni apertura della tab Web richiamava Serper da capo.
+      const produttore = produttoreDi(key);
+      if (produttore?.sito) {
+        if (!cancelled) { setUrl(produttore.sito); setSource(produttore.sito_source || "serper"); setStatus("loading"); }
         return;
       }
-      try {
-        const rows = await sb.get(`wine_websites?produttore=eq.${encodeURIComponent(key)}&select=url,source`);
-        if (rows?.length > 0 && rows[0].url) {
-          websiteCache[key] = { url: rows[0].url, source: rows[0].source };
-          if (!cancelled) { setUrl(rows[0].url); setSource(rows[0].source); setStatus("loading"); }
-          return;
-        }
-      } catch {}
       try {
         const res = await fetch("/api/search-website", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }) });
         const data = await res.json();
         const found = data.url || getGoogleFallback(wine.produttore, wine.vino);
         const src = data.source || "serper";
-        websiteCache[key] = { url: found, source: src };
-        sb.rpc("salva_sito_produttore", { p_produttore: key, p_url: found, p_source: src }); // A3: RPC (best-effort, cache)
+        // Si salva solo un sito vero: il fallback è una ricerca Google, e
+        // scriverlo in anagrafica lo cristallizzerebbe come "sito ufficiale".
+        if (data.url) {
+          if (produttore) { produttore.sito = found; produttore.sito_source = src; }
+          sb.rpc("salva_sito_produttore", { p_produttore: key, p_url: found, p_source: src });
+        }
         if (!cancelled) { setUrl(found); setSource(src); setStatus("loading"); }
       } catch {
         const fallback = getGoogleFallback(wine.produttore, wine.vino);
@@ -1733,21 +1770,19 @@ function useCantinaData() {
     let cancelled = false;
     async function loadData() {
       try {
-        const [fetchedWines, bev] = await Promise.all([
+        const [fetchedWines, bev, produttori] = await Promise.all([
           sb.getOrThrow("wines", { order: "id.asc" }),
           sb.getOrThrow("bevuti"),
+          sb.getOrThrow("produttori", { order: "nome.asc" }),
         ]);
         if (cancelled) return;
+        // P3: prima dei vini — badge Slow Wine e sito produttore leggono da qui.
+        setProduttori(produttori);
         setWines(fetchedWines.map(normalizzaWine));
         // F5: 1:N — nessuna deduplica, uid è chiave univoca
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
         setBevuti(bevFromDb);
-        const ratingsFromDb = {};
-        // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
-        bev.forEach(b => {
-          if (b.rating > 0 && b.rating > (ratingsFromDb[b.wine_id] || 0)) ratingsFromDb[b.wine_id] = b.rating;
-        });
-        setRatings(ratingsFromDb);
+        setRatings(ratingPerVino(bev));
         setDbError(null);
       } catch (e) {
         if (cancelled) return;

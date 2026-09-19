@@ -1,0 +1,20 @@
+node_modules/
+/build
+
+# Il repo non ha mai avuto un lockfile. Committarlo fa passare Vercel da
+# `npm install` a `npm ci`: e' una modifica al comportamento del deploy, da
+# decidere a parte. Togliere questa riga quando lo si vuole versionare.
+package-lock.json
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+.DS_Store
+.env*.local
+npm-debug.log*
+
+# Permessi locali di Claude Code (per macchina, non condivisi)
+.claude/settings.local.json
