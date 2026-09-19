@@ -4,66 +4,118 @@ import { useState, useRef, useEffect } from "react";
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
 const SB_KEY = "sb_publishable_OKQmpbDBpDbPTOmKclMwZw_fRtg1KKR";
+const SB_TIMEOUT_MS = 15000;
+
+// Fetch verso PostgREST con timeout. Lancia sempre (mai fallimento silenzioso);
+// i metodi pubblici di `sb` la richiamano e decidono se propagare o inghiottire.
+async function sbFetch(path, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SB_TIMEOUT_MS);
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", ...options.headers },
+    });
+    if (!r.ok) {
+      const err = new Error(`Supabase ${options.method || "GET"} ${path}: HTTP ${r.status}`);
+      err.status = r.status;
+      throw err;
+    }
+    return r;
+  } catch (e) {
+    if (e.name === "AbortError") {
+      const err = new Error(`Supabase ${options.method || "GET"} ${path}: timeout`);
+      err.status = "timeout";
+      throw err;
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 const sb = {
   async get(table) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?order=created_at.asc`, {
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" }
-    });
-    if (!r.ok) return [];
-    return r.json();
+    try { return await (await sbFetch(`${table}?order=created_at.asc`)).json(); }
+    catch { return []; }
+  },
+  // Come get(), ma propaga un errore tipizzato (err.status: HTTP status o "timeout")
+  // invece di inghiottirlo — per i punti che devono distinguere errore da risultato vuoto.
+  async getOrThrow(table, { order = "created_at.asc" } = {}) {
+    return (await sbFetch(`${table}?order=${order}`)).json();
   },
   async getWhere(table, column, value) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}&limit=1`, {
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" }
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data[0] || null;
+    try {
+      const data = await (await sbFetch(`${table}?${column}=eq.${encodeURIComponent(value)}&limit=1`)).json();
+      return data[0] || null;
+    } catch { return null; }
   },
   async insert(table, row) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
-      method: "POST",
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify(row)
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data[0] || null;
+    try {
+      const data = await (await sbFetch(table, { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(row) })).json();
+      return data[0] || null;
+    } catch { return null; }
   },
   async upsert(table, row, onConflict) {
     const qs = onConflict ? `?on_conflict=${onConflict}` : "";
-    const r = await fetch(`${SB_URL}/rest/v1/${table}${qs}`, {
-      method: "POST",
-      headers: {
-        apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=representation",
-      },
-      body: JSON.stringify(row)
-    });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return Array.isArray(data) ? data[0] : data;
+    try {
+      const data = await (await sbFetch(`${table}${qs}`, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(row) })).json();
+      return Array.isArray(data) ? data[0] : data;
+    } catch { return null; }
   },
   async delete(table, column, value) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
-      method: "DELETE",
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
-    });
-    return r.ok;
+    try { await sbFetch(`${table}?${column}=eq.${value}`, { method: "DELETE" }); return true; }
+    catch { return false; }
   },
   async patch(table, column, value, data) {
-    const r = await fetch(`${SB_URL}/rest/v1/${table}?${column}=eq.${value}`, {
-      method: "PATCH",
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify(data)
-    });
-    if (!r.ok) return null;
-    const res = await r.json();
-    return Array.isArray(res) ? res[0] : res;
+    try {
+      const res = await (await sbFetch(`${table}?${column}=eq.${value}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(data) })).json();
+      return Array.isArray(res) ? res[0] : res;
+    } catch { return null; }
   }
 };
+
+// ─── Dominio: normalizzazioni e calcolo valore (unificano le formule duplicate) ─
+// Snake_case → camelCase e placeholder di visualizzazione per i campi vuoti.
+function normalizzaWine(w) {
+  return {
+    ...w,
+    slowVinoBott: !!w.slow_vino_bott,
+    denominazione: w.denominazione || "n.d.",
+    macerazione:   w.macerazione   || "—",
+    fermentazione: w.fermentazione || "—",
+    malolattica:   w.malolattica   || "—",
+  };
+}
+
+// Risolve una bevuta al vino corrente in cantina, o ricostruisce un vino
+// "fantasma" dallo snapshot storico se è stato cancellato (F5, 1:N).
+function resolveWine(wineMap, b) {
+  return wineMap[b.id] || (b.produttore ? {
+    id: b.id, produttore: b.produttore, vino: b.vino, annata: b.annata || "",
+    tipologia: b.tipologia || "Bianco fermo", prezzo: b.prezzo || 0, bottiglie: 0,
+    vitigno: "—", macerazione: "—", fermentazione: "—", malolattica: "—", note: "",
+  } : null);
+}
+
+// Valore di mercato stimato di UNA bottiglia: stima AI se presente,
+// altrimenti fallback al prezzo d'acquisto (migliore stima disponibile).
+function valoreBottiglia(wine) {
+  if (!wine) return 0;
+  return (wine.valore || 0) || (wine.prezzo || 0);
+}
+
+// Costo d'acquisto totale della giacenza (prezzo pagato × bottiglie possedute).
+function costoGiacenza(wines) {
+  return wines.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
+}
+
+// Valore di mercato totale della giacenza, con fallback al prezzo d'acquisto
+// per le bottiglie non ancora valutate dall'AI (mai contate a zero).
+function valoreMercatoGiacenza(wines) {
+  return wines.reduce((a, w) => a + valoreBottiglia(w) * w.bottiglie, 0);
+}
 
 // ─── Cache in-memory immagini bottiglia ──
 const imgSessionCache = new Map();
@@ -985,7 +1037,7 @@ function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
   // F23: nei Bevuti il numero è il valore di UNA bottiglia consumata
   // (valore di mercato, fallback prezzo d'acquisto), non la giacenza.
   const totalVal = bevutoInfo
-    ? ((wine.valore || 0) || (wine.prezzo || 0))
+    ? valoreBottiglia(wine)
     : wine.prezzo * wine.bottiglie;
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
@@ -1393,7 +1445,7 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
     });
 
   const totalB = filtered.reduce((a, w) => a + w.bottiglie, 0);
-  const totalV = filtered.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
+  const totalV = costoGiacenza(filtered);
 
   return (
     <>
@@ -1448,12 +1500,6 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
-  const resolveWine = (b) => wineMap[b.id] || (b.produttore ? {
-    id: b.id, produttore: b.produttore, vino: b.vino, annata: b.annata || "",
-    tipologia: b.tipologia || "Bianco fermo", prezzo: b.prezzo || 0, bottiglie: 0,
-    vitigno: "—", macerazione: "—", fermentazione: "—", malolattica: "—", note: "",
-  } : null);
-
   const handleOpen = (uid) => (e) => {
     if (selectedUid != null) return;
     lastFocusedRef.current = e?.currentTarget || null;
@@ -1466,11 +1512,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
   };
   // F23: valore di mercato se valorizzato, altrimenti prezzo d'acquisto
   // (live, poi snapshot storico per i vini non più in wines).
-  const valoreBevuta = (b) => {
-    const w = wineMap[b.id];
-    return (w?.valore || 0) || (w?.prezzo ?? b.prezzo ?? 0);
-  };
-  const totalSpeso = bevuti.reduce((a, b) => a + valoreBevuta(b), 0);
+  const totalSpeso = bevuti.reduce((a, b) => a + valoreBottiglia(resolveWine(wineMap, b)), 0);
 
   if (bevuti.length === 0) {
     return (
@@ -1498,7 +1540,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         </div>
       </div>
       {[...bevuti].reverse().map(b => {
-        const wine = resolveWine(b);
+        const wine = resolveWine(wineMap, b);
         if (!wine) return null;
         return (
           <WineCard key={b.uid} wine={wine}
@@ -1510,7 +1552,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
       {selectedUid != null && (() => {
         const b = bevuti.find(x => x.uid === selectedUid);
         if (!b) return null;
-        const wine = resolveWine(b);
+        const wine = resolveWine(wineMap, b);
         if (!wine) return null;
         return (
           <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: b.data, nota: b.nota }}
@@ -1527,10 +1569,12 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
 function TabStatistiche({ wines, bevuti }) {
   // 1:N — cantina = tutti i vini passati (già filtrati bottiglie > 0 a monte)
   const cantina = wines;
+  const wineMap = Object.fromEntries(wines.map(w => [w.id, w]));
   const totB = cantina.reduce((a, w) => a + w.bottiglie, 0);
-  const totV = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
-  const totMercato = cantina.reduce((a, w) => a + (w.valore || 0) * w.bottiglie, 0);
-  const totBevuto = bevuti.reduce((a, b) => { const w = wines.find(x => x.id === b.id); return a + (w?.prezzo || 0); }, 0);
+  const totV = costoGiacenza(cantina);
+  const totMercato = valoreMercatoGiacenza(cantina);
+  // F23: stessa formula di "valore consumato" in Bevuti (fallback + snapshot storico per orfani)
+  const totBevuto = bevuti.reduce((a, b) => a + valoreBottiglia(resolveWine(wineMap, b)), 0);
   const swCount = cantina.filter(w => hasCantina(w.produttore)).reduce((a, w) => a + w.bottiglie, 0);
 
   const byTipo = {};
@@ -1629,12 +1673,56 @@ function TabStatistiche({ wines, bevuti }) {
   );
 }
 
+// ─── Hook: caricamento dati cantina ─────────────────────────────────────────
+// Estrae stato ed effetto di caricamento da Cantina(), distinguendo errore
+// HTTP/timeout da risultato legittimamente vuoto (via sb.getOrThrow).
+function useCantinaData() {
+  const [wines, setWines] = useState([]);
+  const [bevuti, setBevuti] = useState([]);
+  const [ratings, setRatings] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadData() {
+      try {
+        const [fetchedWines, bev] = await Promise.all([
+          sb.getOrThrow("wines", { order: "id.asc" }),
+          sb.getOrThrow("bevuti"),
+        ]);
+        if (cancelled) return;
+        setWines(fetchedWines.map(normalizzaWine));
+        // F5: 1:N — nessuna deduplica, uid è chiave univoca
+        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
+        setBevuti(bevFromDb);
+        const ratingsFromDb = {};
+        // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
+        bev.forEach(b => {
+          if (b.rating > 0 && b.rating > (ratingsFromDb[b.wine_id] || 0)) ratingsFromDb[b.wine_id] = b.rating;
+        });
+        setRatings(ratingsFromDb);
+        setDbError(null);
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Errore caricamento dati:", e);
+        setDbError(e.status === "timeout" ? "Errore: connessione troppo lenta, riprova" : "Errore: impossibile caricare la cantina");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadData();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, loading, dbError, setDbError };
+}
+
 // ─── App principale ───────────────────────────────────────────────────────────
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
-  const [bevuti, setBevuti] = useState([]);
-  const [wines, setWines] = useState([]);
+  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, loading, dbError, setDbError } = useCantinaData();
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -1642,9 +1730,6 @@ export default function Cantina() {
   const [fabVisible, setFabVisible] = useState(true);
   const [selectedWineForScheda, setSelectedWineForScheda] = useState(null);
   const [schedaFabLoading, setSchedaFabLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState(null);
-  const [ratings, setRatings] = useState({});
   const scrollRef = useRef(null);
   const lastScrollY = useRef(0);
 
@@ -1655,40 +1740,6 @@ export default function Cantina() {
         regs.forEach(reg => reg.update());
       });
     }
-  }, []);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [fetchedWines, bev] = await Promise.all([
-          fetch(`${SB_URL}/rest/v1/wines?order=id.asc`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" } }).then(r => r.ok ? r.json() : []),
-          sb.get("bevuti"),
-        ]);
-        // Normalizza snake_case → camelCase e valori nulli
-        setWines(fetchedWines.map(w => ({
-          ...w,
-          slowVinoBott: !!w.slow_vino_bott,
-          denominazione: w.denominazione || "n.d.",
-          macerazione:  w.macerazione  || "—",
-          fermentazione: w.fermentazione || "—",
-          malolattica:  w.malolattica  || "—",
-        })));
-        // F5: 1:N — nessuna deduplica, uid è chiave univoca
-        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
-        setBevuti(bevFromDb);
-        const ratingsFromDb = {};
-        // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
-        bev.forEach(b => {
-          if (b.rating > 0 && b.rating > (ratingsFromDb[b.wine_id] || 0)) ratingsFromDb[b.wine_id] = b.rating;
-        });
-        setRatings(ratingsFromDb);
-      } catch (e) {
-        console.error("Errore caricamento dati:", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
   }, []);
 
   const allWines = wines.filter(w => w.bottiglie > 0);
@@ -1914,7 +1965,7 @@ export default function Cantina() {
   // 1:N — cantina = tutti i vini con bottiglie > 0 (già filtrati in allWines)
   const cantina = allWines;
   const totBottiglie = cantina.reduce((a, w) => a + w.bottiglie, 0);
-  const totValore    = cantina.reduce((a, w) => a + w.prezzo * w.bottiglie, 0);
+  const totValore    = costoGiacenza(cantina);
 
   if (loading) return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: M3.surface, gap: 16 }}>
