@@ -3,9 +3,9 @@
 Deriva da `ANALISI_ARCHITETTURA.md` (Parte 1). Copre le azioni **D1–D7**.
 Unità di lavoro: **1 passo = 1 sessione = 1 commit**, come da workflow in `CLAUDE.md`.
 
-Sostituisce `PIANO_FIX.md`, che descrive un'architettura superata (batch 4–5 su
-`bottleOverrides`, `sb.get` malformato) ed è in contraddizione con `CLAUDE.md`.
-`PIANO_FIX.md` va archiviato o eliminato alla chiusura di P0.
+Sostituisce `PIANO_FIX.md`, che descriveva un'architettura superata (batch 4–5 su
+`bottleOverrides`, `sb.get` malformato) ed era in contraddizione con `CLAUDE.md`.
+Eliminato alla chiusura di P0; resta nella storia git se dovesse servire.
 
 ---
 
@@ -76,10 +76,18 @@ P3 è indipendente da tutto: se P1 si blocca sulla decisione login, si può anti
 
 ---
 
-## P0 — Migrazioni nel repo + stopgap rating
+## P0 — Migrazioni nel repo + stopgap rating ✅ FATTO (19/09/2026)
 
 **Azioni:** D6, più una messa in sicurezza di D5.
 **Decisioni richieste:** nessuna. **DDL eseguito:** solo lo stopgap.
+
+> **Esito.** Cartella `supabase/` creata: le 8 migrazioni esistenti recuperate da
+> `supabase_migrations.schema_migrations` (erano registrate nel database, non nel
+> repo) più `schema/current.sql`. Scoperto in corso d'opera che A0 e A2a non sono
+> registrati, quindi le migrazioni da sole non ricostruiscono il DB da zero:
+> `current.sql` è l'unica fotografia completa. Stopgap applicato come migrazione
+> `20260919111836`, nessun dato modificato. `ratingPerVino()` estratta in
+> `App.jsx`. Suite e2e: 15/15. Dettagli in `supabase/README.md`.
 
 Va per primo perché ogni passo successivo produce DDL: senza P0 quel DDL torna a
 esistere solo dentro Supabase, che è esattamente il problema che D6 descrive.
@@ -256,11 +264,12 @@ Nessuno è urgente. Si agganciano alla prima sessione che tocca l'area vicina.
 policy di rete blocca `etbrgdldduadgbulasmy.supabase.co`, e che quindi ogni controllo
 va delegato a Omar o incorporato nello script SQL.
 
-**Durante l'analisi del 19/09 il limite non si è presentato:** schema, vincoli, policy,
-grant e conteggi sono stati letti direttamente tramite il server MCP di Supabase, che
-non passa dal proxy HTTP. Vale la pena verificarlo all'inizio della prossima sessione:
-se il canale MCP è disponibile, i pre-check live dentro gli script SQL diventano
-superflui e ogni passo di questo piano può essere verificato prima e dopo, sul posto.
+**Confermato in P0: il limite non vale per il server MCP di Supabase**, che non passa
+dal proxy HTTP. Durante P0 sono stati usati `execute_sql`, `list_migrations` e
+`apply_migration` senza attriti. I pre-check live dentro gli script SQL restano utili
+come rete di sicurezza, ma non sono più l'unico modo di verificare: ogni passo di
+questo piano può essere controllato prima e dopo, sul posto. `CLAUDE.md` aggiornato
+di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 
 ---
 
@@ -268,7 +277,7 @@ superflui e ogni passo di questo piano può essere verificato prima e dopo, sul 
 
 | Passo | Azioni | Decisione | DDL | Rischio | Reversibile |
 |---|---|---|---|---|---|
-| **P0** | D6 + stopgap D5 | — | minimo | nullo/basso | sì |
+| ~~**P0**~~ | ~~D6 + stopgap D5~~ | — | minimo | nullo/basso | ✅ fatto |
 | **P1a** | D1 | Q1 | no | basso | sì |
 | **P1b** | D1 | Q1 | sì | medio | sì |
 | **P1c** | D1 | Q1 | sì | **alto** | sì, ma riapre il buco |

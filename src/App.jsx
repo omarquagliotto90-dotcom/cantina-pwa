@@ -122,6 +122,32 @@ function resolveWine(wineMap, b) {
   } : null);
 }
 
+// Rating mostrato per vino, a partire dalle righe di `bevuti`.
+//
+// Il rating in DB è PER BEVUTA (decisione aperta Q3), mentre la UI ne mostra
+// uno solo per vino. Prima si prendeva il massimo: ma dopo lo stopgap di P0 la
+// RPC `valuta_vino` scrive sulla bevuta PIÙ RECENTE, quindi leggere il massimo
+// avrebbe fatto "tornare indietro" il voto appena dato. Qui si legge dove si
+// scrive: il voto della bevuta più recente fra quelle valutate.
+//
+// "fra quelle valutate" e non "la più recente in assoluto": altrimenti una
+// bevuta nuova senza voto nasconderebbe un voto precedente. Dopo una scrittura
+// le due definizioni coincidono comunque, perché la più recente diventa valutata.
+function ratingPerVino(bevute) {
+  const piuRecente = {};
+  for (const b of bevute) {
+    if (b.wine_id == null || b.rating == null) continue;
+    const corrente = piuRecente[b.wine_id];
+    const piuNuova = !corrente ||
+      b.consumed_on > corrente.consumed_on ||
+      (b.consumed_on === corrente.consumed_on && b.uid > corrente.uid);
+    if (piuNuova) piuRecente[b.wine_id] = b;
+  }
+  return Object.fromEntries(
+    Object.entries(piuRecente).map(([wineId, b]) => [wineId, Number(b.rating)])
+  );
+}
+
 // Valore di mercato stimato di UNA bottiglia: stima AI se presente,
 // altrimenti fallback al prezzo d'acquisto (migliore stima disponibile).
 function valoreBottiglia(wine) {
@@ -1742,12 +1768,7 @@ function useCantinaData() {
         // F5: 1:N — nessuna deduplica, uid è chiave univoca
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
         setBevuti(bevFromDb);
-        const ratingsFromDb = {};
-        // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
-        bev.forEach(b => {
-          if (b.rating > 0 && b.rating > (ratingsFromDb[b.wine_id] || 0)) ratingsFromDb[b.wine_id] = b.rating;
-        });
-        setRatings(ratingsFromDb);
+        setRatings(ratingPerVino(bev));
         setDbError(null);
       } catch (e) {
         if (cancelled) return;

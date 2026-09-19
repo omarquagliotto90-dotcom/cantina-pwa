@@ -104,17 +104,19 @@ const BEVUTI = [
     produttore: "Cantine Belisario", vino: "Verdicchio Cambrugiano",
     annata: "2019", tipologia: "Bianco fermo", prezzo: 15,
   },
-  // Due bevute dello STESSO vino con voti diversi: è il caso che la UI attuale
-  // collassa al massimo e che `valuta_vino` sovrascrive (D5, 5 vini reali).
+  // Due bevute dello STESSO vino con voti divergenti (D5, 5 vini reali).
+  // Di proposito la più recente vale MENO del massimo: così il test distingue
+  // "mostra il massimo" (vecchio comportamento) da "mostra la più recente"
+  // (dopo lo stopgap di P0). Rispecchia il caso reale di Vina Krapez, 5.0 → 4.5.
   {
     uid: 1789000000002, wine_id: 1, consumed_on: "2026-08-01",
-    created_at: "2026-08-01T20:00:00+00:00", nota: "", rating: 3.0,
+    created_at: "2026-08-01T20:00:00+00:00", nota: "", rating: 4.0,
     produttore: "Pieropan", vino: "Soave Classico La Rocca",
     annata: "2021", tipologia: "Bianco fermo", prezzo: 12,
   },
   {
     uid: 1789000000003, wine_id: 1, consumed_on: "2026-09-01",
-    created_at: "2026-09-01T20:00:00+00:00", nota: "Meglio del precedente", rating: 4.0,
+    created_at: "2026-09-01T20:00:00+00:00", nota: "Meno brillante", rating: 3.0,
     produttore: "Pieropan", vino: "Soave Classico La Rocca",
     annata: "2021", tipologia: "Bianco fermo", prezzo: 12,
   },
