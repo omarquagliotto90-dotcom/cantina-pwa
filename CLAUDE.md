@@ -68,6 +68,7 @@ Altri bug aperti:
 - `Card` è definito dentro `TabStatistiche`, quindi si rimonta a ogni render
 - Filtri, ricerca e scroll della Lista si perdono cambiando tab
 - Il FAB cambia significato ("Scheda tecnica") e resta sopra il `WineDetail`
+- `ModalBevi`: il date-picker "data apertura" ha `max` impostato a oggi ma non blocca davvero la selezione di date future su tutti i browser/dispositivi (il vincolo HTML `max` non è enforced ovunque) — non urgente, da sistemare in futuro (probabile fix: validazione esplicita on-change, o CHECK lato DB su `bevuti.consumed_on`)
 
 ## Roadmap concordata
 
