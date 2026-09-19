@@ -12,7 +12,7 @@
 //   test("…", async ({ page, cantina }) => { … });
 
 const base = require("@playwright/test");
-const { WINES, BEVUTI } = require("../fixtures/cantina");
+const { WINES, BEVUTI, PRODUTTORI } = require("../fixtures/cantina");
 
 const RE_SUPABASE = /supabase\.co/;
 const RE_API = /\/api\//;
@@ -31,7 +31,9 @@ class Cantina {
     this.tables = {
       wines: WINES.map(w => ({ ...w })),
       bevuti: BEVUTI.map(b => ({ ...b })),
+      produttori: PRODUTTORI.map(p => ({ ...p })),
       wine_images: [],
+      // P3: non più letta dal client, resta finché la fase 3 non la elimina.
       wine_websites: [],
     };
     this.rpcOverrides = {};

@@ -140,7 +140,31 @@ const ATTESI = {
   valoreMercato: 18 * 3 + 0 * 2 + 20 * 1, // valoreBottiglia con fallback = 74
 };
 
+// P3: anagrafica produttori. `slow_chiocciola` e `sito` vivono qui, non più
+// in un Set hardcoded nel bundle e in `wine_websites`.
+// `nome_norm` è una colonna generata (`lower(btrim(nome))`): va riprodotta,
+// perché è la chiave con cui il client indicizza la mappa.
+const PRODUTTORI = [
+  {
+    id: 1, nome: "Pieropan", nome_norm: "pieropan",
+    sito: "https://www.pieropan.it/", sito_source: "serper",
+    slow_chiocciola: true, regione: "Veneto",
+  },
+  {
+    id: 2, nome: "Azienda Senza Dati", nome_norm: "azienda senza dati",
+    sito: null, sito_source: null, slow_chiocciola: false, regione: null,
+  },
+  {
+    id: 3, nome: "Cantina Singola", nome_norm: "cantina singola",
+    sito: null, sito_source: null, slow_chiocciola: false, regione: null,
+  },
+  {
+    id: 4, nome: "Cantine Belisario", nome_norm: "cantine belisario",
+    sito: null, sito_source: null, slow_chiocciola: false, regione: "Marche",
+  },
+];
+
 module.exports = {
-  WINES, BEVUTI, ATTESI,
+  WINES, BEVUTI, PRODUTTORI, ATTESI,
   VINO_COMPLETO, VINO_MINIMO, VINO_ULTIMA_BOTTIGLIA, VINO_ESAURITO,
 };

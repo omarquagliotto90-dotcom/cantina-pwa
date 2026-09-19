@@ -45,6 +45,9 @@ riscritte fedelmente su file (le dimensioni in byte corrispondono).
 | `20260919092251_a3_revoke_truncate.sql` | A3 — revoca TRUNCATE ad `anon` |
 | `20260919093001_bevi_bottiglia_data_modificabile.sql` | data apertura scelta dall'utente (`p_consumed_on`) |
 | `20260919111836_p0_stopgap_valuta_vino_ultima_bevuta.sql` | **P0** — stopgap D5 |
+| `20260919120426_p2_wines_updated_at.sql` | **P2** — `updated_at` + trigger (D7c) |
+| `20260919120819_p3_fase1_tabella_produttori.sql` | **P3/1** — anagrafica `produttori`, FK su `wines` (D3) |
+| `20260919120944_p3_fase2_rpc_produttore_id.sql` | **P3/2** — RPC che popolano `produttore_id` |
 
 ### La storia è incompleta, e va saputo
 
@@ -87,6 +90,70 @@ più recente era stata valutata meno della precedente.
 | Azienda Agricola Adanti — L'Arquata Umbria Rosso | 4,6 | 4,3 |
 
 Gli altri 4 vini con due bevute non cambiano.
+
+## P2 — `updated_at`
+
+Colonna su `wines` più il trigger `set_updated_at()`, `SECURITY INVOKER`.
+Backfill da `created_at`, così la colonna nasce già informativa (le date vanno
+dal 2026-06-09 al 2026-09-01) invece di avere 125 righe con lo stesso istante.
+
+**Trappola da ricordare:** un backfill di schema è una modifica del database,
+non dell'utente. Qualunque `UPDATE` massivo su `wines` in una migrazione futura
+deve fare `DISABLE TRIGGER wines_set_updated_at` e riabilitarlo, altrimenti
+azzera `updated_at` su tutte le righe e la colonna perde il suo senso. P3 fase 1
+lo fa già.
+
+Serve alla cache stale-while-revalidate prevista in B. Da sola non si vede.
+
+## P3 — anagrafica `produttori`
+
+80 produttori estratti dai nomi in `wines`, `wines.produttore_id` NOT NULL con
+FK, `sito`/`sito_source` importati da `wine_websites` (26 righe su 29 hanno un
+corrispondente), `slow_chiocciola` valorizzata per i 6 nomi che erano hardcoded
+nel bundle.
+
+`wines.produttore` (testo) resta popolata in parallelo, perché è ancora la
+colonna che l'app legge. Sparirà in **fase 3**, insieme a `wine_websites`.
+
+### Il bug che è emerso strada facendo
+
+`WebsiteView` leggeva la cache così:
+
+```js
+sb.get(`wine_websites?produttore=eq.${key}&select=url,source`)
+```
+
+ma `sb.get(table)` appende `?order=created_at.asc`, producendo **due `?` nella
+stessa query string**. PostgREST riceveva `select=url,source?order=created_at.asc`,
+cioè una lista di colonne non valida, e rispondeva 400; `sb.get` inghiottiva
+l'errore e restituiva `[]`.
+
+Conseguenza: **la cache dei siti non è mai stata letta**, e ogni apertura della
+tab "Web" richiamava Serper da capo. Verificato catturando l'URL costruito dal
+client con l'harness e2e.
+
+P3 lo chiude alla radice: il sito arriva con l'anagrafica caricata all'avvio,
+quindi non c'è più nessuna query per vino.
+
+Cambiato anche il criterio di salvataggio: il fallback su Google **non** viene
+più scritto. Prima finiva in cache come se fosse il sito ufficiale; ora ci
+finisce solo un risultato vero. In anagrafica oggi non c'è nessun URL di
+ricerca Google, quindi non serve ripulire nulla.
+
+### Lasciato aperto di proposito
+
+`Vina Krapez` e `Vina Krapež` sono lo stesso produttore con due scritture, e
+`nome_norm` (`lower(btrim(...))`) non le unifica perché differiscono per un
+carattere accentato. Sono due righe in `produttori`. Fonderle è una scelta
+editoriale — quale grafia è quella giusta — quindi non l'ho fatta io:
+
+```sql
+-- quando hai deciso la grafia canonica
+UPDATE wines SET produttore = 'Vina Krapež',
+                 produttore_id = (SELECT id FROM produttori WHERE nome = 'Vina Krapež')
+WHERE produttore = 'Vina Krapez';
+DELETE FROM produttori WHERE nome = 'Vina Krapez';
+```
 
 ## Da sistemare, notato durante P0
 

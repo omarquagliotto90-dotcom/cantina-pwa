@@ -98,13 +98,25 @@ Conseguenze misurate (rimisurate il 19/09/2026, vedi correzione sotto):
   DB. Aggiornare la guida 2026 richiederà un deploy. `SW_VINO_BOTTIGLIA` è
   dichiarato e **mai letto**: codice morto.
 
-> **Correzione (19/09/2026).** In una prima stesura avevo scritto che il lookup
-> del sito produttore "fallisce silenziosamente su spazi e maiuscole". I dati non
-> lo confermano: 26 righe su 29 combaciano con un match **esatto**, e il confronto
-> normalizzato (`lower(trim(...))`) restituisce esattamente le stesse 26. Oggi la
-> cache dei siti funziona. La fragilità del match esatto resta un rischio
-> strutturale, non un guasto in corso: P3 va giustificato sulla manutenibilità,
-> non su un danno attuale.
+> **Correzione (19/09/2026), in due tempi.**
+>
+> 1. In una prima stesura avevo scritto che il lookup del sito "fallisce
+>    silenziosamente su spazi e maiuscole". **Causa sbagliata:** 26 righe su 29
+>    combaciano con match esatto, e il confronto normalizzato dà le stesse 26.
+>    I nomi non sono il problema.
+> 2. Poi avevo concluso che "la cache dei siti funziona". **Anche questo era
+>    sbagliato.** Durante P3 ho catturato con l'harness e2e l'URL che il client
+>    costruisce davvero:
+>    `wine_websites?produttore=eq.Pieropan&select=url,source?order=created_at.asc`
+>    — due `?` nella stessa query string, perché `sb.get` appende `?order=` a un
+>    percorso che ne ha già uno. PostgREST risponde 400, `sb.get` inghiotte
+>    l'errore e torna `[]`.
+>
+> **Conclusione:** la cache non è mai stata letta, e ogni apertura della tab
+> "Web" richiamava Serper da capo. L'effetto che avevo intuito era reale, la
+> causa era un'altra — ed era già stata individuata come `F18` nel vecchio
+> `PIANO_FIX.md`, che avevo proposto di archiviare. Chiuso in P3: il sito arriva
+> con l'anagrafica caricata all'avvio, nessuna query per vino.
 
 Proposta:
 

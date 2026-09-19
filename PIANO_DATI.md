@@ -68,11 +68,11 @@ Aggiornata dopo la decisione su Q1 (login rimandato).
 ```
 P0  migrazioni + stopgap rating      ✅ fatto
  │
+P2  updated_at                        ✅ fatto
+ │
+P3  produttori                        ✅ fatto (fase 3 aperta)
+ │
 P1b recuperabilità senza login       nessuna decisione      ── prossimo
- │
-P2  updated_at                        nessuna decisione
- │
-P3  produttori                        nessuna decisione
  │
  ├─ Q2 = no  ──► P4 contratto snapshot ──► P5 rating (su bevuti)
  │
@@ -225,9 +225,15 @@ quindi il backup JSON va rifatto **prima** di P1b.
 
 ---
 
-## P2 — `updated_at` su `wines`
+## P2 — `updated_at` su `wines` ✅ FATTO (19/09/2026)
 
 **Azione:** D7c. **Decisioni:** nessuna.
+
+> **Esito.** Colonna + trigger `set_updated_at()` (SECURITY INVOKER), backfill da
+> `created_at`: le date vanno dal 2026-06-09 al 2026-09-01, quindi la colonna
+> nasce informativa. Trigger verificato con un UPDATE in transazione e rollback.
+> Trappola registrata: ogni backfill massivo futuro su `wines` deve disabilitare
+> il trigger, o azzera `updated_at` ovunque. Nessuna modifica al client.
 
 Colonna + trigger `moddatetime`. Dieci minuti, nessun impatto sul client.
 È il prerequisito della cache stale-while-revalidate prevista in **B**: senza,
@@ -238,9 +244,23 @@ una migrazione di sicurezza.
 
 ---
 
-## P3 — Tabella `produttori`
+## P3 — Tabella `produttori` ✅ FATTO (19/09/2026)
 
 **Azione:** D3. **Decisioni:** nessuna. Indipendente da Q1 e Q2.
+
+> **Esito.** 80 produttori, `wines.produttore_id` NOT NULL con FK, siti importati
+> da `wine_websites` (26/29), `slow_chiocciola` per i 6 nomi che stavano nel
+> bundle. Nuova RPC `risolvi_produttore()` find-or-create, usata da
+> `aggiungi_o_incrementa` e `modifica_vino` — necessaria subito, perché la FK
+> NOT NULL le avrebbe altrimenti fatte fallire. Client: `SW_CANTINA_CHIOCCIOLA`
+> e `SW_VINO_BOTTIGLIA` rimossi, mappa `produttoriByNome` a livello di modulo
+> così nessun call site di `hasCantina` cambia. **Trovato e chiuso un bug reale:**
+> la cache dei siti non era mai stata letta (due `?` nella query string di
+> `sb.get`), quindi ogni apertura della tab Web richiamava Serper. Suite e2e:
+> 19/19, con 4 test nuovi. Restano da fare in **fase 3**: drop di
+> `wines.produttore` e di `wine_websites`. Lasciata aperta di proposito la fusione
+> di `Vina Krapez` / `Vina Krapež` (scelta editoriale, SQL pronto in
+> `supabase/README.md`).
 
 1. `produttori(id identity, nome, nome_norm generated UNIQUE, sito, sito_source,
    slow_chiocciola bool, regione)`.
@@ -349,9 +369,9 @@ di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 |---|---|---|---|---|---|
 | ~~**P0**~~ | ~~D6 + stopgap D5~~ | — | minimo | nullo/basso | ✅ fatto |
 | **P1b** | riduzione gravità D1 | — | sì | basso | sì |
+| ~~**P2**~~ | ~~D7c~~ | — | sì | nullo | ✅ fatto |
+| ~~**P3**~~ | ~~D3 (+D7b)~~ | — | sì | medio | ✅ fatto (fase 3 aperta) |
 | ~~P1a/P1c~~ | ~~D1~~ | Q1 = b | — | — | rimandato |
-| **P2** | D7c | — | sì | nullo | sì |
-| **P3** | D3 (+D7b) | — | sì | medio | sì |
 | **P4** | D4 | Q2 = no | sì | medio | sì |
 | **P5** | D5 | Q3 | sì | medio | sì |
 | **P6** | D2 | Q2 = sì | sì | **alto** | difficile |
