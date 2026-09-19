@@ -142,7 +142,7 @@ Raw:    https://raw.githubusercontent.com/omarquagliotto90-dotcom/cantina-pwa/ma
 ## Decisioni ancora aperte
 
 1. Rating per bevuta o per vino. Raccomandato: per bevuta, coerente con lo storico immutabile, e lo schema è già così. **P0 ha messo uno stopgap**: la scrittura non distrugge più gli altri voti, quindi la decisione non è più urgente — resta da prendere in P5
-2. Login: introdurlo cambia il primo avvio dell'app
+2. ~~Login~~ — **deciso 19/09/2026: non ora.** Conseguenza accettata: senza `auth.uid()` il database non distingue Omar da un estraneo, quindi D1 resta aperto e non è mitigabile a metà (qualunque segreto lato client è nel bundle). Al suo posto si riduce la gravità con P1b: soft delete, log append-only, export ripetibile. A4 rientra in piano quando la decisione cambia
 3. "Riporta in cantina": tenerlo come correzione con undo, o rimuoverlo
 4. Nuovi campi (finestra di beva, posizione in cantina, formato) che abiliterebbero lo step 9 "cosa bere"
 5. Se spacchettare `App.jsx` in più file

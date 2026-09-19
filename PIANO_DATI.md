@@ -14,19 +14,26 @@ Eliminato alla chiusura di P0; resta nella storia git se dovesse servire.
 Il resto del piano è già deciso o non richiede scelte. Queste tre invece cambiano
 la forma dei passi successivi.
 
-### Q1 · Login (decisione aperta #2) — blocca P1
+### Q1 · Login (decisione aperta #2) — ✅ DECISO 19/09/2026: **rimandato**
 
 A4 non è realizzabile senza un utente: RLS per `owner_id` presuppone `auth.uid()`.
 
 | Opzione | Effetto |
 |---|---|
-| **a. Login vero** (email+password, un solo utente) | Prima apertura chiede le credenziali, poi sessione persistente. È l'unica che chiude davvero D1 |
-| **b. Rimandare A4** | Nessun cambiamento per l'utente; la cantina resta scrivibile da chiunque abbia la chiave |
+| a. Login vero (email+password, un solo utente) | Prima apertura chiede le credenziali, poi sessione persistente. È l'unica che chiude davvero D1 |
+| **b. Rimandare A4** ← **scelta** | Nessun cambiamento per l'utente; la cantina resta leggibile e scrivibile da chiunque abbia la chiave |
 
 Una "passphrase singola" lato client **non** è un'opzione: non produce un `auth.uid()`,
 quindi non abilita RLS e non toglie i permessi ad `anon`. Sarebbe sicurezza apparente.
 
-**Raccomandato: a.** Il costo è una schermata vista una volta per dispositivo.
+**Conseguenza della scelta:** D1 resta aperto e non è mitigabile a metà. Senza
+`auth.uid()` il database non ha modo di distinguere Omar da un estraneo: qualunque
+controllo si aggiunga lato client o dentro le RPC si basa su un segreto che è nel
+bundle, quindi pubblico. La probabilità del danno non si può ridurre.
+
+Si può però ridurre **la gravità**, e non serve alcuna decisione per farlo: è il
+nuovo passo **P1b**. Trasforma "perdita totale e irreversibile" in "fastidio
+recuperabile". P1 resta in piano, solo più avanti.
 
 ### Q2 · Bottiglie come righe (decisione aperta #4) — blocca P4 e P5
 
@@ -56,10 +63,12 @@ che è il peggiore dei due mondi.
 
 ## Sequenza
 
+Aggiornata dopo la decisione su Q1 (login rimandato).
+
 ```
-P0  migrazioni + stopgap rating      nessuna decisione      ── si può partire subito
+P0  migrazioni + stopgap rating      ✅ fatto
  │
-P1  A4 sicurezza  (P1a→P1b→P1c)      richiede Q1
+P1b recuperabilità senza login       nessuna decisione      ── prossimo
  │
 P2  updated_at                        nessuna decisione
  │
@@ -70,9 +79,12 @@ P3  produttori                        nessuna decisione
  └─ Q2 = sì  ──► P6 bottiglie come righe ──► P5 rating (su bottiglie); P4 decade
  │
 P7  opportunistici (immagini, liste chiuse, estensioni)
+
+P1  A4 sicurezza (P1a→P1c)  ── rimandato, rientra quando Q1 cambia
 ```
 
-P3 è indipendente da tutto: se P1 si blocca sulla decisione login, si può anticipare.
+P1 non era un prerequisito tecnico di nessun altro passo: era primo solo per
+gravità. Rimandarlo non blocca nulla.
 
 ---
 
@@ -110,9 +122,62 @@ Rivalutare un vino già bevuto più volte non deve più toccare le bevute preced
 
 ---
 
-## P1 — A4: autenticazione e RLS reale
+## P1b — Recuperabilità senza login
 
-**Azione:** D1. **Decisione richiesta:** Q1.
+**Sostituisce P1 nell'ordine, non nel merito.** Decisioni richieste: nessuna.
+
+Dato che senza `auth.uid()` la probabilità del danno non è riducibile, si riduce
+la gravità. Oggi un'eliminazione è definitiva: `elimina_bottiglia` sull'ultima
+bottiglia fa `DELETE FROM wines`, la FK CASCADE porta via la riga in
+`wine_images` e la FK `SET NULL` stacca per sempre le bevute dal vino. È già
+successo una volta (l'orfano del vino 76, pulito in A2a).
+
+Vale anche contro l'errore di tocco, che è di gran lunga lo scenario più probabile.
+
+### 1. Soft delete su `wines`
+
+`deleted_at timestamptz`, e `elimina_bottiglia` lo valorizza invece di cancellare.
+Il caricamento filtra `WHERE deleted_at IS NULL`.
+
+Due dettagli da non sbagliare:
+
+- `idx_wines_unique_normalizzato` non ha clausola `WHERE`: una riga soft-deleted
+  continuerebbe a occupare lo slot e `aggiungi_o_incrementa` fallirebbe sul
+  ri-inserimento dello stesso vino. Serve un indice parziale
+  (`WHERE deleted_at IS NULL`) **oppure** far sì che l'upsert "resusciti" la riga
+  azzerando `deleted_at`. La seconda è preferibile: conserva `id`, immagine e
+  storico.
+- `wine_images` non va più in CASCADE: l'immagine sopravvive al soft delete, che
+  è quello che si vuole se il vino torna.
+
+### 2. Log append-only delle scritture
+
+`audit_log(id, at, azione, wine_id, uid_bevuta, dettaglio jsonb)`. Ogni RPC
+inserisce una riga. Ad `anon` non si concede né UPDATE né DELETE sulla tabella:
+può solo crescere, e solo attraverso le RPC.
+
+Serve a due cose: capire *cosa* è successo se un giorno i numeri non tornano, e
+avere il materiale per disfarlo.
+
+### 3. Export periodico
+
+Il backup JSON di A2a fu manuale e una tantum. Va reso una procedura ripetibile
+e documentata (script nel repo + cadenza). Il piano gratuito di Supabase non
+offre point-in-time recovery: senza un export proprio, un `DELETE` andato a buon
+fine non si recupera.
+
+**Rischio:** basso, tutto additivo. **Reversibile:** sì.
+**Verifica:** la suite e2e copre già i due rami di `elimina_bottiglia`; vanno
+aggiornate le asserzioni e aggiunto il caso "vino eliminato e poi riaggiunto
+torna con il suo storico".
+
+---
+
+## P1 — A4: autenticazione e RLS reale  ·  RIMANDATO (Q1 = b, 19/09/2026)
+
+**Azione:** D1. **Decisione richiesta:** Q1 — risposta attuale: non ora.
+Resta qui, invariato, per quando la decisione cambia.
+
 **Il passo più delicato del piano.** Tre sotto-passi, ognuno deployabile: l'app non
 resta mai rotta fra uno e l'altro. Stesso schema in 3 fasi già usato con successo in A2b.
 
@@ -278,9 +343,8 @@ di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 | Passo | Azioni | Decisione | DDL | Rischio | Reversibile |
 |---|---|---|---|---|---|
 | ~~**P0**~~ | ~~D6 + stopgap D5~~ | — | minimo | nullo/basso | ✅ fatto |
-| **P1a** | D1 | Q1 | no | basso | sì |
-| **P1b** | D1 | Q1 | sì | medio | sì |
-| **P1c** | D1 | Q1 | sì | **alto** | sì, ma riapre il buco |
+| **P1b** | riduzione gravità D1 | — | sì | basso | sì |
+| ~~P1a/P1c~~ | ~~D1~~ | Q1 = b | — | — | rimandato |
 | **P2** | D7c | — | sì | nullo | sì |
 | **P3** | D3 (+D7b) | — | sì | medio | sì |
 | **P4** | D4 | Q2 = no | sì | medio | sì |
@@ -288,7 +352,7 @@ di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 | **P6** | D2 | Q2 = sì | sì | **alto** | difficile |
 | **P7** | D7a/b/d | — | sì | basso | sì |
 
-Backup JSON completo prima di **P1b**, **P3** e **P6**.
+Backup JSON completo prima di **P3** e **P6** (e reso ripetibile da P1b stesso).
 
 Alla chiusura di ogni passo: aggiornare la roadmap in `CLAUDE.md` e committare la
 migrazione corrispondente sotto `supabase/migrations/`.
