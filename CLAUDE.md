@@ -76,7 +76,7 @@ Prima i dati, perché gli step 4–6 del piano 2.0 dipendono dal modello.
 - **A0** — fatto. Audit schema in sola lettura
 - **A2a** — fatto (19/09/2026). Backup JSON eseguito, orfano vino 76 pulito (0 orfani residui su `bevuti`/`wine_images`), FK `wine_images`→`wines` ON DELETE CASCADE, FK `bevuti`→`wines` ON DELETE SET NULL + indice `idx_bevuti_wine_id`, CHECK su `bottiglie`/`prezzo`/`valore`/`tipologia`/`denominazione`/`rating`, `bevuti.consumed_on date` NOT NULL (default oggi Europe/Rome, backfill da testo italiano completato), `bevuti.created_at` convertito a `timestamptz`, indice UNIQUE `idx_wines_unique_normalizzato` su produttore/vino/annata normalizzati. Verificato via SQL Editor: tutti i vincoli, FK e indici presenti, 0 righe orfane
 - **A1** — fatto (19/09/2026). `sb` con AbortController+timeout (15s), contratto di ritorno invariato; `sb.getOrThrow` per distinguere errore HTTP/timeout da vuoto. Funzioni pure: `normalizzaWine`, `resolveWine`, `valoreBottiglia` (mercato con fallback prezzo), `costoGiacenza` (prezzo×bottiglie, sostituisce le 3 duplicazioni in header/TabLista/Statistiche — **decisione presa: header e "Costo" in Statistiche restano costo d'acquisto, non valore di mercato**), `valoreMercatoGiacenza` (con fallback, non ignora più le bottiglie senza stima AI). Fix: "vini bevuti" in Statistiche allineato a "valore consumato" di Bevuti (stessa formula/fallback allo snapshot storico, non più azzerato per i vini cancellati). Estratto `useCantinaData()` da `Cantina()`; `wines` ora caricato via `sb.getOrThrow` invece di un fetch che bypassava `sb`; su fallimento del caricamento iniziale ora popola `dbError` invece di fallire in silenzio. Validato con `esbuild` (sintassi ok), non ancora verificato in browser
-- **A2b** — contract, richiede A1: "—" e 'n.d.' a NULL, `annata` a `smallint` NULL, `prezzo` 0 a NULL se confermato, `rating` default NULL con CHECK 1–5, drop di `bevuti.data`
+- **A2b** — fatto (19/09/2026). Placeholder "—"/"n.d." → NULL su `macerazione`/`fermentazione`/`malolattica`/`denominazione` (CHECK denominazione non ammette più 'n.d.'). `wines.annata`: text NOT NULL → `smallint` NULL (indice UNIQUE normalizzato ricreato senza `trim()` su annata). `wines.prezzo`: NOT NULL DEFAULT 0 → NULL quando sconosciuto (decisione presa: 0 sempre → sconosciuto, nessuna distinzione "regalo"). `bevuti.rating`: default NULL, CHECK senza più il ramo `= 0`. `bevuti.data` eliminata (sostituita da `consumed_on`, aggiunta in A2a). Eseguito in 3 fasi per sicurezza: (1) codice compatibile col vecchio schema, (2) migrazione SQL diretta via Supabase MCP, (3) fix urgente post-migrazione (annata/prezzo nel codice non erano ancora allineati al nuovo tipo — corretto entro pochi minuti), (4) rimozione scrittura `bevuti.data` + drop colonna. `App.jsx`: nuovi helper `opzionale()`, `annataDaForm()`, `formatDataIt()`; `normalizzaWine` ora normalizza anche `annata` (numero o "n.d." per display)
 - **A3** — RPC atomiche: `bevi_bottiglia`, `riporta_bottiglia`, `aggiungi_o_incrementa`; identity su `wines.id` (start 137) con `setval` al passaggio; poi revoca ad `anon` delle DML dirette
 - **A4** — Auth Supabase via REST + RLS per `owner_id`, rinomina policy fuorvianti
 - **B** — interazione: "Bevi" in 2 tap con data modificabile, snackbar "Annulla" al posto delle conferme, stato Lista sollevato in `Cantina()`, cache stale-while-revalidate, `WineForm` unico, "Scheda tecnica" nel dettaglio
@@ -141,6 +141,9 @@ Raw:    https://raw.githubusercontent.com/omarquagliotto90-dotcom/cantina-pwa/ma
 1. Rating per bevuta o per vino. Raccomandato: per bevuta, coerente con lo storico immutabile, e lo schema è già così
 2. Login: introdurlo cambia il primo avvio dell'app
 3. "Riporta in cantina": tenerlo come correzione con undo, o rimuoverlo
-4. `prezzo` a 0: significa sconosciuto (NULL) o regalo (0)?
-5. Nuovi campi (finestra di beva, posizione in cantina, formato) che abiliterebbero lo step 9 "cosa bere"
-6. Se spacchettare `App.jsx` in più file
+4. Nuovi campi (finestra di beva, posizione in cantina, formato) che abiliterebbero lo step 9 "cosa bere"
+5. Se spacchettare `App.jsx` in più file
+
+## Decisioni prese in A2b
+
+- `prezzo` a 0 → sempre NULL (sconosciuto), nessuna distinzione da "regalo"
