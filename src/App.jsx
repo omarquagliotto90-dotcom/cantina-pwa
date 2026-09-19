@@ -117,6 +117,23 @@ function valoreMercatoGiacenza(wines) {
   return wines.reduce((a, w) => a + valoreBottiglia(w) * w.bottiglie, 0);
 }
 
+// A2b: converte stringa vuota o vecchio placeholder testuale in NULL —
+// un solo modo di dire "non specificato", invece di "—"/"n.d." salvati nel DB.
+function opzionale(v, placeholder) {
+  if (v == null) return null;
+  const t = String(v).trim();
+  return (t === "" || t === placeholder) ? null : t;
+}
+
+// Formatta una data (Date o stringa ISO YYYY-MM-DD) nello stile italiano
+// usato per le bevute ("07 giugno 2025").
+function formatDataIt(date) {
+  if (!date) return "";
+  const d = date instanceof Date ? date : new Date(`${date}T00:00:00`);
+  if (isNaN(d)) return "";
+  return d.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 // ─── Cache in-memory immagini bottiglia ──
 const imgSessionCache = new Map();
 // N5: id dei vini con una ricerca immagine già in volo, per evitare enqueue duplicati su remount
@@ -1387,7 +1404,7 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
   const [nota, setNota] = useState("");
   const [rating, setRating] = useState(0);
   if (!wine) return null;
-  const today = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+  const today = formatDataIt(new Date());
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.4)" }} onClick={onAnnulla}>
@@ -1545,7 +1562,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         return (
           <WineCard key={b.uid} wine={wine}
             onOpen={handleOpen(b.uid)}
-            bevutoInfo={{ data: b.data, nota: b.nota }}
+            bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
             ratings={ratings} />
         );
       })}
@@ -1555,7 +1572,7 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
         const wine = resolveWine(wineMap, b);
         if (!wine) return null;
         return (
-          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: b.data, nota: b.nota }}
+          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             onClose={handleClose} />
@@ -1694,7 +1711,7 @@ function useCantinaData() {
         if (cancelled) return;
         setWines(fetchedWines.map(normalizzaWine));
         // F5: 1:N — nessuna deduplica, uid è chiave univoca
-        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
+        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
         setBevuti(bevFromDb);
         const ratingsFromDb = {};
         // N3: una riga per bevuta ma rating per-vino → scegli in modo deterministico (max rating>0)
@@ -1799,13 +1816,15 @@ export default function Cantina() {
     const current = wines.find(w => w.id === wineId);
     // Snapshot dati vino: bevuti è uno storico indipendente da wines
     const snap = current ? { produttore: current.produttore, vino: current.vino, annata: current.annata, tipologia: current.tipologia, prezzo: current.prezzo } : {};
-    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || 0, ...snap };
+    // A2b: rating 0 (non valutato) diventa NULL, non più un sentinel numerico
+    const row = { uid, wine_id: wineId, data, nota: nota || "", rating: rating || null, ...snap };
     // Snapshot per rollback
     const prevBevuti = bevuti;
     const prevRatings = ratings;
     const prevWines = wines;
-    // Update ottimistico
-    setBevuti(prev => [...prev, { uid, id: wineId, data, nota: nota || "", ...snap }]);
+    // Update ottimistico (consumedOn stimato lato client: il default reale lo assegna il DB)
+    const consumedOnOttimistico = new Date().toISOString().slice(0, 10);
+    setBevuti(prev => [...prev, { uid, id: wineId, data, consumedOn: consumedOnOttimistico, nota: nota || "", ...snap }]);
     if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
@@ -1891,10 +1910,12 @@ export default function Cantina() {
         headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
       }).then(r => { if (!r.ok) throw new Error(`max-id fetch ${r.status}`); return r.json(); });
       const nextId = ((maxRow[0]?.id) || 0) + 1;
-      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: form.denominazione || "n.d.", annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: form.macerazione || "—", fermentazione: form.fermentazione || "—", malolattica: form.malolattica || "—", slow_vino_bott: false };
+      // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato"
+      // (annata resta "n.d." per ora: la colonna è ancora NOT NULL finché non parte la migrazione SQL)
+      const row = { id: nextId, produttore: form.produttore, vino: form.vino, denominazione: opzionale(form.denominazione, "n.d."), annata: form.annata || "n.d.", tipologia: form.tipologia, bottiglie: form.bottiglie, prezzo: form.prezzo, vitigno: form.vitigno || "", note: form.note || "", macerazione: opzionale(form.macerazione, "—"), fermentazione: opzionale(form.fermentazione, "—"), malolattica: opzionale(form.malolattica, "—"), slow_vino_bott: false };
       const inserted = await sb.insert("wines", row);
       if (!inserted) throw new Error("insert failed");
-      setWines(prev => [...prev, { ...inserted, slowVinoBott: !!inserted.slow_vino_bott, denominazione: inserted.denominazione || "n.d.", macerazione: inserted.macerazione || "—", fermentazione: inserted.fermentazione || "—", malolattica: inserted.malolattica || "—" }]);
+      setWines(prev => [...prev, normalizzaWine(inserted)]);
     } catch (e) {
       setDbError("Errore salvataggio vino");
     }
@@ -1905,9 +1926,16 @@ export default function Cantina() {
   const handleSalvaModifica = async (form) => {
     setDbError(null);
     const wine = pendingModifica;
-    const fields = { ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo) };
+    // A2b: niente più placeholder testuali scritti nel DB — solo NULL per "non specificato"
+    const fields = {
+      ...form, bottiglie: Number(form.bottiglie), prezzo: Number(form.prezzo),
+      denominazione: opzionale(form.denominazione, "n.d."),
+      macerazione: opzionale(form.macerazione, "—"),
+      fermentazione: opzionale(form.fermentazione, "—"),
+      malolattica: opzionale(form.malolattica, "—"),
+    };
     const prevWines = wines;
-    setWines(prev => prev.map(w => w.id === wine.id ? { ...w, ...fields } : w));
+    setWines(prev => prev.map(w => w.id === wine.id ? normalizzaWine({ ...w, ...fields }) : w));
     setPendingModifica(null);
     const saved = await sb.upsert("wines", { id: wine.id, ...fields }, "id");
     if (!saved) {
