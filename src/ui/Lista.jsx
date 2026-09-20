@@ -16,21 +16,15 @@
 
 import { useState, useRef } from "react";
 import { T, OCCHIELLO } from "./theme";
-import { WineCard, CaliceIcon } from "./components";
+import { TIPO, WineCard, CaliceIcon } from "./components";
 import { costoGiacenza, valoreMercatoGiacenza } from "./domain";
 import WineDetail from "./WineDetail";
 
-// Le etichette del design non coincidono con `wines.tipologia`, che e' una
-// lista chiusa protetta da un CHECK: "Bollicine" e' Spumante, "Rose'" e'
-// Spumante rosso. La mappatura vive qui, il database non cambia.
+// Derivati da TIPO, che e' l'unica fonte di etichette per tipologia: due
+// elenchi divergerebbero al primo ritocco. L'ordine e' quello di TIPO.
 const FILTRI = [
-  { label: "Tutti",     tipo: null },
-  { label: "Rosso",     tipo: "Rosso fermo" },
-  { label: "Bianco",    tipo: "Bianco fermo" },
-  { label: "Orange",    tipo: "Orange" },
-  { label: "Bollicine", tipo: "Spumante" },
-  { label: "Rosé",      tipo: "Spumante rosso" },
-  { label: "Sidro",     tipo: "Sidro" },
+  { label: "Tutti", tipo: null },
+  ...Object.entries(TIPO).map(([tipo, t]) => ({ label: t.etichetta, tipo })),
 ];
 
 function Chip({ label, attivo, onClick }) {

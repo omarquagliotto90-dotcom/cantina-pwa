@@ -11,7 +11,7 @@ test.describe("Anagrafica produttori", () => {
     await page.getByText("Statistiche", { exact: true }).click();
 
     // Pieropan ha slow_chiocciola = true e 3 bottiglie in cantina.
-    await expect(page.getByText("3 bottiglie")).toBeVisible();
+    await expect(page.getByTestId("stat-slowwine")).toHaveText("3");
   });
 
   test("togliere la chiocciola in anagrafica azzera il conteggio", async ({ page, cantina }) => {
@@ -21,7 +21,7 @@ test.describe("Anagrafica produttori", () => {
     await apriApp(page);
     await page.getByText("Statistiche", { exact: true }).click();
 
-    await expect(page.getByText("0 bottiglie")).toBeVisible();
+    await expect(page.getByTestId("stat-slowwine")).toHaveText("0");
   });
 
   test("il sito arriva con l'anagrafica, senza interrogare Serper", async ({ page, cantina }) => {

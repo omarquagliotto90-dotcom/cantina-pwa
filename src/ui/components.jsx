@@ -196,13 +196,19 @@ export const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {
   </svg>
 );
 
+// `etichetta` e `colore` vengono dal ridisegno 2026. Stanno qui e non in una
+// mappa parallela perche' due elenchi di tipologie divergerebbero: e' la
+// chiave di `wines.tipologia`, protetta da un CHECK, a comandare. Le etichette
+// del design non coincidono con i valori del database — "Bollicine" e' uno
+// Spumante, "Rose'" e' uno Spumante rosso — e l'ordine qui sotto e' quello in
+// cui compaiono i chip.
 export const TIPO = {
-  "Rosso fermo":    { container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: <RossoIcon /> },
-  "Bianco fermo":   { container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: <BiancoIcon /> },
-  "Orange":         { container: "#FFE0B2", onContainer: "#4A2800", indicator: "#E07B20", label: <OrangeIcon /> },
-  "Spumante":       { container: "#FFF8DC", onContainer: "#3A2E00", indicator: "#C9A227", label: <SpumanteIcon /> },
-  "Spumante rosso": { container: "#FFD7F5", onContainer: "#390048", indicator: "#C2415A", label: <RossoFrizIcon /> },
-  "Sidro":          { container: "#C8E6C9", onContainer: "#002106", indicator: "#2E7D32", label: <FruitIcon /> },
+  "Rosso fermo":    { etichetta: "Rosso",     colore: "#6B1E2E", container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: <RossoIcon /> },
+  "Bianco fermo":   { etichetta: "Bianco",    colore: "#CBAE6A", container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: <BiancoIcon /> },
+  "Orange":         { etichetta: "Orange",    colore: "#C2703B", container: "#FFE0B2", onContainer: "#4A2800", indicator: "#E07B20", label: <OrangeIcon /> },
+  "Spumante":       { etichetta: "Bollicine", colore: "#A9AC72", container: "#FFF8DC", onContainer: "#3A2E00", indicator: "#C9A227", label: <SpumanteIcon /> },
+  "Spumante rosso": { etichetta: "Rosé",      colore: "#C98795", container: "#FFD7F5", onContainer: "#390048", indicator: "#C2415A", label: <RossoFrizIcon /> },
+  "Sidro":          { etichetta: "Sidro",     colore: "#9A7B4F", container: "#C8E6C9", onContainer: "#002106", indicator: "#2E7D32", label: <FruitIcon /> },
 };
 
 // ─── Icone SVG M3 ────────────────────────────────────────────────────────────
