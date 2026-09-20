@@ -502,3 +502,37 @@ export function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
     </div>
   );
 }
+
+// ─── Icone della navigazione, ridisegno 2026 ─────────────────────────────────
+// Tratto 1.25 e geometria prese da `design/La Mia Cantina.dc.html`: calice con
+// coppa e base svasata, libro aperto simmetrico, istogramma a quattro barre su
+// linea di base. Sostituiscono AbbinamentoIcon / VinoBevutoIcon / AnalyticsIcon
+// nella nav bar; quelle restano finché le schermate vecchie le usano.
+const navSvg = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.25, strokeLinecap: "round", strokeLinejoin: "round" };
+
+export const NavCantinaIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} {...navSvg}>
+    <path d="M6.9 3.2h10.2v3.6a5.1 5.1 0 0 1-10.2 0Z" />
+    <path d="M6.9 6.8a5.1 5.1 0 0 0 10.2 0" />
+    <path d="M12 11.9v6.6" />
+    <path d="M8.6 20.6c0-1.2 1.5-2.1 3.4-2.1s3.4.9 3.4 2.1Z" />
+  </svg>
+);
+
+export const NavBevutiIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} {...navSvg}>
+    <path d="M12 6.6v13.2" />
+    <path d="M12 6.6C10.3 5.1 8 4.3 5.4 4.3H2.8v13.2h2.6c2.6 0 4.9.8 6.6 2.3" />
+    <path d="M12 6.6c1.7-1.5 4-2.3 6.6-2.3h2.6v13.2h-2.6c-2.6 0-4.9.8-6.6 2.3" />
+  </svg>
+);
+
+export const NavStatisticheIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} {...navSvg}>
+    <path d="M3.2 20.2h17.6" />
+    <path d="M6.6 20.2v-6.4" />
+    <path d="M11 20.2V6.2" />
+    <path d="M15.4 20.2v-9.4" />
+    <path d="M19.8 20.2v-4" />
+  </svg>
+);

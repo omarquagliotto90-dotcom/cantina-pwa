@@ -1,8 +1,9 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
 import { useState, useRef, useEffect } from "react";
-import { M3, S } from "./ui/theme";
-import { TIPO, IC, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
+import { M3, S, T } from "./ui/theme";
+import { TIPO, IC, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon,
+         NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
 import { costoGiacenza, formatDataIt, setProduttori, produttoreDi, getGoogleFallback } from "./ui/domain";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
@@ -12,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "0.5";
+const REV = "0.6";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -973,25 +974,32 @@ export default function Cantina() {
   const totValore    = costoGiacenza(cantina);
 
   if (loading) return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: M3.surface, gap: 16 }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: T.superficie, gap: 16 }}>
       <div style={{ color: M3.primary, animation: "spin 1.2s linear infinite" }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
       <div style={{ fontSize: 16, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Carico la cantina…</div>
     </div>
   );
 
+  // C1: icone e etichette del ridisegno. Il badge col numero di bevute non c'è
+  // più — il design non lo prevede, e il conteggio è in cima alla schermata
+  // Bevuti. Si rimette in due righe se serve.
   const NAV = [
-    { id: "lista",       icon: IC.lista,  label: "Lista" },
-    { id: "bevuti",      icon: IC.bevuti, label: "Bevuti", badge: bevuti.length },
-    { id: "statistiche", icon: IC.stats,  label: "Statistiche" },
+    { id: "lista",       Icona: NavCantinaIcon,     label: "Cantina" },
+    { id: "bevuti",      Icona: NavBevutiIcon,      label: "Bevuti" },
+    { id: "statistiche", Icona: NavStatisticheIcon, label: "Statistiche" },
   ];
 
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: M3.surface, fontFamily: "'Roboto', sans-serif", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        /* C1: le due famiglie del ridisegno. Roboto resta finché le schermate
+           vecchie la usano, e se ne va con l'ultima. */
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #FFF8F7; }
+        html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: ${T.superficie}; }
         input, textarea, select { outline: none; }
+        ::selection { background: ${T.selezione}; }
         ::-webkit-scrollbar { width: 0; height: 0; }
         @keyframes slideUp  { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes slideInX  { from { transform:translateX(100%) } to { transform:translateX(0) } }
@@ -1042,25 +1050,22 @@ export default function Cantina() {
         </div>
       )}
 
-      {/* ── Navigation Bar M3 ── */}
-      <div style={{ background: M3.surfaceContainer, flexShrink: 0, borderTop: `1px solid ${M3.outlineVariant}`, display: "flex", alignItems: "flex-start", justifyContent: "space-around", paddingTop: 10, paddingBottom: "env(safe-area-inset-bottom)", zIndex: 10 }}>
-        {NAV.map(nav => (
-          <div key={nav.id} onClick={() => setTab(nav.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer" }}>
-            <div style={{ position: "relative" }}>
-              <div style={{ width: 64, height: 32, borderRadius: 16, background: tab === nav.id ? M3.secondaryContainer : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, transition: "background 0.2s" }}>
-                {nav.icon}
-              </div>
-              {nav.badge > 0 && (
-                <div style={{ position: "absolute", top: -2, right: 6, minWidth: 16, height: 16, borderRadius: 8, background: M3.primary, color: M3.onPrimary, fontSize: 10, fontWeight: 700, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
-                  {nav.badge}
-                </div>
-              )}
-            </div>
-            <span style={{ fontSize: 12, fontFamily: "'Roboto', sans-serif", fontWeight: tab === nav.id ? 700 : 400, color: tab === nav.id ? M3.onSecondaryContainer : M3.onSurfaceVariant, letterSpacing: 0.3 }}>
-              {nav.label}
-            </span>
-          </div>
-        ))}
+      {/* ── Navigation Bar — ridisegno 2026 ── */}
+      {/* La pastiglia M3 lascia il posto a un trattino di 2px sopra la voce
+          attiva. Il padding in basso somma i 4px del design al safe-area
+          dell'iPhone, che il prototipo non doveva gestire. */}
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", height: 72, paddingBottom: "calc(4px + env(safe-area-inset-bottom))", borderTop: `1px solid ${T.divisoreMedio}`, background: "rgba(255,252,247,.96)", backdropFilter: "blur(14px)", zIndex: 10 }}>
+        {NAV.map(({ id, Icona, label }) => {
+          const attiva = tab === id;
+          return (
+            <button key={id} type="button" onClick={() => setTab(id)} aria-current={attiva ? "page" : undefined}
+              style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, border: 0, background: "transparent", color: attiva ? T.accento : T.testoUnita, cursor: "pointer", fontFamily: T.sans }}>
+              <span aria-hidden="true" style={{ position: "absolute", top: 0, width: 22, height: 2, background: attiva ? T.accento : "transparent" }} />
+              <Icona />
+              <span style={{ fontSize: 11, letterSpacing: ".02em" }}>{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Modals ── */}
