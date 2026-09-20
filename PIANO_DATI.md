@@ -87,9 +87,9 @@ P3  produttori                        ✅ fatto (fase 3 aperta)
  │
 Refactor strutturale                  ✅ fatto (20/09)
  │
-P1b recuperabilità senza login       nessuna decisione      ── prossimo
- │                                    backup ripetibile: prerequisito di P6
-P6  bottiglie come righe             rischio ALTO, 9 RPC riscritte
+P1b recuperabilità senza login       ✅ fatto (backup, soft delete, audit log)
+ │
+P6  bottiglie come righe             ── prossimo. Rischio ALTO, 9 RPC riscritte
  │                                    assorbe anche i 4 difetti di P4
 P5  rating sulla riga-bottiglia
  │
@@ -141,9 +141,36 @@ Rivalutare un vino già bevuto più volte non deve più toccare le bevute preced
 
 ---
 
-## P1b — Recuperabilità senza login
+## P1b — Recuperabilità senza login ✅ FATTO (20/09/2026)
 
 **Sostituisce P1 nell'ordine, non nel merito.** Decisioni richieste: nessuna.
+
+> **Esito.** Fatto in tre sotto-passi, in ordine invertito rispetto a come sono
+> elencati qui sotto: prima l'export (punto 3), che è l'unica parte a rischio
+> zero ed è la rete di sicurezza delle altre due. Riscrivere le RPC di scrittura
+> senza avere già un backup ripetibile sarebbe stato il modo sbagliato.
+>
+> **P1b.1** `scripts/backup.mjs` + GitHub Action settimanale, commit con
+> `[skip ci]`. Primo export reale verificato: 225 KB, conteggi combacianti.
+> Credenziali lette da `src/App.jsx`: niente da configurare, niente che possa
+> divergere dall'app.
+>
+> **P1b.2** `wines.deleted_at`; `elimina_bottiglia` non fa più DELETE
+> sull'ultima bottiglia; `aggiungi_o_incrementa` azzera `deleted_at`, cioè
+> resuscita la riga con id, immagine e storico. Due scostamenti motivati dal
+> piano: l'indice unico resta **totale** (è la resurrezione a risolvere il
+> conflitto) e la FK `wine_images` resta **CASCADE** (senza più un DELETE non
+> scatta; toglierla lascerebbe orfani a una cancellazione fisica vera).
+>
+> **P1b.3** `audit_log` + helper `registra_audit` non eseguibile dall'esterno.
+> Loggano 8 RPC su 9: `salva_immagine_vino` no, è una cache di URL.
+> `riporta_bottiglia` — l'unico DELETE fisico rimasto — ci scrive dentro la
+> bevuta cancellata per intero. Verificato con un giro completo dentro un blocco
+> auto-annullato: log corretto, zero righe residue, dati invariati.
+>
+> Non fatto di proposito: soft delete su `bevuti`. Con Q2 = a la tabella viene
+> assorbita da `bottiglie` in P6, quindi sarebbe lavoro buttato; la
+> recuperabilità passa dall'audit log.
 
 Dato che senza `auth.uid()` la probabilità del danno non è riducibile, si riduce
 la gravità. Oggi un'eliminazione è definitiva: `elimina_bottiglia` sull'ultima
@@ -186,9 +213,10 @@ offre point-in-time recovery: senza un export proprio, un `DELETE` andato a buon
 fine non si recupera.
 
 **Rischio:** basso, tutto additivo. **Reversibile:** sì.
-**Verifica:** la suite e2e copre già i due rami di `elimina_bottiglia`; vanno
-aggiornate le asserzioni e aggiunto il caso "vino eliminato e poi riaggiunto
-torna con il suo storico".
+**Verifica:** fatta. Lo stub e2e ora applica il filtro `deleted_at` come
+PostgREST e le RPC mutano la tabella con la semantica vera; il caso "vino
+eliminato e poi riaggiunto torna con il suo storico" è il test nuovo, che passa
+anche attraverso un ricaricamento reale. Suite 20/20.
 
 ---
 
@@ -395,7 +423,7 @@ di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 | Passo | Azioni | Decisione | DDL | Rischio | Reversibile |
 |---|---|---|---|---|---|
 | ~~**P0**~~ | ~~D6 + stopgap D5~~ | — | minimo | nullo/basso | ✅ fatto |
-| **P1b** | riduzione gravità D1 | — | sì | basso | sì |
+| ~~**P1b**~~ | ~~riduzione gravità D1~~ | — | sì | basso | ✅ fatto |
 | ~~**P2**~~ | ~~D7c~~ | — | sì | nullo | ✅ fatto |
 | ~~**P3**~~ | ~~D3 (+D7b)~~ | — | sì | medio | ✅ fatto (fase 3 aperta) |
 | ~~P1a/P1c~~ | ~~D1~~ | Q1 = b | — | — | rimandato |

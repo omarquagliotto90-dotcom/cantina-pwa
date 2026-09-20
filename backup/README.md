@@ -35,9 +35,14 @@ un backup.
 }
 ```
 
-Le 5 tabelle attive: `wines`, `bevuti`, `wine_images`, `wine_websites`,
-`produttori`. Lo script pagina a 1000 righe per volta e insiste finché la
-tabella è finita: non tronca in silenzio.
+Le tabelle attive: `wines`, `bevuti`, `wine_images`, `wine_websites`,
+`produttori` e `audit_log`. Lo script pagina a 1000 righe per volta e insiste
+finché la tabella è finita: non tronca in silenzio.
+
+`audit_log` (P1b.3) merita una nota: è la sola copia di ciò che
+`riporta_bottiglia` distrugge fisicamente, perché il campo `dettaglio` porta la
+riga cancellata per intero. Lasciarlo fuori dal backup vorrebbe dire non
+salvare la rete di sicurezza.
 
 ## Come si ripristina
 
@@ -45,7 +50,11 @@ Non c'è un comando di restore, ed è voluto: un ripristino automatico è il tip
 di strumento che fa danni quando lo si usa di fretta. La procedura è manuale e
 si decide caso per caso.
 
-1. Apri il file della data che ti serve e trova le righe perdute.
+0. Se il dato è sparito **attraverso l'app**, guarda prima in `audit_log`: è più
+   aggiornato del backup settimanale. `dettaglio->'bevuta_cancellata'` contiene
+   la bevuta rimossa da "Riporta in cantina"; `dettaglio->'wine_prima'` lo stato
+   del vino prima di una modifica o di un'eliminazione.
+1. Altrimenti apri il file della data che ti serve e trova le righe perdute.
 2. Reinseriscile con il **server MCP di Supabase** (`execute_sql`), non dalla
    PWA: l'app passa dalle RPC, che assegnano id nuovi.
 3. Rispetta l'ordine delle FK: prima `produttori`, poi `wines`, poi

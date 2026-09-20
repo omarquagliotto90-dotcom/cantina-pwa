@@ -24,9 +24,13 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Le 5 tabelle attive. `wine_websites` e' in via di dismissione (fase 3 di P3)
+// Le tabelle attive. `wine_websites` e' in via di dismissione (fase 3 di P3)
 // ma finche' esiste va salvata: un backup parziale non e' un backup.
-const TABELLE = ["wines", "bevuti", "wine_images", "wine_websites", "produttori"];
+//
+// `audit_log` (P1b.3) e' qui perche' e' la sola copia di cio' che
+// riporta_bottiglia distrugge: lasciarlo fuori vorrebbe dire non salvare la
+// rete di sicurezza. `anon` lo legge ma non lo scrive.
+const TABELLE = ["wines", "bevuti", "wine_images", "wine_websites", "produttori", "audit_log"];
 
 async function credenziali() {
   if (process.env.SB_URL && process.env.SB_KEY) {
