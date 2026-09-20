@@ -1,4 +1,5 @@
-// v0.3 — data-driven
+// La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
+// numero in tutto il progetto, così non può tornare a divergere.
 import { useState, useRef, useEffect } from "react";
 import { M3, S } from "./ui/theme";
 import { TIPO, IC, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
@@ -9,8 +10,9 @@ import TabBevuti from "./ui/Bevuti";
 
 // Contatore progressivo delle modifiche ad App.jsx: sale di 0.1 a ogni
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
-// vecchio marcatore fisso "b2".
-const REV = "0.4";
+// vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
+// fermo a 0.3 e non veniva importato da nessuno.
+const REV = "0.5";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";

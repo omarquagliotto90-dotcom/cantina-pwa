@@ -149,11 +149,12 @@ Regole da rispettare quando si tocca questa struttura:
 
 - `BottleImage` e `WebsiteView` fanno rete e cache, quindi **restano in App.jsx** e scendono a `WineDetail` come render prop `renderBottiglia` / `renderSito`, attraverso `Lista` e `Bevuti` che lo montano
 - ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
-- `src/version.js` (`VERSION = "0.3"`) non è importato da nessuno: è un file morto
+- la revisione sta in **un solo posto**: la costante `REV` in cima ad `App.jsx`, mostrata accanto al titolo nell'app bar. Sale di 0.1 a ogni modifica di `App.jsx`. `src/version.js` è stato cancellato (era fermo a 0.3 e non lo importava nessuno) e il commento d'intestazione non porta più un numero: erano le due fonti di disallineamento
 
-## Stato attuale (v0.3)
+## Stato attuale (REV 0.5)
 
 - `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
+- `REV` è l'unico numero di versione del progetto. Attenzione: misura le modifiche ad `App.jsx`, non i passi della roadmap — P1b.1 e P1b.3 non l'hanno alzato perché non hanno toccato quel file
 - Feature chatbot AI (`ask-wine.js`) in corso: route pronta, **Step 2 in sospeso** (tab "AI" + componente `AskAI` in `WineDetail`, in attesa di conferma)
 - `RatingDial` SVG implementato (arco 300°, gradiente `#F4D35E`→`#7B1D1D`, drag, checkpoint 1-5); `bevuti.rating` è `numeric(2,1)`
 - Il debito misurato nella sezione "Debito nel codice" non è stato ridotto dal refactor: gli stili inline e i colori fuori token sono stati **spostati**, non riscritti. È la fase C
