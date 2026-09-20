@@ -10,7 +10,7 @@ import TabBevuti from "./ui/Bevuti";
 // Contatore progressivo delle modifiche ad App.jsx: sale di 0.1 a ogni
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2".
-const REV = "0.3";
+const REV = "0.4";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -53,8 +53,13 @@ const sb = {
   },
   // Come get(), ma propaga un errore tipizzato (err.status: HTTP status o "timeout")
   // invece di inghiottirlo — per i punti che devono distinguere errore da risultato vuoto.
-  async getOrThrow(table, { order = "created_at.asc" } = {}) {
-    return (await sbFetch(`${table}?order=${order}`)).json();
+  // `filtro` è una condizione PostgREST già formata (es. "deleted_at=is.null").
+  // Va composta qui e non concatenata al nome della tabella: un secondo "?"
+  // nella query string fa rispondere 400 a PostgREST, ed è esattamente il bug
+  // che in P3 teneva muta la cache dei siti produttore.
+  async getOrThrow(table, { order = "created_at.asc", filtro = "" } = {}) {
+    const qs = filtro ? `${filtro}&order=${order}` : `order=${order}`;
+    return (await sbFetch(`${table}?${qs}`)).json();
   },
   async getWhere(table, column, value) {
     try {
@@ -711,7 +716,8 @@ function useCantinaData() {
     async function loadData() {
       try {
         const [fetchedWines, bev, produttori] = await Promise.all([
-          sb.getOrThrow("wines", { order: "id.asc" }),
+          // P1b: le righe soft-deleted restano in tabella ma fuori dall'app.
+          sb.getOrThrow("wines", { order: "id.asc", filtro: "deleted_at=is.null" }),
           sb.getOrThrow("bevuti"),
           sb.getOrThrow("produttori", { order: "nome.asc" }),
         ]);

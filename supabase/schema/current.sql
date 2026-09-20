@@ -3,7 +3,7 @@
 --
 -- Rigenerato il 19/09/2026 leggendo il database (information_schema,
 -- pg_constraint, pg_indexes, pg_policies, role_table_grants, pg_proc).
--- Aggiornato dopo P2 (updated_at) e P3 (anagrafica produttori).
+-- Aggiornato dopo P2 (updated_at), P3 (anagrafica produttori) e P1b.2 (soft delete).
 --
 -- Perché esiste, dato che c'è già `migrations/`: la storia recuperata parte da
 -- A2b. I passi A0 e A2a furono eseguiti nel SQL Editor e non sono registrati
@@ -51,6 +51,11 @@ CREATE TABLE public.wines (
   denominazione   text,                            -- A2b: NULL invece di 'n.d.'
   valore          numeric,                         -- stima di mercato AI
   note_cantina    text,
+  deleted_at      timestamptz,                     -- P1b: NULL = in catalogo.
+                                                   -- Valorizzata = eliminato dall'app, riga
+                                                   -- conservata. Il client filtra
+                                                   -- deleted_at IS NULL; aggiungi_o_incrementa
+                                                   -- la riazzera (resurrezione).
 
   CONSTRAINT wines_bottiglie_check     CHECK (bottiglie >= 0),
   CONSTRAINT wines_prezzo_check        CHECK (prezzo >= 0::numeric),
@@ -144,8 +149,22 @@ CREATE INDEX idx_wines_produttore_id ON public.wines (produttore_id);
 --     modifica_vino popolano produttore_id; salva_sito_produttore scrive su
 --     `produttori` e non più su `wine_websites`
 --
+-- P1b 20260920100000 — elimina_bottiglia non fa più DELETE sull'ultima
+--     bottiglia: valorizza wines.deleted_at e azzera bottiglie. Il contratto di
+--     ritorno (`eliminato`, `bottiglie_residue`) non cambia.
+--     aggiungi_o_incrementa, sullo stesso conflitto, azzera deleted_at: il vino
+--     riaggiunto torna con il suo id, la sua immagine e le sue bevute.
+--     `idx_wines_unique_normalizzato` resta totale (non parziale) proprio
+--     perché è la resurrezione a risolvere il conflitto.
+--     La FK wine_images -> wines resta ON DELETE CASCADE: senza più un DELETE
+--     non scatta, e toglierla lascerebbe orfani a una cancellazione fisica.
+--
 -- Nota: bevi_bottiglia esiste in DUE overload (3 e 4 parametri). Quello a 3
 -- è residuo di A3 e non è chiamato da nessuno: da rimuovere.
+--
+-- Nota: riporta_bottiglia contiene l'ALTRO DELETE del sistema (sulla riga di
+-- `bevuti`). Non ha soft delete di suo: con Q2 = a la tabella viene assorbita
+-- da `bottiglie` in P6, quindi il recupero è affidato all'audit log di P1b.3.
 
 
 -- ─── Permessi ───────────────────────────────────────────────────────────────

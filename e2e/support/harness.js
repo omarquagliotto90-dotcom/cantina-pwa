@@ -141,10 +141,16 @@ class Cantina {
     if (this.failing.has(target)) {
       return route.fulfill({ status: 500, headers: JSON_HEADERS, body: '{"message":"errore simulato"}' });
     }
+    // P1b: il client chiede `wines?deleted_at=is.null`. Se lo stub servisse la
+    // tabella intera, una regressione sul filtro passerebbe inosservata.
+    let righe = this.tables[target] ?? [];
+    if (path.includes("deleted_at=is.null")) {
+      righe = righe.filter(r => r.deleted_at == null);
+    }
     return route.fulfill({
       status: 200,
       headers: JSON_HEADERS,
-      body: JSON.stringify(this.tables[target] ?? []),
+      body: JSON.stringify(righe),
     });
   }
 
@@ -176,14 +182,34 @@ const DEFAULT_RPC = {
     };
   },
   riporta_bottiglia: () => ({ bottiglie_residue: 1 }),
+  // P1b: l'ultima bottiglia non cancella più la riga, la marca `deleted_at`.
+  // Lo stub muta la tabella come fa la RPC vera, così un ricaricamento nel
+  // test vede quello che vedrebbe l'app.
   elimina_bottiglia: (args, c) => {
     const wine = c.tables.wines.find(w => w.id === args.p_wine_id);
     const n = wine?.bottiglie ?? 0;
-    return n > 1
-      ? { eliminato: false, bottiglie_residue: n - 1 }
-      : { eliminato: true, bottiglie_residue: 0 };
+    if (n > 1) {
+      if (wine) wine.bottiglie = n - 1;
+      return { eliminato: false, bottiglie_residue: n - 1 };
+    }
+    if (wine) { wine.bottiglie = 0; wine.deleted_at = "2026-09-20T10:00:00+00:00"; }
+    return { eliminato: true, bottiglie_residue: 0 };
   },
-  aggiungi_o_incrementa: (args, c) => ({
+  // P1b: se esiste già una riga con lo stesso produttore+vino+annata
+  // normalizzati, la RPC vera incrementa le bottiglie e azzera `deleted_at`
+  // invece di inserirne una nuova — conservando id, immagine e storico.
+  aggiungi_o_incrementa: (args, c) => {
+    const norm = v => (v ?? "").trim().toLowerCase();
+    const esistente = c.tables.wines.find(w =>
+      norm(w.produttore) === norm(args.p_produttore) &&
+      norm(w.vino) === norm(args.p_vino) &&
+      (w.annata ?? null) === (args.p_annata ?? null));
+    if (esistente) {
+      esistente.bottiglie = (esistente.bottiglie ?? 0) + args.p_bottiglie;
+      esistente.deleted_at = null;
+      return { ...esistente };
+    }
+    return {
     id: 999,
     produttore: args.p_produttore,
     vino: args.p_vino,
@@ -201,7 +227,8 @@ const DEFAULT_RPC = {
     note_cantina: null,
     slow_vino_bott: false,
     created_at: "2026-09-19T12:00:00+00:00",
-  }),
+    };
+  },
   modifica_vino: args => ({ id: args.p_id }),
   aggiorna_scheda_tecnica: args => ({ id: args.p_id }),
   valuta_vino: () => true,
