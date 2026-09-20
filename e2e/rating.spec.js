@@ -11,19 +11,36 @@ const { BEVUTI } = require("./fixtures/cantina");
 //
 // Il RatingDial esiste solo nella tab "Voto" del dettaglio, che a sua volta
 // compare solo aprendo una bevuta dalla tab Bevuti.
+//
+// Dal ridisegno C3 il voto compare anche nella riga del diario, quindi le
+// asserzioni sul dial sono circoscritte al dialog: "3,0" da solo troverebbe
+// due elementi. Ne approfitto per fissare anche il valore mostrato in riga.
+
+async function apriBevuti(page) {
+  await page.getByText("Bevuti", { exact: true }).click();
+}
 
 async function apriVoto(page, nomeVino) {
-  await page.getByText("Bevuti", { exact: true }).click();
+  await apriBevuti(page);
   await page.getByRole("button", { name: new RegExp(nomeVino) }).first().click();
   await page.getByText("Voto", { exact: true }).click();
 }
 
+/** Il voto come lo mostra il dial, dentro il dettaglio e non altrove. */
+const votoNelDial = (page) => page.getByRole("dialog").getByText("3,0");
+
 test.describe("Rating per vino", () => {
   test("mostra il voto della bevuta più recente, non il massimo", async ({ page, cantina }) => {
     await apriApp(page);
-    await apriVoto(page, "Soave Classico La Rocca");
 
-    await expect(page.getByText("3,0")).toBeVisible();
+    // In riga, prima ancora di aprire il dettaglio.
+    await apriBevuti(page);
+    await expect(page.getByText("3,0").first()).toBeVisible();
+    await expect(page.getByText("4,0")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+    await page.getByText("Voto", { exact: true }).click();
+    await expect(votoNelDial(page)).toBeVisible();
     await expect(page.getByText("4,0")).toHaveCount(0);
   });
 
@@ -43,6 +60,6 @@ test.describe("Rating per vino", () => {
     await apriApp(page);
     await apriVoto(page, "Soave Classico La Rocca");
 
-    await expect(page.getByText("3,0")).toBeVisible();
+    await expect(votoNelDial(page)).toBeVisible();
   });
 });

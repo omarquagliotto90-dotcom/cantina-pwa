@@ -181,7 +181,7 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
               </button>
             </div>
           ) : filtered.map(wine => (
-            <WineCard key={wine.id} wine={wine} onOpen={handleOpen(wine.id)} ratings={ratings} immagine={immagini[wine.id] || null} />
+            <WineCard key={wine.id} wine={wine} onOpen={handleOpen(wine.id)} immagine={immagini[wine.id] || null} />
           ))}
         </section>
       </div>
