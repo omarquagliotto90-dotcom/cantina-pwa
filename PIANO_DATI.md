@@ -9,10 +9,10 @@ Eliminato alla chiusura di P0; resta nella storia git se dovesse servire.
 
 ---
 
-## Scheda decisione — 3 domande da sciogliere prima di P1
+## Scheda decisione — sciolta il 20/09/2026
 
-Il resto del piano è già deciso o non richiede scelte. Queste tre invece cambiano
-la forma dei passi successivi.
+Tutte e tre decise. Q1 il 19/09, Q2 e Q3 il 20/09. Restano qui perché la
+motivazione serve a chi riapre il piano fra sei mesi.
 
 ### Q1 · Login (decisione aperta #2) — ✅ DECISO 19/09/2026: **rimandato**
 
@@ -35,7 +35,7 @@ Si può però ridurre **la gravità**, e non serve alcuna decisione per farlo: �
 nuovo passo **P1b**. Trasforma "perdita totale e irreversibile" in "fastidio
 recuperabile". P1 resta in piano, solo più avanti.
 
-### Q2 · Bottiglie come righe (decisione aperta #4) — blocca P4 e P5
+### Q2 · Bottiglie come righe (decisione aperta #4) — ✅ DECISO 20/09/2026: **a. Sì**
 
 Non serve *farlo* ora, serve *deciderlo* ora: se la risposta è sì, P4 (contratto
 snapshot) e P5 (rating) vanno implementati sul modello nuovo, altrimenti si fa
@@ -43,27 +43,40 @@ due volte lo stesso lavoro.
 
 | Opzione | Effetto |
 |---|---|
-| **a. Sì** | P4 decade (lo snapshot sparisce), P5 si fa sulla riga-bottiglia. P6 entra nel piano |
+| **a. Sì** ← **scelta** | P4 decade (lo snapshot sparisce), P5 si fa sulla riga-bottiglia. P6 entra nel piano |
 | **b. No** | P4 e P5 restano come descritti. Formato, posizione e "cosa bere" escono dal piano |
 | **c. Non ora, ma sì in futuro** | Peggiore delle tre: si fa P4/P5 sul modello vecchio sapendo di rifarli |
 
 **Raccomandato:** decidere **a** o **b**, non **c**. La domanda vera è una sola:
 *formato, posizione in cantina e "cosa bere" sono nel piano, sì o no?*
 
-### Q3 · Rating per bevuta (decisione aperta #1) — forma P5
+**Conseguenze della scelta:** sì, sono in piano. **P6 entra**, ed è il passo più
+invasivo dell'intero piano: nuova tabella `bottiglie`, `wines` resta anagrafica,
+le 9 RPC vanno riscritte, migrazione di 120 bottiglie e 46 bevute. Rischio alto,
+difficilmente reversibile — backup JSON obbligatorio prima di iniziare.
+**P4 decade**: lo snapshot sparisce, lo storico diventa immutabile per costruzione
+invece che per convenzione. I quattro difetti che P4 avrebbe corretto (`resolveWine`
+che privilegia `wines`, `bevuti.annata` ancora `text`, il fallback "Bianco fermo",
+il contratto non scritto) **non vanno dimenticati**: vanno risolti dentro P6, dove
+spariscono insieme allo snapshot. P5 segue P6 e si fa sulla riga-bottiglia.
+
+### Q3 · Rating per bevuta (decisione aperta #1) — ✅ DECISO 20/09/2026: **sì, per bevuta**
 
 `CLAUDE.md` lo dà già come raccomandato e lo schema è già così. Manca solo la conferma
 che la **UI** si allinei: `RatingDial` scrive sulla singola bevuta, la card mostra la media.
 
-**Raccomandato: sì.** Se la risposta è no (rating per vino), allora il posto giusto
-è una colonna `wines.rating` e `bevuti.rating` va rimossa — non l'ibrido attuale,
-che è il peggiore dei due mondi.
+**Raccomandato: sì.** ← **scelta.** Se la risposta fosse stata no (rating per vino),
+il posto giusto sarebbe stato una colonna `wines.rating` con `bevuti.rating` rimossa —
+non l'ibrido attuale, che è il peggiore dei due mondi.
+
+**Conseguenza combinata con Q2 = a:** il rating vive sulla riga-bottiglia, non su
+`bevuti`. P5 segue P6.
 
 ---
 
 ## Sequenza
 
-Aggiornata dopo la decisione su Q1 (login rimandato).
+Aggiornata dopo Q2 = a e Q3 = sì (20/09/2026). Niente più rami: il percorso è uno.
 
 ```
 P0  migrazioni + stopgap rating      ✅ fatto
@@ -72,16 +85,22 @@ P2  updated_at                        ✅ fatto
  │
 P3  produttori                        ✅ fatto (fase 3 aperta)
  │
+Refactor strutturale                  ✅ fatto (20/09)
+ │
 P1b recuperabilità senza login       nessuna decisione      ── prossimo
- │
- ├─ Q2 = no  ──► P4 contratto snapshot ──► P5 rating (su bevuti)
- │
- └─ Q2 = sì  ──► P6 bottiglie come righe ──► P5 rating (su bottiglie); P4 decade
+ │                                    backup ripetibile: prerequisito di P6
+P6  bottiglie come righe             rischio ALTO, 9 RPC riscritte
+ │                                    assorbe anche i 4 difetti di P4
+P5  rating sulla riga-bottiglia
  │
 P7  opportunistici (immagini, liste chiuse, estensioni)
 
+P4  ── decaduto (Q2 = a): lo snapshot sparisce con P6
 P1  A4 sicurezza (P1a→P1c)  ── rimandato, rientra quando Q1 cambia
 ```
+
+**P1b prima di P6 non è negoziabile.** P6 è il passo meno reversibile del piano e
+P1b è ciò che rende il backup ripetibile.
 
 P1 non era un prerequisito tecnico di nessun altro passo: era primo solo per
 gravità. Rimandarlo non blocca nulla.
@@ -284,9 +303,15 @@ statistiche per regione.
 
 ---
 
-## P4 — Contratto dello snapshot `bevuti`  *(solo se Q2 = no)*
+## P4 — Contratto dello snapshot `bevuti`  ·  ❌ DECADUTO (Q2 = a, 20/09/2026)
 
-**Azione:** D4. **Decisione richiesta:** Q2.
+**Azione:** D4. **Decisione richiesta:** Q2 → risposta **a**, quindi questo passo
+non si fa: lo snapshot sparisce dentro P6.
+
+> **I punti 2, 3 e 4 restano difetti reali** e vanno risolti dentro P6, dove
+> `bevuti` diventa `bottiglie WHERE stato='bevuta'`. Il punto 1 (contratto
+> scritto) decade davvero: con le bottiglie come righe l'immutabilità è
+> strutturale, non una convenzione da documentare.
 
 1. Scrivere il contratto in `CLAUDE.md`: **lo snapshot è autoritativo per lo storico**.
 2. Invertire `resolveWine` (`App.jsx:117`): oggi privilegia `wines`, quindi modificare
@@ -303,7 +328,9 @@ prima e dopo, altrimenti sembrerà una regressione.
 
 ## P5 — Rating per bevuta
 
-**Azione:** D5. **Decisione richiesta:** Q3. **Forma dipendente da:** Q2.
+**Azione:** D5. **Decisione richiesta:** Q3 → ✅ **sì, per bevuta** (20/09/2026).
+**Forma dipendente da:** Q2 → **a**, quindi il rating vive sulla riga-bottiglia
+e **questo passo segue P6**.
 
 - `RatingDial` scrive sulla singola bevuta (`valuta_vino` prende `p_uid`, non `p_wine_id`).
 - La card mostra la **media** per etichetta, da vista o colonna calcolata.
@@ -314,9 +341,9 @@ Se Q2 = sì, il rating vive sulla riga-bottiglia e questo passo segue P6.
 
 ---
 
-## P6 — Bottiglie come righe  *(solo se Q2 = sì)*
+## P6 — Bottiglie come righe  ·  ✅ IN PIANO (Q2 = a, 20/09/2026)
 
-**Azione:** D2. **Il passo più invasivo del piano.**
+**Azione:** D2. **Il passo più invasivo del piano.** Da fare dopo P1b.
 
 `wines` resta anagrafica (1 riga per etichetta+annata). Nuova tabella:
 
@@ -372,9 +399,9 @@ di conseguenza. Resta bloccato solo l'accesso diretto via `curl`/`fetch`.
 | ~~**P2**~~ | ~~D7c~~ | — | sì | nullo | ✅ fatto |
 | ~~**P3**~~ | ~~D3 (+D7b)~~ | — | sì | medio | ✅ fatto (fase 3 aperta) |
 | ~~P1a/P1c~~ | ~~D1~~ | Q1 = b | — | — | rimandato |
-| **P4** | D4 | Q2 = no | sì | medio | sì |
-| **P5** | D5 | Q3 | sì | medio | sì |
-| **P6** | D2 | Q2 = sì | sì | **alto** | difficile |
+| ~~**P4**~~ | ~~D4~~ | Q2 = a | — | — | ❌ decaduto, assorbito da P6 |
+| **P5** | D5 | Q3 = sì | sì | medio | sì |
+| **P6** | D2 | Q2 = a | sì | **alto** | difficile |
 | **P7** | D7a/b/d | — | sì | basso | sì |
 
 Backup JSON completo prima di **P3** e **P6** (e reso ripetibile da P1b stesso).
