@@ -35,20 +35,28 @@ Si può però ridurre **la gravità**, e non serve alcuna decisione per farlo: �
 nuovo passo **P1b**. Trasforma "perdita totale e irreversibile" in "fastidio
 recuperabile". P1 resta in piano, solo più avanti.
 
-### Q2 · Bottiglie come righe (decisione aperta #4) — blocca P4 e P5
-
-Non serve *farlo* ora, serve *deciderlo* ora: se la risposta è sì, P4 (contratto
-snapshot) e P5 (rating) vanno implementati sul modello nuovo, altrimenti si fa
-due volte lo stesso lavoro.
+### Q2 · Bottiglie come righe (decisione aperta #4) — ✅ DECISO 20/09/2026: **sì**
 
 | Opzione | Effetto |
 |---|---|
-| **a. Sì** | P4 decade (lo snapshot sparisce), P5 si fa sulla riga-bottiglia. P6 entra nel piano |
-| **b. No** | P4 e P5 restano come descritti. Formato, posizione e "cosa bere" escono dal piano |
-| **c. Non ora, ma sì in futuro** | Peggiore delle tre: si fa P4/P5 sul modello vecchio sapendo di rifarli |
+| **a. Sì** ← **scelta** | P4 decade (lo snapshot sparisce), P5 si fa sulla riga-bottiglia. P6 entra nel piano |
+| b. No | P4 e P5 restano come descritti. Formato, posizione e "cosa bere" escono dal piano |
+| c. Non ora, ma sì in futuro | Peggiore delle tre: si fa P4/P5 sul modello vecchio sapendo di rifarli |
 
-**Raccomandato:** decidere **a** o **b**, non **c**. La domanda vera è una sola:
-*formato, posizione in cantina e "cosa bere" sono nel piano, sì o no?*
+Formato, posizione in cantina e finestra di beva sono nel piano, quindi lo step 9
+"cosa bere" è un obiettivo reale e il contatore `wines.bottiglie` non basta.
+
+**Conseguenze:**
+
+- **P4 esce dal piano.** Lo snapshot di `bevuti` sparisce con P6, quindi ripulirlo e
+  invertire `resolveWine` sarebbe lavoro buttato. Il residuo A2b nelle 10 righe
+  divergenti si risolve dentro la migrazione di P6.
+- **P5 cambia forma**: il rating vive sulla riga-bottiglia, non sulla bevuta, e
+  segue P6 invece di precederlo.
+- **P1b si sdoppia.** Log append-only ed export restano indipendenti e si possono
+  fare subito; il soft delete invece verrebbe riscritto da P6, perché lo stato
+  della bottiglia rende la cancellazione reversibile per costruzione. Meglio
+  portarlo dentro P6 che farlo due volte.
 
 ### Q3 · Rating per bevuta (decisione aperta #1) — forma P5
 
@@ -284,9 +292,16 @@ statistiche per regione.
 
 ---
 
-## P4 — Contratto dello snapshot `bevuti`  *(solo se Q2 = no)*
+## P4 — Contratto dello snapshot `bevuti`  ·  DECADUTO (Q2 = sì, 20/09/2026)
 
-**Azione:** D4. **Decisione richiesta:** Q2.
+**Azione:** D4. Non si fa: con P6 lo snapshot sparisce e lo storico diventa
+immutabile per costruzione. Resta qui solo come traccia del ragionamento.
+
+> Misurato il 19/09/2026 prima di chiuderlo: 48 bevute, 1 orfana, 10 righe con
+> snapshot divergente da `wines` — ma **nessun produttore o nome di vino diverso**.
+> Tutta la divergenza era residuo di A2b (`annata` "n.d." vs NULL su 5 righe,
+> `prezzo` 0 vs NULL su 5, più un prezzo ignoto compilato dopo). Il rischio da cui
+> P4 proteggeva non si era mai materializzato.
 
 1. Scrivere il contratto in `CLAUDE.md`: **lo snapshot è autoritativo per lo storico**.
 2. Invertire `resolveWine` (`App.jsx:117`): oggi privilegia `wines`, quindi modificare
