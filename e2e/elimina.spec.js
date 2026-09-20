@@ -30,7 +30,7 @@ test.describe("Elimina dalla cantina", () => {
     await expect.poll(() => cantina.rpcCalls("elimina_bottiglia").length).toBe(1);
     expect(cantina.lastRpcArgs("elimina_bottiglia")).toEqual({ p_wine_id: 1 });
 
-    await expect(page.getByText(`${ATTESI.bottiglie - 1} · ~${ATTESI.costo - 12}€`)).toBeVisible();
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie - 1));
     // Il dettaglio resta aperto sopra la Lista, quindi il nome compare due
     // volte: basta sapere che il vino non è sparito.
     await expect(page.getByText("Soave Classico La Rocca").first()).toBeVisible();
@@ -41,7 +41,8 @@ test.describe("Elimina dalla cantina", () => {
     await eliminaBottiglia(page, "Orange Unico");
 
     await expect(page.getByText("Orange Unico")).toHaveCount(0);
-    await expect(page.getByText(`${ATTESI.bottiglie - 1} · ~${ATTESI.costo - 20}€`)).toBeVisible();
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie - 1));
+    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo - 20} €`);
   });
 
   test("se la RPC fallisce, la riga torna al suo posto", async ({ page, cantina }) => {
@@ -52,7 +53,7 @@ test.describe("Elimina dalla cantina", () => {
     await expect(page.getByText("Errore: eliminazione non riuscita")).toBeVisible();
     // Rollback: il vino torna in Lista (e il dettaglio si riapre, da cui .first()).
     await expect(page.getByText("Orange Unico").first()).toBeVisible();
-    await expect(page.getByText(`${ATTESI.bottiglie} · ~${ATTESI.costo}€`)).toBeVisible();
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie));
   });
 
   // P1b, il caso che il soft delete esiste per rendere possibile.
@@ -70,7 +71,7 @@ test.describe("Elimina dalla cantina", () => {
 
     // Riaggiunta a mano, compilando solo i tre campi che formano la chiave
     // normalizzata. La scheda tecnica NON viene ricompilata di proposito.
-    await page.getByRole("button", { name: /Aggiungi vino/ }).click();
+    await page.getByRole("button", { name: "Aggiungi un vino" }).click();
     await page.getByRole("button", { name: /Inserimento manuale/ }).click();
     await campo(page, "Produttore").fill("Cantina Singola");
     await campo(page, "Nome vino").fill("Orange Unico");

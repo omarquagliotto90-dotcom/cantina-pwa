@@ -259,10 +259,20 @@ const test = base.test.extend({
   },
 });
 
+/**
+ * Apre la ricerca della Cantina e scrive la query.
+ * Dal ridisegno C2 il campo e' nascosto dietro un bottone: il test deve fare
+ * lo stesso percorso dell'utente, non scorciatoie.
+ */
+async function cerca(page, testo) {
+  await page.getByRole("button", { name: "Cerca", exact: true }).click();
+  await page.getByPlaceholder("Produttore, vino, annata, uva").fill(testo);
+}
+
 /** Attende che il caricamento iniziale sia finito. */
 async function apriApp(page) {
   await page.goto("/");
   await base.expect(page.getByText("Carico la cantina…")).toBeHidden({ timeout: 15_000 });
 }
 
-module.exports = { test, expect: base.expect, apriApp, Cantina };
+module.exports = { test, expect: base.expect, apriApp, cerca, Cantina };

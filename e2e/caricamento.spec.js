@@ -1,4 +1,4 @@
-const { test, expect, apriApp } = require("./support/harness");
+const { test, expect, apriApp, cerca } = require("./support/harness");
 const { ATTESI } = require("./fixtures/cantina");
 
 test.describe("Caricamento e Lista", () => {
@@ -12,17 +12,20 @@ test.describe("Caricamento e Lista", () => {
     await expect(page.getByText("Verdicchio Cambrugiano")).toHaveCount(0);
   });
 
-  test("i totali di header e Lista usano la stessa formula", async ({ page, cantina }) => {
+  test("il riepilogo della Cantina usa le formule unificate", async ({ page, cantina }) => {
     await apriApp(page);
 
-    // Header: bottiglie · costo d'acquisto della giacenza.
-    await expect(page.getByText(`${ATTESI.bottiglie} · ~${ATTESI.costo}€`)).toBeVisible();
-
-    // Le tile della Lista devono concordare con l'header: è la regressione
-    // chiusa in A1, quando lo stesso dato dava 1.566 € / 1.457,5 € / 2.051,5 €.
-    await expect(page.getByText(String(ATTESI.referenze), { exact: true })).toBeVisible();
-    await expect(page.getByText(`~${ATTESI.costo}€`, { exact: true })).toBeVisible();
-    await expect(page.getByText(`~${ATTESI.mediaBottiglia}€`, { exact: true })).toBeVisible();
+    // C2 ha tolto l'app bar: i totali che stavano nella pastiglia vivono ora
+    // solo nel riepilogo, quindi la vecchia discordanza header/Lista non è più
+    // rappresentabile. Resta da verificare che ogni voce usi la sua formula —
+    // è la regressione chiusa in A1, quando lo stesso dato dava
+    // 1.566 € / 1.457,5 € / 2.051,5 €.
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie));
+    await expect(page.getByTestId("tot-referenze")).toHaveText(String(ATTESI.referenze));
+    // Costo e valore sono grandezze diverse e devono restare distinte.
+    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo} €`);
+    await expect(page.getByTestId("tot-valore")).toHaveText(`~${ATTESI.valoreMercato} €`);
+    await expect(page.getByTestId("media-bottiglia")).toHaveText(`~${ATTESI.mediaBottiglia} € l'una`);
   });
 
   test("i campi NULL diventano placeholder, non stringhe vuote", async ({ page, cantina }) => {
@@ -45,7 +48,7 @@ test.describe("Caricamento e Lista", () => {
   test("cerca per produttore", async ({ page, cantina }) => {
     await apriApp(page);
 
-    await page.getByPlaceholder("Cerca produttore, vino, vitigno…").fill("pieropan");
+    await cerca(page, "pieropan");
     await expect(page.getByText("Soave Classico La Rocca")).toBeVisible();
     await expect(page.getByText("Rosso Anonimo")).toHaveCount(0);
   });

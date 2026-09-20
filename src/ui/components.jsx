@@ -6,8 +6,8 @@
 // nulla; i calcoli di dominio arrivano da ./domain, che è puro.
 
 import { useState, useRef } from "react";
-import { M3, S } from "./theme";
-import { hasCantina, valoreBottiglia } from "./domain";
+import { M3, S, T, OCCHIELLO } from "./theme";
+import { hasCantina, valoreBottiglia, produttoreDi } from "./domain";
 
 // ─── Icona SVG custom: Rosso fermo (rosso.svg) ───────────────────────────────
 export function RossoIcon({ size = 13, color = "currentColor" }) {
@@ -405,7 +405,29 @@ export function PressableRow({ onClick, style, children }) {
 }
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-export function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
+// Il calice del ridisegno: segna i vuoti, le bevute e l'azione "bevi".
+export const CaliceIcon = ({ size = 20, color = "currentColor", width = 1.2 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 22h8" /><path d="M12 15v7" /><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z" />
+  </svg>
+);
+
+// La riga tappabile del ridisegno: un vero <button>, griglia miniatura +
+// contenuto, filo di divisione sotto. Sostituisce PressableRow, che dipingeva
+// un velo scuro sopra: qui l'hover e' una tinta calda piena, come nel design.
+export function RigaPremibile({ onClick, children }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button type="button" onClick={onClick}
+      onPointerEnter={e => { if (e.pointerType === "mouse") setHover(true); }}
+      onPointerLeave={() => setHover(false)}
+      style={{ position: "relative", width: "100%", display: "grid", gridTemplateColumns: "62px minmax(0,1fr)", gap: 14, alignItems: "center", padding: "10px 0", textAlign: "left", background: hover ? T.rigaHover : "transparent", border: 0, borderBottom: `1px solid ${T.divisoreMedio}`, cursor: "pointer", transition: "background .16s", fontFamily: T.sans, color: T.testo }}>
+      {children}
+    </button>
+  );
+}
+
+export function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {}, immagine = null }) {
   // F23: nei Bevuti il numero è il valore di UNA bottiglia consumata
   // (valore di mercato, fallback prezzo d'acquisto), non la giacenza.
   const totalVal = bevutoInfo
@@ -417,40 +439,45 @@ export function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
   const currentRating = ratings[wine.id] || 0;
 
   if (!bevutoInfo) {
+    // Riga della Cantina — ridisegno 2026. La miniatura arriva gia' risolta in
+    // `immagine`: qui non si cerca nulla, e un vino senza foto resta senza.
+    const regione = produttoreDi(wine.produttore)?.regione;
+    const meta = [wine.annata, wine.denominazione !== "n.d." ? wine.denominazione : null].filter(Boolean).join(" · ");
     return (
-      <div style={{ background: M3.surface, borderBottom: `1px solid ${M3.outlineVariant}` }}>
-        <PressableRow onClick={onOpen}>
-          <div style={{ position: "relative", display: "flex", alignItems: "center", minHeight: 56 }}>
-            <div style={{ flex: 1, padding: "12px 4px 6px 16px", minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 2 }}>
-                {wine.produttore}
-                {cantinaSW && <span style={{ marginLeft: 4, color: "#2E7D32", display: "inline-flex", verticalAlign: "middle" }}>{IC.eco}</span>}
-              </div>
-              <div style={{ fontSize: 15, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, lineHeight: 1.3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {wine.annata} {wine.vino}
-                {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display: "inline-flex", verticalAlign: "middle" }}>{IC.verified}</span>}
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <TipoBadge tipo={wine.tipologia} />
-                <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
-                <span style={S.meta}>{wine.annata}</span>
-                {wine.denominazione && wine.denominazione !== "n.d." && (
-                  <>
-                    <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
-                    <span style={{ ...S.meta, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.denominazione}</span>
-                  </>
-                )}
-              </div>
+      <RigaPremibile onClick={onOpen}>
+        <span style={{ position: "absolute", top: 14, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
+        <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
+          {immagine ? (
+            <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: T.tenueAlt }}>
+              <CaliceIcon size={20} />
+              <span style={{ fontSize: 9, letterSpacing: ".08em", textTransform: "uppercase" }}>senza foto</span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "0 12px", flexShrink: 0, color: M3.onSurfaceVariant }}>
-              {IC.chevronDown}
-            </div>
+          )}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: "0 0 3px", paddingRight: regione ? 76 : 0, color: T.accento, fontSize: 10, fontWeight: 600, letterSpacing: ".09em", textTransform: "uppercase", overflowWrap: "anywhere" }}>
+            {wine.produttore}
+            {cantinaSW && <span title="Cantina premiata Slow Wine" style={{ marginLeft: 5, color: "#2E7D32", display: "inline-flex", verticalAlign: "middle" }}>{IC.eco}</span>}
+            {vinoSW && <span title="Vino premiato Slow Wine" style={{ marginLeft: 4, color: "#0D47A1", display: "inline-flex", verticalAlign: "middle" }}>{IC.verified}</span>}
+          </p>
+          <h4 style={{ margin: 0, fontFamily: T.serif, fontSize: 18, fontWeight: 400, lineHeight: 1.08, letterSpacing: "-.01em", overflowWrap: "anywhere" }}>{wine.vino}</h4>
+          <p style={{ margin: "4px 0 0", color: T.secondarioAlt, fontSize: 11, lineHeight: 1.3 }}>{meta}</p>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 8, paddingTop: 7, borderTop: `1px solid ${T.divisoreTenue}` }}>
+            <span style={{ display: "flex", alignItems: "baseline", gap: 5, color: T.testo }}>
+              <b style={{ fontFamily: T.serif, fontSize: 17, fontWeight: 500, lineHeight: 1 }}>{wine.bottiglie}</b>
+              <span style={{ fontSize: 11, color: T.testoUnita }}>{wine.bottiglie === 1 ? "bottiglia" : "bottiglie"}</span>
+            </span>
+            {/* Due righe invece di una: il design mostrava solo la stima, ma il
+                prezzo pagato non va perso. La stima compare solo se esiste. */}
+            <span style={{ textAlign: "right", color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>
+              {wine.prezzo != null ? `~${wine.prezzo} € / bott.` : "prezzo non noto"}
+              {wine.valore != null && <><br />stima ~{wine.valore} €</>}
+            </span>
           </div>
-          <div style={{ position: "relative", padding: "0 16px 11px", ...S.meta }}>
-            {wine.bottiglie} {wine.bottiglie === 1 ? "bottiglia" : "bottiglie"} · ~{wine.prezzo}€/bott
-          </div>
-        </PressableRow>
-      </div>
+        </div>
+      </RigaPremibile>
     );
   }
 

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { M3, S, T } from "./ui/theme";
 import { TIPO, IC, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { costoGiacenza, formatDataIt, setProduttori, produttoreDi, getGoogleFallback } from "./ui/domain";
+import { formatDataIt, setProduttori, produttoreDi, getGoogleFallback } from "./ui/domain";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "0.6";
+const REV = "0.7";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -711,6 +711,7 @@ function useCantinaData() {
   const [wines, setWines] = useState([]);
   const [bevuti, setBevuti] = useState([]);
   const [ratings, setRatings] = useState({});
+  const [immagini, setImmagini] = useState({});   // wine_id -> url, per le miniature
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -718,11 +719,16 @@ function useCantinaData() {
     let cancelled = false;
     async function loadData() {
       try {
-        const [fetchedWines, bev, produttori] = await Promise.all([
+        const [fetchedWines, bev, produttori, immagini] = await Promise.all([
           // P1b: le righe soft-deleted restano in tabella ma fuori dall'app.
           sb.getOrThrow("wines", { order: "id.asc", filtro: "deleted_at=is.null" }),
           sb.getOrThrow("bevuti"),
           sb.getOrThrow("produttori", { order: "nome.asc" }),
+          // C2: il ridisegno mette una miniatura in ogni riga della lista. Una
+          // GET sola all'avvio invece di una ricerca per vino: senza questa,
+          // scorrere la lista accoderebbe una chiamata Serper per ogni vino
+          // senza immagine, e imgQueue le serializza con 2s di pausa.
+          sb.getOrThrow("wine_images"),
         ]);
         if (cancelled) return;
         // P3: prima dei vini — badge Slow Wine e sito produttore leggono da qui.
@@ -732,6 +738,15 @@ function useCantinaData() {
         const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
         setBevuti(bevFromDb);
         setRatings(ratingPerVino(bev));
+        // Le stesse url alimentano la lista e pre-riempiono la cache del
+        // dettaglio: per i vini gia' fotografati BottleImage non fa piu' nulla.
+        const mappa = {};
+        for (const r of immagini) {
+          if (!r.image_url) continue;
+          mappa[r.wine_id] = r.image_url;
+          if (!imgSessionCache.has(r.wine_id)) imgSessionCache.set(r.wine_id, r.image_url);
+        }
+        setImmagini(mappa);
         setDbError(null);
       } catch (e) {
         if (cancelled) return;
@@ -745,14 +760,14 @@ function useCantinaData() {
     return () => { cancelled = true; };
   }, []);
 
-  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, loading, dbError, setDbError };
+  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError };
 }
 
 // ─── App principale ───────────────────────────────────────────────────────────
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
-  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, loading, dbError, setDbError } = useCantinaData();
+  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError } = useCantinaData();
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -968,11 +983,6 @@ export default function Cantina() {
     }
   };
 
-  // 1:N — cantina = tutti i vini con bottiglie > 0 (già filtrati in allWines)
-  const cantina = allWines;
-  const totBottiglie = cantina.reduce((a, w) => a + w.bottiglie, 0);
-  const totValore    = costoGiacenza(cantina);
-
   if (loading) return (
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: T.superficie, gap: 16 }}>
       <div style={{ color: M3.primary, animation: "spin 1.2s linear infinite" }}><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
@@ -1008,15 +1018,11 @@ export default function Cantina() {
         @keyframes fadeIn   { from { opacity:0 } to { opacity:1 } }
       `}</style>
 
-      {/* ── App Bar ── */}
-      <div style={{ flexShrink: 0, zIndex: 20, paddingTop: "env(safe-area-inset-top)", background: compact ? M3.surfaceContainer : M3.surface, transition: "background 0.25s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ display: "flex", alignItems: "center", height: 64, padding: "0 16px", gap: 12 }}>
-          <div style={{ flex: 1, fontSize: 22, fontWeight: 400, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", letterSpacing: -0.3, lineHeight: 1 }}>Wines di Omar<span style={{ fontSize: 10, fontWeight: 500, opacity: 0.4, marginLeft: 6, verticalAlign: "super" }}>{REV}</span></div>
-          <div style={{ padding: "0 12px", height: 28, borderRadius: 14, background: M3.primaryContainer, color: M3.onPrimaryContainer, display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", flexShrink: 0 }}>
-            <span style={{display:"flex",alignItems:"center",gap:5}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg> {totBottiglie} · ~{totValore}€</span>
-          </div>
-        </div>
-      </div>
+      {/* C2: l'app bar globale non c'e' piu'. Nel ridisegno ogni schermata
+          porta la propria intestazione editoriale, e i totali che stavano
+          nella pastiglia sono ora nel riepilogo della Cantina. Resta solo lo
+          spazio per la status bar dell'iPhone. */}
+      <div style={{ flexShrink: 0, paddingTop: "env(safe-area-inset-top)" }} />
 
       {/* ── DB Error Banner ── */}
       {dbError && (
@@ -1028,7 +1034,7 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderSito={renderSito} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderSito={renderSito} immagini={immagini} rev={REV} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderSito={renderSito} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
@@ -1036,15 +1042,11 @@ export default function Cantina() {
       {/* ── Extended FAB ── */}
       {tab === "lista" && (
         <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
-          {selectedWineForScheda ? (
+          {selectedWineForScheda && (
             <button onClick={handleSchedaTecnica} disabled={schedaFabLoading} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: schedaFabLoading ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", opacity: schedaFabLoading ? 0.7 : 1 }}>
               {schedaFabLoading
                 ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "spin 1s linear infinite" }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Ricerca in corso…</span>
                 : <span style={{ display: "flex", alignItems: "center", gap: 8 }}><SchedaTecnicaIcon size={18} /> Scheda tecnica</span>}
-            </button>
-          ) : (
-            <button onClick={() => setShowAggiungi(true)} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)" }}>
-              <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
             </button>
           )}
         </div>
