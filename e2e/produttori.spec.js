@@ -62,4 +62,42 @@ test.describe("Anagrafica produttori", () => {
     expect(cantina.calls.filter(c => c.name === "search-website")).toHaveLength(0);
     expect(cantina.rpcCalls("salva_sito_produttore")).toHaveLength(0);
   });
+
+  // ── Foto di regione nell'hero ─────────────────────────────────────────────
+  // Lo sfondo lo sceglie la regione del PRODUTTORE, non il vino, e si accende
+  // solo per le regioni elencate in `REGIONI_CON_FOTO` (vedi
+  // `public/regioni/README.md`). Il punto fragile e' l'aggancio nome-file:
+  // aggiungere una foto significa mettere il file e scrivere la regione
+  // nell'elenco, e uno slug sbagliato non fa rumore, semplicemente non appare.
+
+  test("l'hero prende la foto della regione del produttore", async ({ page, cantina }) => {
+    cantina.setTable("produttori", [{
+      id: 1, nome: "Pieropan", nome_norm: "pieropan",
+      sito: null, sito_source: null, slow_chiocciola: false,
+      regione: "Trentino-Alto Adige",
+    }]);
+    await apriApp(page);
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+
+    await expect(page.getByTestId("hero-foto")).toHaveCSS(
+      "background-image", /\/regioni\/trentino-alto-adige\.jpg/);
+  });
+
+  test("una regione senza foto lascia l'hero a fondo pieno", async ({ page, cantina }) => {
+    // Il Veneto una foto non ce l'ha: l'hero deve restare com'era prima del
+    // ridisegno, non mostrare un riquadro vuoto. La regione e' scritta qui e
+    // non lasciata alle fixture, cosi' la premessa del test e' esplicita.
+    cantina.setTable("produttori", [{
+      id: 1, nome: "Pieropan", nome_norm: "pieropan",
+      sito: null, sito_source: null, slow_chiocciola: false, regione: "Veneto",
+    }]);
+    await apriApp(page);
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+
+    // Nel dialogo, non nella riga di Lista che resta dietro: il nome del vino
+    // sta in tutte e due e senza `getByRole("dialog")` ne trova due.
+    const dettaglio = page.getByRole("dialog");
+    await expect(dettaglio.getByRole("heading", { name: "Soave Classico La Rocca" })).toBeVisible();
+    await expect(page.getByTestId("hero-foto")).toHaveCount(0);
+  });
 });

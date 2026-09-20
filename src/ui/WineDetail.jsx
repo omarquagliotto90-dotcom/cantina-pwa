@@ -29,7 +29,7 @@ import { hasCantina, produttoreDi, getGoogleFallback } from "./domain";
 // spiega nomi e formato. Elencare qui la regione e' cio' che accende la foto:
 // una lista esplicita evita una richiesta a vuoto per le regioni che la foto
 // non ce l'hanno, e tiene il controllo in un punto solo.
-const REGIONI_CON_FOTO = [];
+const REGIONI_CON_FOTO = ["Trentino-Alto Adige"];
 
 // "Trentino-Alto Adige" -> "trentino-alto-adige"
 const slugRegione = (r) => r.toLowerCase().normalize("NFD")
@@ -166,7 +166,7 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
             <>
               {/* Decorative: il nome della regione e' gia' scritto qui sotto, quindi
                   per un lettore di schermo la foto non aggiunge nulla. */}
-              <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 0, backgroundImage: `url(${foto})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+              <div aria-hidden="true" data-testid="hero-foto" style={{ position: "absolute", inset: 0, zIndex: 0, backgroundImage: `url(${foto})`, backgroundSize: "cover", backgroundPosition: "center" }} />
               <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 1, background: VELO, pointerEvents: "none" }} />
             </>
           )}

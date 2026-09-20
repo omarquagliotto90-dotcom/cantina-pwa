@@ -19,6 +19,12 @@ sempre la stessa foto.
 
 2. Aggiungi la regione a `REGIONI_CON_FOTO` in `src/ui/WineDetail.jsx`.
 
+## Già caricate
+
+| Regione | File | Note |
+|---|---|---|
+| Trentino-Alto Adige | `trentino-alto-adige.jpg` | 580×580, 107 KB. **Sotto specifica:** su iPhone l'hero è 1125×1350 fisici a 3x, quindi viene ingrandita ~2,4 volte e al 100% i filari risultano morbidi. Sostituibile con un ritaglio verticale ≥1200px dello stesso scatto, senza toccare il codice |
+
 Il secondo passo è quello che accende la foto: l'elenco è esplicito apposta,
 così per le regioni senza foto il browser non parte con una richiesta destinata
 al 404. Una regione non elencata — o un produttore senza regione — ricade sul
