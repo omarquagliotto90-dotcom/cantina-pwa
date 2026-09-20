@@ -1,15 +1,16 @@
 // v0.3 — data-driven
 import { useState, useRef, useEffect } from "react";
 import { M3, S } from "./ui/theme";
-import { TIPO, IC, TipoLabel, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
-import { resolveWine, valoreBottiglia, costoGiacenza, formatDataIt, setProduttori, produttoreDi, hasCantina, getGoogleFallback } from "./ui/domain";
+import { TIPO, IC, TipoLabel, RatingDial, WineCard, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
+import { costoGiacenza, formatDataIt, setProduttori, produttoreDi, getGoogleFallback } from "./ui/domain";
 import TabStatistiche from "./ui/Statistiche";
+import TabBevuti from "./ui/Bevuti";
 import WineDetail from "./ui/WineDetail";
 
 // Contatore progressivo delle modifiche ad App.jsx: sale di 0.1 a ogni
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2".
-const REV = "0.1";
+const REV = "0.2";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -214,33 +215,6 @@ function FilterChip({ label, active, onClick }) {
       {t && (<span style={{ display: "inline-flex", alignItems: "center", position: "relative", zIndex: 1 }}><TipoLabel tipo={label} size={13} color={textColor} /></span>)}
       <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
     </button>
-  );
-}
-
-function TipoBadge({ tipo }) {
-  const t = TIPO[tipo] || TIPO["Bianco fermo"];
-  return (
-    <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 4, background: t.container, color: t.onContainer, fontFamily: "'Roboto', sans-serif", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 3 }}>
-      <TipoLabel tipo={tipo} size={13} color={t.onContainer} /> {tipo}
-    </span>
-  );
-}
-
-function PressableRow({ onClick, style, children }) {
-  const [pressed, setPressed] = useState(false);
-  const [hover, setHover] = useState(false);
-  return (
-    <div onClick={onClick} role="button" tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); } }}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerCancel={() => setPressed(false)}
-      onPointerLeave={() => { setPressed(false); setHover(false); }}
-      onPointerEnter={e => { if (e.pointerType === "mouse") setHover(true); }}
-      style={{ position: "relative", cursor: "pointer", ...style }}>
-      <span aria-hidden="true" style={{ position: "absolute", inset: 0, background: M3.onSurface, opacity: pressed ? 0.10 : hover ? 0.08 : 0, transition: "opacity 120ms cubic-bezier(0.2,0,0,1)", pointerEvents: "none" }} />
-      {children}
-    </div>
   );
 }
 
@@ -455,105 +429,6 @@ function WebsiteView({ wine }) {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />)}
       </div>
-    </div>
-  );
-}
-
-// ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
-  // F23: nei Bevuti il numero è il valore di UNA bottiglia consumata
-  // (valore di mercato, fallback prezzo d'acquisto), non la giacenza.
-  const totalVal = bevutoInfo
-    ? valoreBottiglia(wine)
-    : wine.prezzo * wine.bottiglie;
-  const cantinaSW = hasCantina(wine.produttore);
-  const vinoSW = !!wine.slowVinoBott;
-
-  const currentRating = ratings[wine.id] || 0;
-
-  if (!bevutoInfo) {
-    return (
-      <div style={{ background: M3.surface, borderBottom: `1px solid ${M3.outlineVariant}` }}>
-        <PressableRow onClick={onOpen}>
-          <div style={{ position: "relative", display: "flex", alignItems: "center", minHeight: 56 }}>
-            <div style={{ flex: 1, padding: "12px 4px 6px 16px", minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 2 }}>
-                {wine.produttore}
-                {cantinaSW && <span style={{ marginLeft: 4, color: "#2E7D32", display: "inline-flex", verticalAlign: "middle" }}>{IC.eco}</span>}
-              </div>
-              <div style={{ fontSize: 15, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, lineHeight: 1.3, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {wine.annata} {wine.vino}
-                {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display: "inline-flex", verticalAlign: "middle" }}>{IC.verified}</span>}
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <TipoBadge tipo={wine.tipologia} />
-                <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
-                <span style={S.meta}>{wine.annata}</span>
-                {wine.denominazione && wine.denominazione !== "n.d." && (
-                  <>
-                    <span style={{ fontSize: 11, color: M3.onSurfaceVariant }}>·</span>
-                    <span style={{ ...S.meta, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.denominazione}</span>
-                  </>
-                )}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "0 12px", flexShrink: 0, color: M3.onSurfaceVariant }}>
-              {IC.chevronDown}
-            </div>
-          </div>
-          <div style={{ position: "relative", padding: "0 16px 11px", ...S.meta }}>
-            {wine.bottiglie} {wine.bottiglie === 1 ? "bottiglia" : "bottiglie"} · ~{wine.prezzo}€/bott
-          </div>
-        </PressableRow>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{
-      borderRadius: 12,
-      border: `1px solid ${M3.outlineVariant}`,
-      borderLeft: `1px solid ${M3.outlineVariant}`,
-      background: M3.surface,
-      overflow: "hidden",
-      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-    }}>
-      {/* ── Header (riga tappabile → apre il dettaglio) ── */}
-      <PressableRow onClick={onOpen} style={{ display: "flex", alignItems: "stretch", minHeight: 68 }}>
-        <div style={{ width: 4, flexShrink: 0, background: "transparent" }} />
-        <div style={{ flex: 1, padding: "11px 12px", minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", marginBottom: 1 }}>
-            {wine.produttore}
-            {cantinaSW && <span style={{ marginLeft: 4, color: "#2E7D32", display:"inline-flex", verticalAlign:"middle" }}>{IC.eco}</span>}
-          </div>
-          <div style={{ fontSize: 15, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, lineHeight: 1.3, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {wine.vino}
-            {vinoSW && <span style={{ marginLeft: 4, color: "#0D47A1", display:"inline-flex", verticalAlign:"middle" }}>{IC.verified}</span>}
-          </div>
-          {wine.denominazione && wine.denominazione !== "n.d." && (
-            <div style={{ fontSize: 11, fontFamily: "'Roboto', sans-serif", color: M3.onSurfaceVariant, lineHeight: 1.2, marginBottom: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {wine.denominazione}
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-            <TipoBadge tipo={wine.tipologia} />
-            <span style={S.meta}>{wine.annata}</span>
-            {bevutoInfo && currentRating > 0 && (
-              <span style={{ fontSize: 11, letterSpacing: 1, display: "inline-flex", gap: 2 }}>
-                {[...Array(5)].map((_, i) => <span key={i} style={{opacity: i < currentRating ? 1 : 0.25, display:"inline-flex"}}>{IC.wineglass}</span>)}
-              </span>
-            )}
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", padding: "11px 12px 11px 6px", flexShrink: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: M3.primary, fontFamily: "'Roboto', sans-serif" }}>~{totalVal}€</span>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            {!bevutoInfo && <span style={{ ...S.meta, display: "flex", alignItems: "center", gap: 3 }}>{IC.bottle} {wine.bottiglie}</span>}
-            {bevutoInfo && <span style={{ color: M3.onSurfaceVariant, display: "flex", alignItems: "center" }}>{IC.wineglassFull}</span>}
-            <span style={{ color: M3.onSurfaceVariant, display: "flex", alignItems: "center" }}>{IC.chevronDown}</span>
-          </div>
-        </div>
-      </PressableRow>
     </div>
   );
 }
@@ -929,79 +804,6 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
   );
 }
 
-// ─── Tab: Bevuti ──────────────────────────────────────────────────────────────
-function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate }) {
-  const [selectedUid, setSelectedUid] = useState(null);
-  const lastFocusedRef = useRef(null);
-  const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
-
-  const handleOpen = (uid) => (e) => {
-    if (selectedUid != null) return;
-    lastFocusedRef.current = e?.currentTarget || null;
-    setSelectedUid(uid);
-  };
-  const handleClose = () => {
-    setSelectedUid(null);
-    const el = lastFocusedRef.current;
-    if (el) requestAnimationFrame(() => el.focus?.());
-  };
-  // F23: valore di mercato se valorizzato, altrimenti prezzo d'acquisto
-  // (live, poi snapshot storico per i vini non più in wines).
-  const totalSpeso = bevuti.reduce((a, b) => a + valoreBottiglia(resolveWine(wineMap, b)), 0);
-
-  if (bevuti.length === 0) {
-    return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, color: M3.onSurfaceVariant }}>
-        <div style={{ marginBottom: 16, color: M3.onSurfaceVariant, opacity:0.4 }}><svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8l-1 9a4 4 0 0 1-6 0z"/><path d="M9 8h6" strokeWidth="3"/><line x1="12" y1="12" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
-        <div style={{ fontSize: 18, fontWeight: 500, color: M3.onSurface, marginBottom: 8 }}>Nessun vino bevuto</div>
-        <div style={{ fontSize: 14, textAlign: "center", lineHeight: 1.5 }}>Quando segni un vino come bevuto, apparirà qui con data e note.</div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ padding: "12px 16px 100px", display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ background: M3.primaryContainer, borderRadius: 12, padding: "14px 16px", marginBottom: 4 }}>
-        <div style={{ fontSize: 11, color: M3.onPrimaryContainer, textTransform: "uppercase", letterSpacing: 0.5, fontFamily: "'Roboto', sans-serif", marginBottom: 6, opacity: 0.8 }}>Archivio degustazioni</div>
-        <div style={{ display: "flex", gap: 24 }}>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif" }}>{bevuti.length}</div>
-            <div style={{ fontSize: 11, color: M3.onPrimaryContainer, opacity: 0.8, fontFamily: "'Roboto', sans-serif" }}>bottiglie aperte</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: M3.onPrimaryContainer, fontFamily: "'Roboto', sans-serif" }}>~{totalSpeso}€</div>
-            <div style={{ fontSize: 11, color: M3.onPrimaryContainer, opacity: 0.8, fontFamily: "'Roboto', sans-serif" }}>valore consumato</div>
-          </div>
-        </div>
-      </div>
-      {[...bevuti].reverse().map(b => {
-        const wine = resolveWine(wineMap, b);
-        if (!wine) return null;
-        return (
-          <WineCard key={b.uid} wine={wine}
-            onOpen={handleOpen(b.uid)}
-            bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
-            ratings={ratings} />
-        );
-      })}
-      {selectedUid != null && (() => {
-        const b = bevuti.find(x => x.uid === selectedUid);
-        if (!b) return null;
-        const wine = resolveWine(wineMap, b);
-        if (!wine) return null;
-        return (
-          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
-            ratings={ratings} onRate={onRate}
-            onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
-            onClose={handleClose}
-            renderBottiglia={(w2, attiva) => <BottleImage wine={w2} active={attiva} />}
-            renderSito={(w2) => <WebsiteView wine={w2} />} />
-        );
-      })()}
-    </div>
-  );
-}
-
 // ─── Hook: caricamento dati cantina ─────────────────────────────────────────
 // Estrae stato ed effetto di caricamento da Cantina(), distinguendo errore
 // HTTP/timeout da risultato legittimamente vuoto (via sb.getOrThrow).
@@ -1073,6 +875,11 @@ export default function Cantina() {
 
   // F22: per TabBevuti — include vini a 0 bottiglie (già bevuti)
   const winesForBevuti = wines;
+
+  // BottleImage e WebsiteView fanno rete e cache: restano qui e scendono a
+  // WineDetail come render prop, attraverso le schermate che lo montano.
+  const renderBottiglia = (w, attiva) => <BottleImage wine={w} active={attiva} />;
+  const renderSito = (w) => <WebsiteView wine={w} />;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1314,7 +1121,7 @@ export default function Cantina() {
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
         {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderSito={renderSito} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
