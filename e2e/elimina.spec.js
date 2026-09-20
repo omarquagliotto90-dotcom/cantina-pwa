@@ -13,7 +13,7 @@ const { ATTESI } = require("./fixtures/cantina");
 
 async function eliminaBottiglia(page, nomeVino) {
   await page.getByRole("button", { name: new RegExp(nomeVino) }).first().click();
-  await page.getByRole("button", { name: /Elimina dalla cantina/ }).click();
+  await page.getByRole("button", { name: /^Elimina$/ }).click();
   await page.getByRole("button", { name: "Sì, elimina" }).click();
 }
 

@@ -9,12 +9,10 @@ const { BEVUTI } = require("./fixtures/cantina");
 // Il fixture del Soave ha due bevute: 4.0 il 2026-08-01, 3.0 il 2026-09-01.
 // Massimo = 4,0 · più recente = 3,0.
 //
-// Il RatingDial esiste solo nella tab "Voto" del dettaglio, che a sua volta
-// compare solo aprendo una bevuta dalla tab Bevuti.
-//
-// Dal ridisegno C3 il voto compare anche nella riga del diario, quindi le
-// asserzioni sul dial sono circoscritte al dialog: "3,0" da solo troverebbe
-// due elementi. Ne approfitto per fissare anche il valore mostrato in riga.
+// Dal ridisegno C5 la scheda non ha piu' tab: lo slider del voto e' una
+// sezione della pagina, visibile appena si apre una bevuta. E dal C3 il voto
+// compare anche nella riga del diario, quindi le asserzioni sulla scheda sono
+// circoscritte al dialog: "3,0" da solo troverebbe due elementi.
 
 async function apriBevuti(page) {
   await page.getByText("Bevuti", { exact: true }).click();
@@ -23,11 +21,10 @@ async function apriBevuti(page) {
 async function apriVoto(page, nomeVino) {
   await apriBevuti(page);
   await page.getByRole("button", { name: new RegExp(nomeVino) }).first().click();
-  await page.getByText("Voto", { exact: true }).click();
 }
 
-/** Il voto come lo mostra il dial, dentro il dettaglio e non altrove. */
-const votoNelDial = (page) => page.getByRole("dialog").getByText("3,0");
+/** Il voto come lo mostra lo slider, dentro la scheda e non altrove. */
+const votoNellaScheda = (page) => page.getByRole("dialog").getByText("3,0");
 
 test.describe("Rating per vino", () => {
   test("mostra il voto della bevuta più recente, non il massimo", async ({ page, cantina }) => {
@@ -39,8 +36,7 @@ test.describe("Rating per vino", () => {
     await expect(page.getByText("4,0")).toHaveCount(0);
 
     await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
-    await page.getByText("Voto", { exact: true }).click();
-    await expect(votoNelDial(page)).toBeVisible();
+    await expect(votoNellaScheda(page)).toBeVisible();
     await expect(page.getByText("4,0")).toHaveCount(0);
   });
 
@@ -60,6 +56,6 @@ test.describe("Rating per vino", () => {
     await apriApp(page);
     await apriVoto(page, "Soave Classico La Rocca");
 
-    await expect(votoNelDial(page)).toBeVisible();
+    await expect(votoNellaScheda(page)).toBeVisible();
   });
 });

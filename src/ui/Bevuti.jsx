@@ -4,8 +4,8 @@
 // Ridisegno 2026 (C3), da `design/La Mia Cantina.dc.html`: intestazione
 // editoriale, riepilogo, e un diario diviso per anno.
 //
-// `renderBottiglia` e `renderSito` arrivano da App.jsx e vengono solo
-// inoltrate a WineDetail: qui non si sa cosa contengano.
+// `renderBottiglia` arriva da App.jsx e viene solo
+// inoltrata a WineDetail: qui non si sa cosa contenga.
 
 import { useState, useRef } from "react";
 import { T, OCCHIELLO } from "./theme";
@@ -68,7 +68,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
   );
 }
 
-export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, renderSito, immagini = {} }) {
+export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, immagini = {} }) {
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
@@ -174,7 +174,7 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             onClose={handleClose}
             renderBottiglia={renderBottiglia}
-            renderSito={renderSito} />
+            />
         );
       })()}
     </div>

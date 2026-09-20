@@ -11,8 +11,8 @@
 // sopravvivere al cambio tab, cioe' cambierebbe il comportamento. E' lo step
 // B della roadmap, non questo.
 //
-// `renderBottiglia` e `renderSito` arrivano da App.jsx e vengono solo
-// inoltrate a WineDetail: qui non si sa cosa contengano.
+// `renderBottiglia` arriva da App.jsx e viene solo
+// inoltrata a WineDetail: qui non si sa cosa contenga.
 
 import { useState, useRef } from "react";
 import { T, OCCHIELLO } from "./theme";
@@ -47,7 +47,7 @@ const IconaLente = ({ size = 17, color = "currentColor" }) => (
   </svg>
 );
 
-export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, renderSito, immagini = {}, rev = "" }) {
+export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, immagini = {}, rev = "" }) {
   const [filtro, setFiltro] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [ricercaAperta, setRicercaAperta] = useState(false);
@@ -187,7 +187,7 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
           <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose}
             renderBottiglia={renderBottiglia}
-            renderSito={renderSito} />
+            />
         );
       })()}
     </>

@@ -17,7 +17,7 @@ test.describe("Segna come bevuto", () => {
     await apriApp(page);
     await apriModaleBevi(page, "Soave Classico La Rocca");
 
-    await page.getByPlaceholder(/Come ti è sembrato/).fill("Nota di test");
+    await page.getByPlaceholder(/Profumi, momento/).fill("Nota di test");
     await page.getByRole("button", { name: "Conferma" }).click();
 
     await expect.poll(() => cantina.rpcCalls("bevi_bottiglia").length).toBe(1);

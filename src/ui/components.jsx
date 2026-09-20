@@ -1,5 +1,5 @@
 // Presentazione condivisa da due o più schermate: icone SVG, mappa TIPO,
-// mappa IC, TipoLabel, RatingDial, RigaPremibile e WineCard.
+// mappa IC, TipoLabel, SliderVoto, RigaPremibile e WineCard.
 // Spostati da App.jsx senza modifiche.
 //
 // Nessuna logica: qui non si fa fetch, non si conosce Supabase, non si muta
@@ -165,23 +165,8 @@ export const TrophyIcon = ({ size = 18, color = "currentColor", style = {} }) =>
   </svg>
 );
 
-export const SearchIcon = ({ size = 14, color = "currentColor", style = {} }) => (
-  <svg viewBox="0 -960 960 960" width={size} height={size} fill={color} style={style} xmlns="http://www.w3.org/2000/svg">
-      <path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z" />
-  </svg>
-);
 
-export const PhotoCameraIcon = ({ size = 14, color = "currentColor", style = {} }) => (
-  <svg viewBox="0 -960 960 960" width={size} height={size} fill={color} style={style} xmlns="http://www.w3.org/2000/svg">
-      <path d="M480-260q75 0 127.5-52.5T660-440q0-75-52.5-127.5T480-620q-75 0-127.5 52.5T300-440q0 75 52.5 127.5T480-260Zm0-80q-42 0-71-29t-29-71q0-42 29-71t71-29q42 0 71 29t29 71q0 42-29 71t-71 29ZM160-120q-33 0-56.5-23.5T80-200v-480q0-33 23.5-56.5T160-760h126l74-80h240l74 80h126q33 0 56.5 23.5T880-680v480q0 33-23.5 56.5T800-120H160Zm0-80h640v-480H638l-73-80H395l-73 80H160v480Zm320-240Z" />
-  </svg>
-);
 
-export const GlobeSearchIcon = ({ size = 14, color = "currentColor", style = {} }) => (
-  <svg viewBox="0 -960 960 960" width={size} height={size} fill={color} style={style} xmlns="http://www.w3.org/2000/svg">
-      <path d="M325-111.5q-73-31.5-127.5-86t-86-127.5Q80-398 80-480.5t31.5-155q31.5-72.5 86-127t127.5-86Q398-880 480.5-880t155 31.5q72.5 31.5 127 86t86 127Q880-563 880-480.5T848.5-325q-31.5 73-86 127.5t-127 86Q563-80 480.5-80T325-111.5ZM480-162q26-36 45-75t31-83H404q12 44 31 83t45 75Zm-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55Zm208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178ZM170-400h136q-3-20-4.5-39.5T300-480q0-21 1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480q0 21 2.5 40.5T170-400Zm216 0h188q3-20 4.5-39.5T580-480q0-21-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480q0 21 1.5 40.5T386-400Zm268 0h136q5-20 7.5-39.5T800-480q0-21-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480q0 21-1.5 40.5T654-400Zm-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640Zm-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83Zm-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640Z" />
-  </svg>
-);
 
 export const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {} }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} fill={color} style={style} xmlns="http://www.w3.org/2000/svg">
@@ -256,134 +241,6 @@ export function TipoLabel({ tipo, size = 13, color = "currentColor" }) {
   if (!t?.label) return null;
   return <span style={{ fontSize: size, lineHeight: 1 }}>{t.label}</span>;
 }
-
-// ─── Rating Dial (slider circolare a stella, stile Vivino) ───────────────────
-export const RATING_GRADIENT = [
-  { stop: 0,    rgb: [244, 211, 94] },   // giallo
-  { stop: 0.25, rgb: [242, 166, 90] },
-  { stop: 0.5,  rgb: [238, 132, 52] },   // arancio
-  { stop: 0.75, rgb: [193, 80, 46] },
-  { stop: 1,    rgb: [123, 29, 29] },    // vinaccia
-];
-export function ratingColor(t) {
-  t = Math.max(0, Math.min(1, t));
-  for (let i = 0; i < RATING_GRADIENT.length - 1; i++) {
-    const a = RATING_GRADIENT[i], b = RATING_GRADIENT[i + 1];
-    if (t >= a.stop && t <= b.stop) {
-      const f = (t - a.stop) / (b.stop - a.stop);
-      const c = a.rgb.map((v, idx) => Math.round(v + (b.rgb[idx] - v) * f));
-      return `rgb(${c.join(",")})`;
-    }
-  }
-  return `rgb(${RATING_GRADIENT[RATING_GRADIENT.length - 1].rgb.join(",")})`;
-}
-const RD_GAP = 30, RD_SWEEP = 300; // gap in alto 60°, percorso 300°
-export function RatingDial({ value = 0, onChange, size = 224, min = 1, max = 5, labelColor = "#3A3226", mutedColor = "#8A8273", maxColor = "#7B1D1D" }) {
-  const svgRef = useRef(null);
-  const draggingRef = useRef(false);
-  const [dragValue, setDragValue] = useState(null);
-  const displayValue = dragValue !== null ? dragValue : value;
-  const hasValue = displayValue > 0;
-  const progress = hasValue ? (Math.min(max, Math.max(min, displayValue)) - min) / (max - min) : 0;
-
-  const cx = size / 2, cy = size / 2, r = size / 2 - 26;
-  const phiAt = (p) => -RD_GAP - p * RD_SWEEP;
-  const pt = (phiDeg, radius) => {
-    const th = (phiDeg - 90) * Math.PI / 180;
-    return { x: cx + radius * Math.cos(th), y: cy + radius * Math.sin(th) };
-  };
-  const valueFromPointer = (clientX, clientY) => {
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = clientX - (rect.left + rect.width / 2);
-    const dy = clientY - (rect.top + rect.height / 2);
-    const theta = Math.atan2(dy, dx) * 180 / Math.PI;
-    let phi = theta + 90;
-    if (phi > 180) phi -= 360;
-    if (phi <= -180) phi += 360;
-    let p;
-    if (phi > -RD_GAP && phi < RD_GAP) p = phi >= 0 ? 1 : 0;
-    else if (phi <= -RD_GAP) p = (-RD_GAP - phi) / RD_SWEEP;
-    else p = (360 - RD_GAP - phi) / RD_SWEEP;
-    p = Math.max(0, Math.min(1, p));
-    return Math.round((min + p * (max - min)) * 10) / 10;
-  };
-  const onDown = (e) => {
-    e.preventDefault(); e.stopPropagation();
-    draggingRef.current = true;
-    svgRef.current.setPointerCapture?.(e.pointerId);
-    setDragValue(valueFromPointer(e.clientX, e.clientY));
-  };
-  const onMove = (e) => { if (draggingRef.current) { e.stopPropagation(); setDragValue(valueFromPointer(e.clientX, e.clientY)); } };
-  const onUp = (e) => {
-    if (!draggingRef.current) return;
-    e.stopPropagation();
-    draggingRef.current = false;
-    const v = dragValue;
-    setDragValue(null);
-    if (v != null) onChange?.(v);
-  };
-
-  const pStart = pt(phiAt(0), r), pEnd = pt(phiAt(1), r);
-  const bgPath = `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 1 0 ${pEnd.x} ${pEnd.y}`;
-  const curEnd = pt(phiAt(progress), r);
-  const largeArc = progress * RD_SWEEP > 180 ? 1 : 0;
-  const fgPath = progress > 0 ? `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 ${largeArc} 0 ${curEnd.x} ${curEnd.y}` : "";
-
-  const ticks = []; const N = 30;
-  for (let i = 0; i <= N; i++) {
-    const tp = i / N; const phi = phiAt(tp);
-    const inner = pt(phi, r - 9), outer = pt(phi, r + 9);
-    const filled = tp <= progress + 0.001;
-    ticks.push(<line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-      stroke={filled ? ratingColor(tp) : "#E5DCC8"} strokeWidth={filled ? 2.5 : 1.5} strokeLinecap="round" opacity={filled ? 0.9 : 0.55} />);
-  }
-  const checkpoints = [0, 0.25, 0.5, 0.75, 1].map((cp, i) => {
-    const p = pt(phiAt(cp), r); const filled = cp <= progress + 0.001;
-    return <circle key={i} cx={p.x} cy={p.y} r={filled ? 7 : 6} fill={filled ? ratingColor(cp) : "#F2EEE2"} stroke={filled ? "#fff" : "#D8CFB8"} strokeWidth={filled ? 2 : 1.5} />;
-  });
-  const handlePt = pt(phiAt(progress), r);
-  const handleColor = hasValue ? ratingColor(progress) : "#D8CFB8";
-  const captions = ["", "Deludente", "Nella media", "Buono", "Ottimo", "Eccellente!"];
-  const isMax = displayValue >= 4.95;
-  const gradId = "ratingGrad" + size;
-
-  return (
-    <div style={{ position: "relative", width: size, height: size, margin: "0 auto", touchAction: "none", userSelect: "none" }}>
-      <svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`}
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        style={{ display: "block", cursor: "pointer" }}>
-        <defs>
-          <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1={pStart.x} y1={pStart.y} x2={pEnd.x} y2={pEnd.y}>
-            <stop offset="0%" stopColor="#F4D35E" /><stop offset="25%" stopColor="#F2A65A" />
-            <stop offset="50%" stopColor="#EE8434" /><stop offset="75%" stopColor="#C1502E" />
-            <stop offset="100%" stopColor="#7B1D1D" />
-          </linearGradient>
-        </defs>
-        <path d={bgPath} fill="none" stroke="#EDE6D6" strokeWidth={8} strokeLinecap="round" />
-        {fgPath && <path d={fgPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={8} strokeLinecap="round" />}
-        {ticks}{checkpoints}
-        <circle cx={handlePt.x} cy={handlePt.y} r={hasValue ? 15 : 13} fill="#fff" stroke={handleColor} strokeWidth={hasValue ? 4 : 2.5} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", pointerEvents: "none", padding: "0 36px" }}>
-        {hasValue ? (
-          <>
-            <div style={{ fontSize: 28, fontWeight: 700, color: labelColor, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={handleColor} stroke={handleColor} strokeWidth="1" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-              {displayValue.toFixed(1).replace(".", ",")}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: isMax ? maxColor : mutedColor, marginTop: 6, fontFamily: "'Roboto', sans-serif", textAlign: "center" }}>
-              {isMax ? "Massimi voti!" : captions[Math.round(displayValue)]}
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 13, color: mutedColor, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, textAlign: "center" }}>Fai scorrere la stella per valutare questo vino</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
 
 // ─── Wine Card ────────────────────────────────────────────────────────────────
 // Il calice del ridisegno: segna i vuoti, le bevute e l'azione "bevi".
@@ -487,3 +344,43 @@ export const NavStatisticheIcon = ({ size = 20 }) => (
     <path d="M19.8 20.2v-4" />
   </svg>
 );
+
+// ─── Slider del voto — ridisegno 2026 ────────────────────────────────────────
+// Sostituisce RatingDial (arco 300°, drag su SVG). Il numero sta in un cerchio,
+// il valore si dà con un range nativo 1–5 a passi di 0,1.
+//
+// Come il dial, scrive solo al rilascio: `onChange` viene chiamata a fine
+// interazione, non a ogni pixel. Senza questa accortezza trascinare lo slider
+// nel dettaglio sparerebbe una RPC per ogni movimento.
+export function SliderVoto({ value = 0, onChange, titolo = "La mia valutazione", scuro = false }) {
+  const [bozza, setBozza] = useState(null);
+  const mostrato = bozza ?? value;
+  const inchiostro = scuro ? T.superficie : T.accento;
+
+  const conferma = () => {
+    if (bozza == null) return;
+    const v = bozza;
+    setBozza(null);
+    onChange?.(v);
+  };
+
+  return (
+    <div>
+      <div style={{ width: 150, height: 150, margin: "20px auto 6px", display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "center", alignContent: "center", border: `1px solid ${inchiostro}`, borderRadius: "50%" }}>
+        <span style={{ fontFamily: T.serif, fontSize: 50, lineHeight: .85, color: inchiostro }}>
+          {mostrato > 0 ? mostrato.toFixed(1).replace(".", ",") : "—"}
+        </span>
+        <small style={{ color: scuro ? "rgba(255,252,247,.7)" : T.tenue, fontSize: 12, marginLeft: 4 }}>/ 5</small>
+        <em style={{ width: "100%", marginTop: 9, color: scuro ? "rgba(255,252,247,.7)" : T.oroTesto, fontSize: 9, fontStyle: "normal", textAlign: "center", letterSpacing: ".16em", textTransform: "uppercase" }}>{titolo}</em>
+      </div>
+      <input type="range" min="1" max="5" step="0.1" aria-label={titolo}
+        value={mostrato > 0 ? mostrato : 1}
+        onChange={e => setBozza(Number(e.target.value))}
+        onPointerUp={conferma} onPointerCancel={conferma} onKeyUp={conferma} onBlur={conferma}
+        style={{ width: "100%", accentColor: inchiostro, background: "transparent", margin: "6px 0 0" }} />
+      <div style={{ display: "flex", justifyContent: "space-between", color: scuro ? "rgba(255,252,247,.7)" : T.tenue, fontSize: 10 }}>
+        <span>1,0</span><span>5,0</span>
+      </div>
+    </div>
+  );
+}

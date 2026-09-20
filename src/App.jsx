@@ -1,10 +1,10 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
 import { useState, useRef, useEffect } from "react";
-import { M3, S, T } from "./ui/theme";
-import { TIPO, IC, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon,
+import { M3, T, OCCHIELLO } from "./ui/theme";
+import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { formatDataIt, setProduttori, produttoreDi, getGoogleFallback } from "./ui/domain";
+import { formatDataIt, setProduttori } from "./ui/domain";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "0.9";
+const REV = "1.0";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -269,148 +269,29 @@ function BottleImage({ wine, active }) {
     return () => { cancelled = true; };
   }, [wine.id, active]);
 
-  if (status === "idle" || status === "loading") {
-    return (
-      <div style={{ height: 200, borderRadius: 10, background: M3.surfaceContainerHighest, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
-        <div style={{ animation: "spin 1.2s linear infinite", color: M3.onSurfaceVariant }}>{IC.search}</div>
-        <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Ricerca immagine in corso…</div>
-      </div>
-    );
-  }
-  if (status === "error" || !url) {
-    return (
-      <div style={{ height: 140, borderRadius: 10, background: M3.surfaceContainerHighest, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <div style={{ color: M3.onSurfaceVariant, opacity: 0.5 }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg></div>
-        <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Immagine non disponibile</div>
-      </div>
-    );
-  }
+  // C5: misure e resa dell'hero del ridisegno (190x264, mix-blend multiply
+  // sul fondo caldo). La ricerca e la cache restano qui sopra: e' la ragione
+  // per cui questo componente non e' mai sceso in ui/.
+  const vuoto = (testo) => (
+    <div style={{ width: 170, height: 246, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: T.tenueAlt, fontFamily: T.sans }}>
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 22h8" /><path d="M12 15v7" /><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z" />
+      </svg>
+      <span style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", textAlign: "center" }}>{testo}</span>
+    </div>
+  );
+
+  if (status === "idle" || status === "loading") return vuoto("Ricerca in corso…");
+  if (status === "error" || !url) return vuoto("Immagine non disponibile");
+
   return (
     <>
       {lightbox && <Lightbox url={url} onClose={() => setLightbox(false)} />}
-      <div onClick={() => setLightbox(true)} style={{ display: "flex", justifyContent: "center", alignItems: "center", background: M3.surfaceContainerHighest, borderRadius: 10, padding: "12px 0", cursor: "zoom-in", position: "relative", overflow: "hidden", minHeight: 180 }}>
-        <img src={url} alt={wine.produttore + " " + wine.vino} onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }} style={{ maxHeight: 220, maxWidth: "100%", objectFit: "contain", borderRadius: 6, boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
-        <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.45)", borderRadius: 12, padding: "3px 8px", fontSize: 10, color: "#fff", fontFamily: "'Roboto', sans-serif", backdropFilter: "blur(4px)" }}>🔍 Tocca per ingrandire</div>
-      </div>
+      <img src={url} alt={wine.produttore + " " + wine.vino}
+        onClick={() => setLightbox(true)}
+        onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
+        style={{ width: 190, height: 264, objectFit: "cover", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
     </>
-  );
-}
-
-// ─── WebsiteView ──────────────────────────────────────────────────────────────
-function WebsiteView({ wine }) {
-  const [url, setUrl] = useState(null);
-  const [source, setSource] = useState(null);
-  const [status, setStatus] = useState("searching");
-
-  useEffect(() => {
-    let cancelled = false;
-    async function findWebsite() {
-      const key = wine.produttore;
-      // P3: il sito arriva con l'anagrafica già caricata all'avvio — nessuna
-      // query per vino. Prima si interrogava `wine_websites` con
-      //   `wine_websites?produttore=eq.X&select=url,source` + `?order=...`
-      // cioè due `?` nella stessa query string: PostgREST rispondeva 400,
-      // `sb.get` inghiottiva l'errore e tornava [], quindi la cache non veniva
-      // MAI letta e ogni apertura della tab Web richiamava Serper da capo.
-      const produttore = produttoreDi(key);
-      if (produttore?.sito) {
-        if (!cancelled) { setUrl(produttore.sito); setSource(produttore.sito_source || "serper"); setStatus("loading"); }
-        return;
-      }
-      try {
-        const res = await fetch("/api/search-website", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ produttore: wine.produttore, vino: wine.vino }) });
-        const data = await res.json();
-        const found = data.url || getGoogleFallback(wine.produttore, wine.vino);
-        const src = data.source || "serper";
-        // Si salva solo un sito vero: il fallback è una ricerca Google, e
-        // scriverlo in anagrafica lo cristallizzerebbe come "sito ufficiale".
-        if (data.url) {
-          if (produttore) { produttore.sito = found; produttore.sito_source = src; }
-          sb.rpc("salva_sito_produttore", { p_produttore: key, p_url: found, p_source: src });
-        }
-        if (!cancelled) { setUrl(found); setSource(src); setStatus("loading"); }
-      } catch {
-        const fallback = getGoogleFallback(wine.produttore, wine.vino);
-        if (!cancelled) { setUrl(fallback); setSource("fallback"); setStatus("loading"); }
-      }
-    }
-    setStatus("searching"); setUrl(null); setSource(null);
-    findWebsite();
-    return () => { cancelled = true; };
-  }, [wine.produttore]);
-
-  useEffect(() => {
-    if (status !== "loading") return;
-    const t = setTimeout(() => setStatus(s => s === "loading" ? "blocked" : s), 3000);
-    return () => clearTimeout(t);
-  }, [status, url]);
-
-  const domain = url ? url.replace("https://", "").replace("http://", "").split("/")[0] : "";
-  const isGoogle = source === "fallback";
-  const isInstagram = source === "instagram";
-  const sourceIcon = status === "searching" ? <SearchIcon size={12} /> : isInstagram ? <PhotoCameraIcon size={12} /> : isGoogle ? <SearchIcon size={12} /> : <GlobeSearchIcon size={12} />;
-  const sourceText = status === "searching" ? "Ricerca in corso…" : domain;
-
-  return (
-    <div style={{ borderRadius: 12, overflow: "hidden", background: M3.surfaceContainerHighest }}>
-      <div style={{ padding: "8px 12px", background: M3.surfaceContainer, display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${M3.outlineVariant}` }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, ...S.meta, overflow: "hidden" }}>{sourceIcon}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sourceText}</span></div>
-        {url && (<a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: M3.primary, fontFamily: "'Roboto', sans-serif", textDecoration: "none", flexShrink: 0, fontWeight: 500 }}><span style={{display:"flex",alignItems:"center",gap:4}}>Apri {IC.openIn}</span></a>)}
-      </div>
-      <div style={{ position: "relative", height: 380 }}>
-        {status === "searching" && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 3 }}>
-            <div style={{ animation: "spin 1s linear infinite", color: M3.onSurfaceVariant, display:"flex" }}>{IC.search}</div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Ricerca sito ufficiale…</div>
-            <div style={S.meta}>{wine.produttore}</div>
-          </div>
-        )}
-        {status === "loading" && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, background: M3.surfaceContainerHighest, zIndex: 2 }}>
-            <div style={{ animation: "spin 1s linear infinite", color: M3.onSurfaceVariant, display:"flex" }}>{IC.globe}</div>
-            <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>Caricamento…</div>
-          </div>
-        )}
-        {status === "blocked" && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: M3.surfaceContainerHighest, zIndex: 2, borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
-            <div style={{ flex: "0 0 160px", background: `linear-gradient(135deg, ${M3.primaryContainer} 0%, ${M3.surfaceVariant} 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, position: "relative" }}>
-              <div style={{ width: 64, height: 64, borderRadius: 32, background: M3.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 700, color: M3.onPrimary, fontFamily: "'Roboto', sans-serif", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
-                {isInstagram ? IC.instagram : wine.produttore.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", textAlign: "center", padding: "0 16px" }}>{wine.produttore}</div>
-              <div style={S.meta}>{domain}</div>
-            </div>
-            <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, justifyContent: "center" }}>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", textAlign: "center", lineHeight: 1.5 }}>
-                {isInstagram ? "Questo produttore è presente su Instagram." : "Il sito non può essere visualizzato incorporato per motivi di sicurezza."}
-              </div>
-              {url && (<a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", padding: "11px 24px", borderRadius: 20, background: isInstagram ? "#E1306C" : M3.primary, color: "#FFFFFF", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", textDecoration: "none", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{isInstagram ? IC.instagram : IC.globe}{isInstagram ? "Apri su Instagram" : "Apri il sito"}{IC.openIn}</span>
-              </a>)}
-              {!isInstagram && url && (<a href={`https://www.google.com/search?q=${encodeURIComponent(wine.produttore + " " + wine.vino)}`} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", padding: "9px 24px", borderRadius: 20, border: `1px solid ${M3.outlineVariant}`, background: "transparent", color: M3.onSurfaceVariant, fontSize: 13, fontWeight: 400, fontFamily: "'Roboto', sans-serif", textDecoration: "none" }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.search} Cerca su Google</span>
-              </a>)}
-            </div>
-          </div>
-        )}
-        {url && (<iframe key={url} src={url} title={`Sito ${wine.produttore}`}
-          onLoad={(e) => {
-            try {
-              const doc = e.target.contentDocument || e.target.contentWindow?.document;
-              const body = doc?.body?.innerText || "";
-              const title = doc?.title || "";
-              if (!body && !title) { setStatus("blocked"); return; }
-              setStatus(s => s === "loading" ? "ok" : s);
-            } catch {
-              setStatus(s => s === "loading" ? "ok" : s);
-            }
-          }}
-          onError={() => setStatus("blocked")}
-          style={{ width: "100%", height: 380, border: "none", borderRadius: "0 0 12px 12px", opacity: status === "ok" ? 1 : 0, transition: "opacity 0.3s" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />)}
-      </div>
-    </div>
   );
 }
 
@@ -674,30 +555,38 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
   const [dataApertura, setDataApertura] = useState(todayIso);
   if (!wine) return null;
 
+  // C5: sheet del ridisegno. Il RatingDial lascia il posto a SliderVoto; i
+  // campi sono filetti invece di riquadri. Restano a 16px, non ai 14 del
+  // design: sotto quella soglia Safari su iOS zooma al tap.
+  const campo = { width: "100%", boxSizing: "border-box", padding: "11px 0", border: 0, borderBottom: `1px solid ${T.divisore}`, background: "transparent", outline: 0, fontFamily: T.sans, fontSize: 16, color: T.testo };
+  const etichetta = { display: "grid", gap: 7, color: T.secondarioAlt, fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase" };
+
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.4)" }} onClick={onAnnulla}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", padding: "24px 20px 32px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 20px" }} />
-        <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 4, display:"flex", alignItems:"center", gap:8 }}>{IC.wineglass} Segna come bevuto</div>
-        <div style={{ fontSize: 14, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginBottom: 16 }}>{wine.produttore} · {wine.vino} · {wine.annata}</div>
-        <div style={{ background: M3.surfaceContainer, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {IC.calendar} Data apertura:
-            <input type="date" value={dataApertura} max={todayIso} onChange={e => setDataApertura(e.target.value || todayIso)}
-              style={{ border: "none", background: "none", fontSize: 16, fontWeight: 700, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", padding: 0 }} />
-          </label>
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ ...S.meta, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4, textAlign: "center" }}>Valutazione (opzionale)</div>
-          <RatingDial value={rating} onChange={setRating} size={200} />
-        </div>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ ...S.meta, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>Nota di degustazione (opzionale)</div>
-          <textarea value={nota} onChange={e => setNota(e.target.value)} placeholder="Come ti è sembrato? Abbinamento, occasione…" style={{ width: "100%", minHeight: 70, background: M3.surfaceContainerHighest, border: "none", borderRadius: 8, padding: "10px 12px", fontSize: 14, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, resize: "vertical", outline: "none" }} />
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => onConferma(nota, dataApertura, rating)} style={{ flex: 1, padding: "11px", borderRadius: 20, border: "none", background: M3.primary, color: M3.onPrimary, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Conferma</button>
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "flex-end", background: "rgba(31,27,25,.42)" }} onClick={onAnnulla}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxHeight: "88%", overflowY: "auto", background: T.superficie, borderTop: `1px solid ${T.divisore}`, padding: "26px 22px 28px", paddingBottom: "calc(28px + env(safe-area-inset-bottom))", fontFamily: T.sans, color: T.testo, animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <p style={{ ...OCCHIELLO }}>Nuova bevuta</p>
+        <h3 style={{ margin: "5px 0 4px", fontFamily: T.serif, fontSize: 28, fontWeight: 400 }}>Com'è stata?</h3>
+        <p style={{ margin: 0, color: T.secondarioAlt, fontSize: 12 }}>{[wine.produttore, wine.vino, wine.annata].filter(Boolean).join(" · ")}</p>
+
+        <SliderVoto value={rating} onChange={setRating} titolo="La mia valutazione" />
+
+        <label style={{ ...etichetta, marginTop: 20 }}>Nota personale
+          <textarea value={nota} onChange={e => setNota(e.target.value)} rows={3}
+            placeholder="Profumi, momento, persone…"
+            style={{ ...campo, resize: "none", fontWeight: 400, letterSpacing: 0, textTransform: "none" }} />
+        </label>
+
+        <label style={{ ...etichetta, marginTop: 16 }}>Data apertura
+          <input type="date" value={dataApertura} max={todayIso}
+            onChange={e => setDataApertura(e.target.value || todayIso)}
+            style={{ ...campo, fontWeight: 400, letterSpacing: 0, textTransform: "none" }} />
+        </label>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginTop: 24 }}>
+          <button type="button" onClick={onAnnulla}
+            style={{ height: 52, border: `1px solid ${T.divisore}`, borderRadius: T.raggio, background: "transparent", color: T.testo, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }}>Annulla</button>
+          <button type="button" onClick={() => onConferma(nota, dataApertura, rating)}
+            style={{ height: 52, border: 0, borderRadius: T.raggio, background: T.accento, color: T.superficie, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".14em", textTransform: "uppercase", cursor: "pointer" }}>Conferma</button>
         </div>
       </div>
     </div>
@@ -795,7 +684,6 @@ export default function Cantina() {
   // BottleImage e WebsiteView fanno rete e cache: restano qui e scendono a
   // WineDetail come render prop, attraverso le schermate che lo montano.
   const renderBottiglia = (w, attiva) => <BottleImage wine={w} active={attiva} />;
-  const renderSito = (w) => <WebsiteView wine={w} />;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1034,8 +922,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderSito={renderSito} immagini={immagini} rev={REV} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderSito={renderSito} immagini={immagini} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} immagini={immagini} rev={REV} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
