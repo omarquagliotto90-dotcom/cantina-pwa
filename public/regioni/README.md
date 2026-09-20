@@ -19,11 +19,19 @@ sempre la stessa foto.
 
 2. Aggiungi la regione a `REGIONI_CON_FOTO` in `src/ui/WineDetail.jsx`.
 
+I due passi devono combaciare, e `e2e/regioni.spec.js` lo verifica: un file
+senza voce nell'elenco non viene mai mostrato, una voce senza file lascia
+l'hero vuoto. Nessuno dei due darebbe errore da solo.
+
 ## Già caricate
 
 | Regione | File | Note |
 |---|---|---|
 | Trentino-Alto Adige | `trentino-alto-adige.jpg` | 580×580, 107 KB. **Sotto specifica:** su iPhone l'hero è 1125×1350 fisici a 3x, quindi viene ingrandita ~2,4 volte e al 100% i filari risultano morbidi. Sostituibile con un ritaglio verticale ≥1200px dello stesso scatto, senza toccare il codice |
+| Valle d'Aosta | `valle-d-aosta.jpg` | 1920×1080, 231 KB. Dimensioni buone. **Dormiente:** al 20/09/2026 nessun produttore è in Valle d'Aosta, quindi non viene mai mostrata. Si accende da sola il giorno che entra un vino valdostano |
+
+Sopra i 100 KB indicativi, ma ricomprimerla la fa *crescere*: è già
+ottimizzata. Il tetto vero, verificato dai test, è 300 KB.
 
 Il secondo passo è quello che accende la foto: l'elenco è esplicito apposta,
 così per le regioni senza foto il browser non parte con una richiesta destinata

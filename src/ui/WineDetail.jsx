@@ -28,8 +28,15 @@ import { hasCantina, produttoreDi, getGoogleFallback } from "./domain";
 // Le foto stanno in `public/regioni/<slug>.jpg`; `public/regioni/README.md`
 // spiega nomi e formato. Elencare qui la regione e' cio' che accende la foto:
 // una lista esplicita evita una richiesta a vuoto per le regioni che la foto
-// non ce l'hanno, e tiene il controllo in un punto solo.
-const REGIONI_CON_FOTO = ["Trentino-Alto Adige"];
+// non ce l'hanno, e tiene il controllo in un punto solo. E' esportato
+// perche' un test verifica che a ogni voce corrisponda un file: un nome
+// sbagliato non darebbe errore, la foto semplicemente non apparirebbe.
+export const REGIONI_CON_FOTO = [
+  "Trentino-Alto Adige",
+  // Nessun produttore in Valle d'Aosta al 20/09/2026: la foto c'e' ma
+  // resta dormiente finche' non entra in cantina un vino valdostano.
+  "Valle d'Aosta",
+];
 
 // "Trentino-Alto Adige" -> "trentino-alto-adige"
 const slugRegione = (r) => r.toLowerCase().normalize("NFD")
