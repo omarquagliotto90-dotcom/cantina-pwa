@@ -1,9 +1,10 @@
 // v0.3 — data-driven
 import { useState, useRef, useEffect } from "react";
 import { M3, S } from "./ui/theme";
-import { TIPO, IC, TipoLabel, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
+import { TIPO, IC, TipoLabel, RatingDial, SearchIcon, PhotoCameraIcon, GlobeSearchIcon, SchedaTecnicaIcon } from "./ui/components";
 import { resolveWine, valoreBottiglia, costoGiacenza, formatDataIt, setProduttori, produttoreDi, hasCantina, getGoogleFallback } from "./ui/domain";
 import TabStatistiche from "./ui/Statistiche";
+import WineDetail from "./ui/WineDetail";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -238,20 +239,6 @@ function PressableRow({ onClick, style, children }) {
   );
 }
 
-function SwBadge({ type }) {
-  if (type === "chiocciola") return (
-    <span title="Cantina premiata Slow Wine 2025" style={{ fontSize: 13, background: "#E8F5E9", color: "#2E7D32", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontFamily: "'Roboto', sans-serif", letterSpacing: 0.1, display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span style={{ color: "#2E7D32", display: "flex" }}>{IC.eco}</span>Chiocciola
-    </span>
-  );
-  if (type === "bottiglia") return (
-    <span title="Vino premiato Slow Wine 2025" style={{ fontSize: 13, background: "#E3F2FD", color: "#0D47A1", padding: "1px 6px", borderRadius: 4, fontWeight: 600, fontFamily: "'Roboto', sans-serif", letterSpacing: 0.1, display: "inline-flex", alignItems: "center", gap: 4 }}>
-      <span style={{ color: "#0D47A1", display: "flex" }}>{IC.verified}</span>Slow Wine
-    </span>
-  );
-  return null;
-}
-
 // ─── Lightbox fullscreen ──────────────────────────────────────────────────────
 function Lightbox({ url, onClose }) {
   useEffect(() => {
@@ -467,319 +454,7 @@ function WebsiteView({ wine }) {
   );
 }
 
-// ─── Rating Dial (slider circolare a stella, stile Vivino) ───────────────────
-const RATING_GRADIENT = [
-  { stop: 0,    rgb: [244, 211, 94] },   // giallo
-  { stop: 0.25, rgb: [242, 166, 90] },
-  { stop: 0.5,  rgb: [238, 132, 52] },   // arancio
-  { stop: 0.75, rgb: [193, 80, 46] },
-  { stop: 1,    rgb: [123, 29, 29] },    // vinaccia
-];
-function ratingColor(t) {
-  t = Math.max(0, Math.min(1, t));
-  for (let i = 0; i < RATING_GRADIENT.length - 1; i++) {
-    const a = RATING_GRADIENT[i], b = RATING_GRADIENT[i + 1];
-    if (t >= a.stop && t <= b.stop) {
-      const f = (t - a.stop) / (b.stop - a.stop);
-      const c = a.rgb.map((v, idx) => Math.round(v + (b.rgb[idx] - v) * f));
-      return `rgb(${c.join(",")})`;
-    }
-  }
-  return `rgb(${RATING_GRADIENT[RATING_GRADIENT.length - 1].rgb.join(",")})`;
-}
-const RD_GAP = 30, RD_SWEEP = 300; // gap in alto 60°, percorso 300°
-function RatingDial({ value = 0, onChange, size = 224, min = 1, max = 5, labelColor = "#3A3226", mutedColor = "#8A8273", maxColor = "#7B1D1D" }) {
-  const svgRef = useRef(null);
-  const draggingRef = useRef(false);
-  const [dragValue, setDragValue] = useState(null);
-  const displayValue = dragValue !== null ? dragValue : value;
-  const hasValue = displayValue > 0;
-  const progress = hasValue ? (Math.min(max, Math.max(min, displayValue)) - min) / (max - min) : 0;
-
-  const cx = size / 2, cy = size / 2, r = size / 2 - 26;
-  const phiAt = (p) => -RD_GAP - p * RD_SWEEP;
-  const pt = (phiDeg, radius) => {
-    const th = (phiDeg - 90) * Math.PI / 180;
-    return { x: cx + radius * Math.cos(th), y: cy + radius * Math.sin(th) };
-  };
-  const valueFromPointer = (clientX, clientY) => {
-    const rect = svgRef.current.getBoundingClientRect();
-    const dx = clientX - (rect.left + rect.width / 2);
-    const dy = clientY - (rect.top + rect.height / 2);
-    const theta = Math.atan2(dy, dx) * 180 / Math.PI;
-    let phi = theta + 90;
-    if (phi > 180) phi -= 360;
-    if (phi <= -180) phi += 360;
-    let p;
-    if (phi > -RD_GAP && phi < RD_GAP) p = phi >= 0 ? 1 : 0;
-    else if (phi <= -RD_GAP) p = (-RD_GAP - phi) / RD_SWEEP;
-    else p = (360 - RD_GAP - phi) / RD_SWEEP;
-    p = Math.max(0, Math.min(1, p));
-    return Math.round((min + p * (max - min)) * 10) / 10;
-  };
-  const onDown = (e) => {
-    e.preventDefault(); e.stopPropagation();
-    draggingRef.current = true;
-    svgRef.current.setPointerCapture?.(e.pointerId);
-    setDragValue(valueFromPointer(e.clientX, e.clientY));
-  };
-  const onMove = (e) => { if (draggingRef.current) { e.stopPropagation(); setDragValue(valueFromPointer(e.clientX, e.clientY)); } };
-  const onUp = (e) => {
-    if (!draggingRef.current) return;
-    e.stopPropagation();
-    draggingRef.current = false;
-    const v = dragValue;
-    setDragValue(null);
-    if (v != null) onChange?.(v);
-  };
-
-  const pStart = pt(phiAt(0), r), pEnd = pt(phiAt(1), r);
-  const bgPath = `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 1 0 ${pEnd.x} ${pEnd.y}`;
-  const curEnd = pt(phiAt(progress), r);
-  const largeArc = progress * RD_SWEEP > 180 ? 1 : 0;
-  const fgPath = progress > 0 ? `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 ${largeArc} 0 ${curEnd.x} ${curEnd.y}` : "";
-
-  const ticks = []; const N = 30;
-  for (let i = 0; i <= N; i++) {
-    const tp = i / N; const phi = phiAt(tp);
-    const inner = pt(phi, r - 9), outer = pt(phi, r + 9);
-    const filled = tp <= progress + 0.001;
-    ticks.push(<line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
-      stroke={filled ? ratingColor(tp) : "#E5DCC8"} strokeWidth={filled ? 2.5 : 1.5} strokeLinecap="round" opacity={filled ? 0.9 : 0.55} />);
-  }
-  const checkpoints = [0, 0.25, 0.5, 0.75, 1].map((cp, i) => {
-    const p = pt(phiAt(cp), r); const filled = cp <= progress + 0.001;
-    return <circle key={i} cx={p.x} cy={p.y} r={filled ? 7 : 6} fill={filled ? ratingColor(cp) : "#F2EEE2"} stroke={filled ? "#fff" : "#D8CFB8"} strokeWidth={filled ? 2 : 1.5} />;
-  });
-  const handlePt = pt(phiAt(progress), r);
-  const handleColor = hasValue ? ratingColor(progress) : "#D8CFB8";
-  const captions = ["", "Deludente", "Nella media", "Buono", "Ottimo", "Eccellente!"];
-  const isMax = displayValue >= 4.95;
-  const gradId = "ratingGrad" + size;
-
-  return (
-    <div style={{ position: "relative", width: size, height: size, margin: "0 auto", touchAction: "none", userSelect: "none" }}>
-      <svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`}
-        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        style={{ display: "block", cursor: "pointer" }}>
-        <defs>
-          <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1={pStart.x} y1={pStart.y} x2={pEnd.x} y2={pEnd.y}>
-            <stop offset="0%" stopColor="#F4D35E" /><stop offset="25%" stopColor="#F2A65A" />
-            <stop offset="50%" stopColor="#EE8434" /><stop offset="75%" stopColor="#C1502E" />
-            <stop offset="100%" stopColor="#7B1D1D" />
-          </linearGradient>
-        </defs>
-        <path d={bgPath} fill="none" stroke="#EDE6D6" strokeWidth={8} strokeLinecap="round" />
-        {fgPath && <path d={fgPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={8} strokeLinecap="round" />}
-        {ticks}{checkpoints}
-        <circle cx={handlePt.x} cy={handlePt.y} r={hasValue ? 15 : 13} fill="#fff" stroke={handleColor} strokeWidth={hasValue ? 4 : 2.5} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", pointerEvents: "none", padding: "0 36px" }}>
-        {hasValue ? (
-          <>
-            <div style={{ fontSize: 28, fontWeight: 700, color: labelColor, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={handleColor} stroke={handleColor} strokeWidth="1" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-              {displayValue.toFixed(1).replace(".", ",")}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: isMax ? maxColor : mutedColor, marginTop: 6, fontFamily: "'Roboto', sans-serif", textAlign: "center" }}>
-              {isMax ? "Massimi voti!" : captions[Math.round(displayValue)]}
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 13, color: mutedColor, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, textAlign: "center" }}>Fai scorrere la stella per valutare questo vino</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Wine Card ────────────────────────────────────────────────────────────────
-function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose, onInitClose }) {
-  const t = TIPO[wine.tipologia] || TIPO["Bianco fermo"];
-  const totalVal = wine.prezzo * wine.bottiglie;
-  const cantinaSW = hasCantina(wine.produttore);
-  const vinoSW = !!wine.slowVinoBott;
-  const currentRating = ratings[wine.id] || 0;
-  const [cardTab, setCardTab] = useState("scheda");
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const tabs = [
-    { id: "scheda", label: "Scheda", icon: (active) => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>) },
-    { id: "bottiglia", label: "Bottiglia", icon: (active) => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3h8M9 3v3.5L6 10v11a1 1 0 001 1h10a1 1 0 001-1V10l-3-3.5V3"/><line x1="6" y1="14" x2="18" y2="14"/></svg>) },
-    { id: "website", label: "Web", icon: (active) => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>) },
-    ...(bevutoInfo ? [{ id: "valutazione", label: "Voto", icon: (active) => (<svg width="18" height="18" viewBox="0 0 24 24" fill={active ? M3.primary : "none"} stroke={active ? M3.primary : M3.onSurfaceVariant} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>) }] : []),
-  ];
-
-  const [closing, setClosing] = useState(false);
-  const overlayRef = useRef(null);
-  const backBtnRef = useRef(null);
-  const pushedRef = useRef(false);
-  const closingRef = useRef(false);
-  const active = !closing;
-
-  useEffect(() => {
-    if (!pushedRef.current) { window.history.pushState({ wineDetail: true }, ""); pushedRef.current = true; }
-    const onPop = () => { onInitClose?.(); closingRef.current = true; onClose?.(); };
-    window.addEventListener("popstate", onPop);
-    const raf = requestAnimationFrame(() => backBtnRef.current?.focus());
-    return () => { window.removeEventListener("popstate", onPop); cancelAnimationFrame(raf); };
-  }, []);
-
-  // freccia e back hardware seguono lo stesso percorso: history.back() -> popstate -> onPop (closingRef + onClose)
-  const requestClose = () => { if (closingRef.current) return; window.history.back(); };
-  const onOverlayAnimEnd = (e) => { if (e.target === e.currentTarget && closing) onClose(); };
-  const onOverlayKeyDown = (e) => {
-    if (e.key === "Escape") { e.preventDefault(); requestClose(); return; }
-    if (e.key !== "Tab") return;
-    const f = overlayRef.current?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (!f || f.length === 0) return;
-    const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  };
-
-  return (
-    <div ref={overlayRef} role="dialog" aria-modal="true" aria-label={wine.vino}
-      onKeyDown={onOverlayKeyDown} onAnimationEnd={onOverlayAnimEnd}
-      style={{ position: "fixed", inset: 0, zIndex: 45, background: M3.surface, display: "flex", flexDirection: "column", paddingTop: "env(safe-area-inset-top)", animation: closing ? "slideOutX 250ms cubic-bezier(0.3,0,0.8,0.15) both" : "slideInX 300ms cubic-bezier(0.05,0.7,0.1,1) both" }}>
-      {/* Top bar */}
-      <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", borderBottom: `1px solid ${M3.outlineVariant}`, background: M3.surface }}>
-        <button ref={backBtnRef} onClick={requestClose} aria-label="Indietro" style={{ width: 40, height: 40, borderRadius: 20, border: "none", background: "transparent", color: M3.onSurface, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        </button>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 10, fontFamily: "'Roboto', sans-serif", fontWeight: 500, letterSpacing: 0.5, color: M3.onSurfaceVariant, textTransform: "uppercase", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.produttore}</div>
-          <div style={{ fontSize: 16, fontFamily: "'Roboto', sans-serif", fontWeight: 500, color: M3.onSurface, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.vino}</div>
-        </div>
-      </div>
-      {/* Scroll container interno */}
-      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", background: "#F4F3EE" }}>
-        <div style={{ padding: "14px 14px 28px" }}>
-          {/* Tab switcher */}
-          <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginBottom: 14, justifyContent: "center", overflowX: "auto", scrollbarWidth: "none", background: M3.surfaceContainerHighest, borderRadius: 50, padding: "4px 6px" }}>
-            {tabs.map(tab => {
-              const active = cardTab === tab.id;
-              return (
-                <button key={tab.id} onClick={() => setCardTab(tab.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: active ? "7px 16px" : "7px 12px", borderRadius: 50, border: "none", flexShrink: 0, background: active ? M3.primaryContainer : "transparent", color: active ? M3.primary : M3.onSurfaceVariant, fontSize: 13, fontWeight: active ? 600 : 400, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, transition: "background 0.18s, color 0.18s, padding 0.18s", whiteSpace: "nowrap" }}>
-                  {tab.icon(active)}<span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── Tab SCHEDA ── */}
-          {cardTab === "scheda" && (
-            <>
-              {(cantinaSW || vinoSW) && (
-                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-                  {cantinaSW && <SwBadge type="chiocciola" />}
-                  {vinoSW && <SwBadge type="bottiglia" />}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 7, marginBottom: 14, flexWrap: "wrap" }}>
-                {[
-                  { l: "Acquisto", v: `~${wine.prezzo}€` },
-                  { l: "Valore", v: wine.valore != null ? `~${wine.valore}€` : "—" },
-                  { l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie },
-                  { l: "Giacenza €", v: `~${totalVal}€` },
-                ].map(s => (
-                  <div key={s.l} style={{ flex: "1 1 70px", background: "#7A7A72", borderRadius: 10, padding: "9px 10px", textAlign: "center" }}>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: "#E8D8A0", fontFamily: "'Roboto', sans-serif" }}>{s.v}</div>
-                    <div style={{ fontSize: 10, color: "rgba(232,216,160,0.7)", textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginTop: 1 }}>{s.l}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                {[
-                  { icon: IC.grape, label: "Vitigno",       val: wine.vitigno },
-                  { icon: IC.timer, label: "Macerazione",   val: wine.macerazione },
-                  { icon: IC.flask, label: "Fermentazione", val: wine.fermentazione },
-                  { icon: IC.sync,  label: "Legno",         val: wine.malolattica },
-                ].map(s => (
-                  <div key={s.label} style={{ background: "#6B8FA8", borderRadius: 12, padding: "11px 12px", boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)" }}>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{s.icon}<span>{s.label}</span></div>
-                    <div style={{ fontSize: 11, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.5 }}>{s.val}</div>
-                  </div>
-                ))}
-              </div>
-              {wine.note && (
-                <div style={{ background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)", borderLeft: `3px solid ${t.indicator}` }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.notes}<span>Note</span></div>
-                  <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note}</div>
-                </div>
-              )}
-              {wine.note_cantina && (
-                <div style={{ background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)", borderLeft: `3px solid ${t.indicator}` }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.notes}<span>Note cantina</span></div>
-                  <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{wine.note_cantina}</div>
-                </div>
-              )}
-              {bevutoInfo?.nota && (
-                <div style={{ background: "#6B8FA8", borderRadius: 12, padding: "12px 14px", marginBottom: 12, boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)", borderLeft: `3px solid ${M3.primary}` }}>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>{IC.wineglass}<span>Nota di degustazione</span></div>
-                  <div style={{ fontSize: 12, color: "#FFFFFF", fontFamily: "'Roboto', sans-serif", lineHeight: 1.6 }}>{bevutoInfo.nota}</div>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ── Tab BOTTIGLIA ── */}
-          {cardTab === "bottiglia" && (
-            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
-              <BottleImage wine={wine} active={active && cardTab === "bottiglia"} />
-            </div>
-          )}
-
-          {/* ── Tab WEBSITE ── */}
-          {active && cardTab === "website" && (
-            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
-              <WebsiteView wine={wine} />
-            </div>
-          )}
-
-          {/* ── Tab VALUTAZIONE ── */}
-          {cardTab === "valutazione" && bevutoInfo && (
-            <div onClick={e => e.stopPropagation()} style={{ marginBottom: 12 }}>
-              <div style={{ background: "#6B8FA8", borderRadius: 12, padding: "20px 16px", textAlign: "center", boxShadow: "0 1px 2px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", fontFamily: "'Roboto', sans-serif", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, fontWeight: 500 }}>La tua valutazione</div>
-                <RatingDial value={currentRating} onChange={(v) => onRate(wine.id, v)} labelColor="#FFFFFF" mutedColor="rgba(255,255,255,0.75)" maxColor="#FFFFFF" />
-              </div>
-            </div>
-          )}
-
-          {/* ── Azioni ── */}
-          <div>
-            {!bevutoInfo ? (
-              <button onClick={(e) => { e.stopPropagation(); onBevi(wine.id); }} style={{ width: "100%", padding: "10px 24px", borderRadius: 20, border: "none", background: "#D4E0D0", color: "#2E4A2E", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, marginBottom: 8, boxShadow: "0 1px 2px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.wineglass} Segna come bevuto</span>
-              </button>
-            ) : (
-              <div style={{ width: "100%", padding: "10px 16px", borderRadius: 20, background: M3.surfaceContainerHighest, fontSize: 13, fontFamily: "'Roboto', sans-serif", color: M3.onSurfaceVariant, textAlign: "center", marginBottom: 8, letterSpacing: 0.1, boxSizing: "border-box" }}>
-                🫗 Bottiglia aperta il <strong style={{ color: M3.onSurface }}>{bevutoInfo.data}</strong>
-              </div>
-            )}
-            <button onClick={(e) => { e.stopPropagation(); onModifica(wine); }} style={{ width: "100%", padding: "10px 24px", borderRadius: 20, border: `1px solid #B5A898`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.edit} Modifica dati</span>
-            </button>
-            {!confirmDelete ? (
-              <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }} style={{ width: "100%", padding: "10px 24px", borderRadius: 20, border: `1px solid #B0A8C0`, background: "transparent", color: "#B0A8C0", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer", letterSpacing: 0.1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.trash} {bevutoInfo ? "Riporta in cantina" : "Elimina dalla cantina"}</span>
-              </button>
-            ) : (
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ flex: 1, fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif" }}>
-                  {bevutoInfo ? "Riporta questa bottiglia in cantina?" : wine.bottiglie > 1 ? `Rimuovi 1 bottiglia (rimangono ${wine.bottiglie - 1})?` : "Rimuovi l'ultima bottiglia?"}
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(false); }} style={{ padding: "7px 14px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurfaceVariant, fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>No</button>
-                <button onClick={(e) => { e.stopPropagation(); onElimina(wine); setConfirmDelete(false); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", background: bevutoInfo ? M3.primary : M3.error, color: "#FFFFFF", fontSize: 12, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>{bevutoInfo ? "Sì, riporta" : "Sì, elimina"}</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function WineCard({ wine, onOpen, bevutoInfo = null, ratings = {} }) {
   // F23: nei Bevuti il numero è il valore di UNA bottiglia consumata
   // (valore di mercato, fallback prezzo d'acquisto), non la giacenza.
@@ -1240,7 +915,9 @@ function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, co
         if (!w) return null;
         return (
           <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
-            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose} />
+            onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose}
+            renderBottiglia={(w2, attiva) => <BottleImage wine={w2} active={attiva} />}
+            renderSito={(w2) => <WebsiteView wine={w2} />} />
         );
       })()}
     </>
@@ -1311,7 +988,9 @@ function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings
           <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
             ratings={ratings} onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
-            onClose={handleClose} />
+            onClose={handleClose}
+            renderBottiglia={(w2, attiva) => <BottleImage wine={w2} active={attiva} />}
+            renderSito={(w2) => <WebsiteView wine={w2} />} />
         );
       })()}
     </div>

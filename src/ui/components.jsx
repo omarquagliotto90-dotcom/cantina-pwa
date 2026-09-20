@@ -1,8 +1,10 @@
 // Presentazione condivisa da due o più schermate: icone SVG, mappa TIPO,
-// mappa IC e TipoLabel. Spostati da App.jsx senza modifiche.
+// mappa IC, TipoLabel e RatingDial. Spostati da App.jsx senza modifiche.
 //
 // Nessuna logica: qui non si fa fetch, non si conosce Supabase, non si calcola
 // nulla di dominio.
+
+import { useState, useRef } from "react";
 
 // ─── Icona SVG custom: Rosso fermo (rosso.svg) ───────────────────────────────
 export function RossoIcon({ size = 13, color = "currentColor" }) {
@@ -244,4 +246,130 @@ export function TipoLabel({ tipo, size = 13, color = "currentColor" }) {
   const t = TIPO[tipo];
   if (!t?.label) return null;
   return <span style={{ fontSize: size, lineHeight: 1 }}>{t.label}</span>;
+}
+
+// ─── Rating Dial (slider circolare a stella, stile Vivino) ───────────────────
+export const RATING_GRADIENT = [
+  { stop: 0,    rgb: [244, 211, 94] },   // giallo
+  { stop: 0.25, rgb: [242, 166, 90] },
+  { stop: 0.5,  rgb: [238, 132, 52] },   // arancio
+  { stop: 0.75, rgb: [193, 80, 46] },
+  { stop: 1,    rgb: [123, 29, 29] },    // vinaccia
+];
+export function ratingColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < RATING_GRADIENT.length - 1; i++) {
+    const a = RATING_GRADIENT[i], b = RATING_GRADIENT[i + 1];
+    if (t >= a.stop && t <= b.stop) {
+      const f = (t - a.stop) / (b.stop - a.stop);
+      const c = a.rgb.map((v, idx) => Math.round(v + (b.rgb[idx] - v) * f));
+      return `rgb(${c.join(",")})`;
+    }
+  }
+  return `rgb(${RATING_GRADIENT[RATING_GRADIENT.length - 1].rgb.join(",")})`;
+}
+const RD_GAP = 30, RD_SWEEP = 300; // gap in alto 60°, percorso 300°
+export function RatingDial({ value = 0, onChange, size = 224, min = 1, max = 5, labelColor = "#3A3226", mutedColor = "#8A8273", maxColor = "#7B1D1D" }) {
+  const svgRef = useRef(null);
+  const draggingRef = useRef(false);
+  const [dragValue, setDragValue] = useState(null);
+  const displayValue = dragValue !== null ? dragValue : value;
+  const hasValue = displayValue > 0;
+  const progress = hasValue ? (Math.min(max, Math.max(min, displayValue)) - min) / (max - min) : 0;
+
+  const cx = size / 2, cy = size / 2, r = size / 2 - 26;
+  const phiAt = (p) => -RD_GAP - p * RD_SWEEP;
+  const pt = (phiDeg, radius) => {
+    const th = (phiDeg - 90) * Math.PI / 180;
+    return { x: cx + radius * Math.cos(th), y: cy + radius * Math.sin(th) };
+  };
+  const valueFromPointer = (clientX, clientY) => {
+    const rect = svgRef.current.getBoundingClientRect();
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const theta = Math.atan2(dy, dx) * 180 / Math.PI;
+    let phi = theta + 90;
+    if (phi > 180) phi -= 360;
+    if (phi <= -180) phi += 360;
+    let p;
+    if (phi > -RD_GAP && phi < RD_GAP) p = phi >= 0 ? 1 : 0;
+    else if (phi <= -RD_GAP) p = (-RD_GAP - phi) / RD_SWEEP;
+    else p = (360 - RD_GAP - phi) / RD_SWEEP;
+    p = Math.max(0, Math.min(1, p));
+    return Math.round((min + p * (max - min)) * 10) / 10;
+  };
+  const onDown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    draggingRef.current = true;
+    svgRef.current.setPointerCapture?.(e.pointerId);
+    setDragValue(valueFromPointer(e.clientX, e.clientY));
+  };
+  const onMove = (e) => { if (draggingRef.current) { e.stopPropagation(); setDragValue(valueFromPointer(e.clientX, e.clientY)); } };
+  const onUp = (e) => {
+    if (!draggingRef.current) return;
+    e.stopPropagation();
+    draggingRef.current = false;
+    const v = dragValue;
+    setDragValue(null);
+    if (v != null) onChange?.(v);
+  };
+
+  const pStart = pt(phiAt(0), r), pEnd = pt(phiAt(1), r);
+  const bgPath = `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 1 0 ${pEnd.x} ${pEnd.y}`;
+  const curEnd = pt(phiAt(progress), r);
+  const largeArc = progress * RD_SWEEP > 180 ? 1 : 0;
+  const fgPath = progress > 0 ? `M ${pStart.x} ${pStart.y} A ${r} ${r} 0 ${largeArc} 0 ${curEnd.x} ${curEnd.y}` : "";
+
+  const ticks = []; const N = 30;
+  for (let i = 0; i <= N; i++) {
+    const tp = i / N; const phi = phiAt(tp);
+    const inner = pt(phi, r - 9), outer = pt(phi, r + 9);
+    const filled = tp <= progress + 0.001;
+    ticks.push(<line key={i} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y}
+      stroke={filled ? ratingColor(tp) : "#E5DCC8"} strokeWidth={filled ? 2.5 : 1.5} strokeLinecap="round" opacity={filled ? 0.9 : 0.55} />);
+  }
+  const checkpoints = [0, 0.25, 0.5, 0.75, 1].map((cp, i) => {
+    const p = pt(phiAt(cp), r); const filled = cp <= progress + 0.001;
+    return <circle key={i} cx={p.x} cy={p.y} r={filled ? 7 : 6} fill={filled ? ratingColor(cp) : "#F2EEE2"} stroke={filled ? "#fff" : "#D8CFB8"} strokeWidth={filled ? 2 : 1.5} />;
+  });
+  const handlePt = pt(phiAt(progress), r);
+  const handleColor = hasValue ? ratingColor(progress) : "#D8CFB8";
+  const captions = ["", "Deludente", "Nella media", "Buono", "Ottimo", "Eccellente!"];
+  const isMax = displayValue >= 4.95;
+  const gradId = "ratingGrad" + size;
+
+  return (
+    <div style={{ position: "relative", width: size, height: size, margin: "0 auto", touchAction: "none", userSelect: "none" }}>
+      <svg ref={svgRef} width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
+        style={{ display: "block", cursor: "pointer" }}>
+        <defs>
+          <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1={pStart.x} y1={pStart.y} x2={pEnd.x} y2={pEnd.y}>
+            <stop offset="0%" stopColor="#F4D35E" /><stop offset="25%" stopColor="#F2A65A" />
+            <stop offset="50%" stopColor="#EE8434" /><stop offset="75%" stopColor="#C1502E" />
+            <stop offset="100%" stopColor="#7B1D1D" />
+          </linearGradient>
+        </defs>
+        <path d={bgPath} fill="none" stroke="#EDE6D6" strokeWidth={8} strokeLinecap="round" />
+        {fgPath && <path d={fgPath} fill="none" stroke={`url(#${gradId})`} strokeWidth={8} strokeLinecap="round" />}
+        {ticks}{checkpoints}
+        <circle cx={handlePt.x} cy={handlePt.y} r={hasValue ? 15 : 13} fill="#fff" stroke={handleColor} strokeWidth={hasValue ? 4 : 2.5} style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.25))" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", pointerEvents: "none", padding: "0 36px" }}>
+        {hasValue ? (
+          <>
+            <div style={{ fontSize: 28, fontWeight: 700, color: labelColor, fontFamily: "'Roboto', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill={handleColor} stroke={handleColor} strokeWidth="1" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+              {displayValue.toFixed(1).replace(".", ",")}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: isMax ? maxColor : mutedColor, marginTop: 6, fontFamily: "'Roboto', sans-serif", textAlign: "center" }}>
+              {isMax ? "Massimi voti!" : captions[Math.round(displayValue)]}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: mutedColor, fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, textAlign: "center" }}>Fai scorrere la stella per valutare questo vino</div>
+        )}
+      </div>
+    </div>
+  );
 }
