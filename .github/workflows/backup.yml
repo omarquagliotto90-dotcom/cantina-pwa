@@ -1,0 +1,58 @@
+# Export settimanale della cantina (P1b, punto 3).
+#
+# Il piano gratuito di Supabase non ha point-in-time recovery: senza un export
+# proprio, un DELETE andato a buon fine non si recupera. Questo workflow lo
+# rende automatico, perche' un backup "da lanciare a mano" non viene lanciato.
+#
+# Ogni run scrive backup/cantina-AAAA-MM-GG.json e lo committa. I file datati
+# restano tutti: si sfogliano e si scaricano da GitHub senza sapere git.
+#
+# Il commit porta [skip ci] cosi' Vercel non ribuilda l'app per un backup.
+
+name: Backup cantina
+
+on:
+  schedule:
+    # Ogni lunedi' alle 04:17 UTC. Minuto dispari di proposito: gli orari tondi
+    # sono i piu' congestionati sui runner condivisi e le run slittano.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: backup-cantina
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Nessun npm install: lo script non ha dipendenze, usa la fetch di Node.
+      # Le credenziali arrivano dai secret se ci sono, altrimenti da src/App.jsx
+      # (la chiave publishable e' gia' pubblica nel bundle servito ai browser).
+      - name: Esporta le tabelle
+        env:
+          SB_URL: ${{ secrets.SB_URL }}
+          SB_KEY: ${{ secrets.SB_KEY }}
+        run: node scripts/backup.mjs
+
+      - name: Committa il backup
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain backup/)" ]; then
+            echo "Nessuna modifica in backup/ — niente da committare."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backup/
+          git commit -m "Backup cantina $(date -u +%F) [skip ci]"
+          git push

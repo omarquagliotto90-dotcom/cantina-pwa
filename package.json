@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ios": "playwright test --project=iphone-webkit",
     "test:e2e:chromium": "playwright test --project=iphone-chromium",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "backup": "node scripts/backup.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0"
