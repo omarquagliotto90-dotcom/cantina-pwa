@@ -28,6 +28,7 @@ l'hero vuoto. Nessuno dei due darebbe errore da solo.
 | Regione | File | Note |
 |---|---|---|
 | Trentino-Alto Adige | `trentino-alto-adige.jpg` | 580×580, 107 KB. **Sotto specifica:** su iPhone l'hero è 1125×1350 fisici a 3x, quindi viene ingrandita ~2,4 volte e al 100% i filari risultano morbidi. Sostituibile con un ritaglio verticale ≥1200px dello stesso scatto, senza toccare il codice |
+| Veneto | `veneto.jpg` | 620×438, 122 KB. **La più sotto specifica delle tre, e la più vista** (27 bottiglie, 15 produttori): l'hero ne usa la fascia centrale, ~365px, ingranditi 3,1 volte a 3x. Al 100% i filari sono impastati. Funziona perché il soggetto è controluce e sfocato, ma è la prima da sostituire con un originale ≥1200px |
 | Valle d'Aosta | `valle-d-aosta.jpg` | 1920×1080, 231 KB. Dimensioni buone. **Dormiente:** al 20/09/2026 nessun produttore è in Valle d'Aosta, quindi non viene mai mostrata. Si accende da sola il giorno che entra un vino valdostano |
 
 Sopra i 100 KB indicativi, ma ricomprimerla la fa *crescere*: è già

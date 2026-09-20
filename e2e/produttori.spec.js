@@ -1,4 +1,4 @@
-const { test, expect, apriApp } = require("./support/harness");
+const { test, expect, apriApp, regioniConFoto } = require("./support/harness");
 const { PRODUTTORI } = require("./fixtures/cantina");
 
 // P3 / D3. Slow Wine e sito produttore vivevano in due posti sbagliati: un Set
@@ -84,12 +84,18 @@ test.describe("Anagrafica produttori", () => {
   });
 
   test("una regione senza foto lascia l'hero a fondo pieno", async ({ page, cantina }) => {
-    // Il Veneto una foto non ce l'ha: l'hero deve restare com'era prima del
-    // ridisegno, non mostrare un riquadro vuoto. La regione e' scritta qui e
-    // non lasciata alle fixture, cosi' la premessa del test e' esplicita.
+    // Serve una regione che una foto NON ce l'abbia. La prima versione usava
+    // il Veneto e si e' rotta appena il Veneto l'ha avuta: qui la premessa e'
+    // verificata, cosi' il giorno che tocca al Molise il test dice cosa fare
+    // invece di fallire sull'asserzione vera.
+    const SENZA_FOTO = "Molise";
+    expect(regioniConFoto(),
+      `"${SENZA_FOTO}" ha ora una foto: scegli un'altra regione per questo test`)
+      .not.toContain(SENZA_FOTO);
+
     cantina.setTable("produttori", [{
       id: 1, nome: "Pieropan", nome_norm: "pieropan",
-      sito: null, sito_source: null, slow_chiocciola: false, regione: "Veneto",
+      sito: null, sito_source: null, slow_chiocciola: false, regione: SENZA_FOTO,
     }]);
     await apriApp(page);
     await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();

@@ -275,4 +275,17 @@ async function apriApp(page) {
   await base.expect(page.getByText("Carico la cantina…")).toBeHidden({ timeout: 15_000 });
 }
 
-module.exports = { test, expect: base.expect, apriApp, cerca, Cantina };
+/**
+ * Le regioni con una foto di sfondo, lette da `WineDetail.jsx`.
+ * Sta qui e non in ogni spec perche' la leggono in due, e una regex duplicata
+ * diverge al primo ritocco della costante.
+ */
+function regioniConFoto() {
+  const fs = require("fs"), path = require("path");
+  const src = fs.readFileSync(path.join(__dirname, "..", "..", "src", "ui", "WineDetail.jsx"), "utf8");
+  const blocco = src.match(/export const REGIONI_CON_FOTO = \[([\s\S]*?)\];/);
+  if (!blocco) throw new Error("REGIONI_CON_FOTO non trovato in WineDetail.jsx");
+  return [...blocco[1].matchAll(/"([^"]+)"/g)].map(m => m[1]);
+}
+
+module.exports = { test, expect: base.expect, apriApp, cerca, Cantina, regioniConFoto };
