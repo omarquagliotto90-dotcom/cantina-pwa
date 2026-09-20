@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&amp;family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&amp;display=swap">
+<script src="./image-slot.js"></script>
+<style>
+  body { margin:0; background:#F1ECE4; color:#1F1B19; font-family:"DM Sans",sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#6B1E2E; text-decoration:none; }
+  a:hover { color:#8E2A3C; }
+  input, textarea, button { font:inherit; color:inherit; }
+  ::selection { background:#EAD9DC; }
+  @keyframes sheetUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes riseIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; gap: 56px; justify-content: center; align-items: flex-start; padding: 40px 28px 56px; background: #F1ECE4; box-sizing: border-box">
+
+  <aside style="flex:1 1 240px;max-width:340px;min-width:240px;position:sticky;top:40px;padding-top:12px">
+    <div style="width:54px;height:54px;display:grid;place-items:center;border:1px solid #C6A97A;border-radius:50%;color:#6B1E2E;font-family:Newsreader,serif;font-size:17px;letter-spacing:.04em">LMC</div>
+    <h1 style="margin:22px 0 0;font-family:Newsreader,serif;font-size:38px;font-weight:400;line-height:1.02;letter-spacing:-.01em">La mia<br>cantina</h1>
+    <div style="height:1px;background:#DDD4C7;margin:22px 0 18px"></div>
+    <p style="margin:0;max-width:260px;color:#7C7269;font-family:Newsreader,serif;font-size:16px;line-height:1.5">Una collezione privata: quello che custodisco, quello che ho bevuto, e come cambia nel tempo.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:26px">
+      <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:9px;border-bottom:1px solid #E6DFD5;font-size:12px"><span style="color:#8A8078;letter-spacing:.12em;text-transform:uppercase;font-size:10px;font-weight:600">Bottiglie</span><b style="font-family:Newsreader,serif;font-size:15px;font-weight:500">{{ sumBottles }}</b></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:9px;border-bottom:1px solid #E6DFD5;font-size:12px"><span style="color:#8A8078;letter-spacing:.12em;text-transform:uppercase;font-size:10px;font-weight:600">Referenze</span><b style="font-family:Newsreader,serif;font-size:15px;font-weight:500">{{ sumRefs }}</b></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;padding-bottom:9px;border-bottom:1px solid #E6DFD5;font-size:12px"><span style="color:#8A8078;letter-spacing:.12em;text-transform:uppercase;font-size:10px;font-weight:600">Valore stimato</span><b style="font-family:Newsreader,serif;font-size:15px;font-weight:500">{{ sumValue }}</b></div>
+    </div>
+    <p style="margin:26px 0 0;color:#A79D93;font-size:11px;letter-spacing:.1em;text-transform:uppercase">Collezione privata · 2026</p>
+  </aside>
+
+  <div style="position:relative;width:min(390px,100%);height:844px;background:#FFFCF7;border:1px solid #DDD4C7;box-shadow:0 24px 60px rgba(31,27,25,.10);overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto">
+
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;position:relative">
+
+      <sc-if value="{{ isCellar }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:0 20px 120px">
+        <header style="height:62px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <p style="margin:0;position:relative;top:-10px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Collezione privata</p>
+            <h2 style="margin:3px 0 0;font-family:Newsreader,serif;font-size:27px;font-weight:400;line-height:1;letter-spacing:-.01em">La mia cantina</h2>
+          </div>
+          <button type="button" onClick="{{ openAdd }}" aria-label="Aggiungi un vino" style="flex:0 0 auto;width:44px;height:44px;display:grid;place-items:center;border:1px solid #6B1E2E;border-radius:50%;background:#6B1E2E;color:#FFFCF7;cursor:pointer;transition:background .16s,color .16s" style-hover="background:#57182A;color:#FFFCF7">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+          </button>
+        </header>
+
+        <section style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(132px,.85fr);align-items:end;gap:0;padding:10px 0 9px;border-top:1px solid #E6DFD5;border-bottom:1px solid #E6DFD5">
+          <div style="display:flex;align-items:center;gap:11px">
+            <span style="font-family:Newsreader,serif;font-size:55px;line-height:1;font-weight:300;color:#6B1E2E;letter-spacing:-.03em">{{ sumBottles }}</span>
+            <span style="max-width:72px;color:#7C7269;font-size:12px;line-height:1.3">bottiglie<br>custodite</span>
+          </div>
+          <div style="display:grid;border-left:1px solid #E6DFD5">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 0 0 14px"><span style="font-family:'DM Sans',sans-serif;color:#7C7269;font-size:11px">referenze</span><b style="font-family:Newsreader,serif;color:#6B1E2E;font-size:11px;font-weight:500">{{ sumRefs }}</b></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:0 0 0 14px;border-top:1px solid #E6DFD5"><span style="font-family:'DM Sans',sans-serif;color:#7C7269;font-size:11px">valore</span><b style="font-family:Newsreader,serif;color:#6B1E2E;font-size:11px;font-weight:500">{{ sumValue }}</b></div>
+          </div>
+        </section>
+
+        <section style="position:sticky;top:0;z-index:20;margin:0 -20px;padding:14px 20px 8px;background:rgba(255,252,247,.94);backdrop-filter:blur(12px)">
+          <sc-if value="{{ searchOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="height:46px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #1F1B19">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6B1E2E" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Produttore, vino, annata, uva" aria-label="Cerca nella cantina" style="flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:15px">
+              <button type="button" onClick="{{ closeSearch }}" aria-label="Chiudi ricerca" style="width:34px;height:34px;display:grid;place-items:center;border:0;background:transparent;color:#8A8078;cursor:pointer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              </button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ searchClosed }}" hint-placeholder-val="{{ true }}">
+            <div style="height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <h3 style="margin:0;font-family:Newsreader,serif;font-size:21px;font-weight:400">Le tue bottiglie</h3>
+              <button type="button" onClick="{{ openSearch }}" aria-label="Cerca" style="width: 66px; height: 31px; display: grid; place-items: center; border: 1px solid #DDD4C7; border-radius: 999px; background: transparent; color: #4A423C; cursor: pointer; transition: border-color .16s,color .16s; border-color: #6B1E2E" style-hover="border-color:#6B1E2E;color:#6B1E2E">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="stroke: #6B1E2E"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+              </button>
+            </div>
+          </sc-if>
+          <div style="display:flex;gap:7px;overflow-x:auto;margin:6px -20px 0;padding:2px 20px 8px;scrollbar-width:none">
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="7">
+              <button type="button" onClick="{{ f.pick }}" style="flex:0 0 auto;height:31px;padding:0 14px;border-radius:999px;border:1px solid {{ f.bc }};background:{{ f.bg }};color:{{ f.fg }};font-size:12px;font-weight:500;letter-spacing:.02em;cursor:pointer;transition:all .16s">{{ f.label }}</button>
+            </sc-for>
+          </div>
+        </section>
+
+        <section aria-live="polite">
+          <sc-for list="{{ list }}" as="w" hint-placeholder-count="5">
+            <button type="button" onClick="{{ w.open }}" style="position:relative;width:100%;display:grid;grid-template-columns:62px minmax(0,1fr);gap:14px;align-items:center;padding:10px 0;text-align:left;background:transparent;border:0;border-bottom:1px solid #E6DFD5;cursor:pointer;transition:background .16s" style-hover="background:#FAF6EF">
+              <span style="position:absolute;top:14px;right:0;z-index:2;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">{{ w.region }}</span>
+              <div style="width:62px;height:84px;display:grid;place-items:center;overflow:hidden;background:#F5F0E7;border-radius:12px">
+                <sc-if value="{{ w.img }}" hint-placeholder-val="{{ false }}">
+                  <img src="{{ w.img }}" alt="{{ w.alt }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply">
+                </sc-if>
+                <sc-if value="{{ w.noImg }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#B3A89C">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+                    <span style="font-size:9px;letter-spacing:.08em;text-transform:uppercase">senza foto</span>
+                  </div>
+                </sc-if>
+              </div>
+              <div style="min-width:0">
+                <p style="margin:0 0 3px;padding-right:76px;color:#6B1E2E;font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;overflow-wrap:anywhere">{{ w.producer }}</p>
+                <h4 style="margin:0;font-family:Newsreader,serif;font-size:18px;font-weight:400;line-height:1.08;letter-spacing:-.01em;overflow-wrap:anywhere;text-wrap:pretty">{{ w.name }}</h4>
+                <p style="margin:4px 0 0;color:#8A8078;font-size:11px;line-height:1.3">{{ w.meta }}</p>
+                <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:8px;padding-top:7px;border-top:1px solid #EFE9E0">
+                  <span style="display:flex;align-items:baseline;gap:5px;color:#1F1B19"><b style="font-family:Newsreader,serif;font-size:17px;font-weight:500;line-height:1">{{ w.bottles }}</b><span style="font-size:11px;color:#6A625B">{{ w.bottlesWord }}</span></span>
+                  <span style="text-align:right;color:#8A8078;font-size:11px;line-height:1.25">{{ w.value }}</span>
+                </div>
+              </div>
+            </button>
+          </sc-for>
+          <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:64px 24px;text-align:center;animation:riseIn .3s ease both">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B3A89C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+              <h4 style="margin:0;font-family:Newsreader,serif;font-size:23px;font-weight:400">Nessuna bottiglia</h4>
+              <p style="margin:8px auto 20px;max-width:230px;color:#8A8078;font-size:13px;line-height:1.55">Nessun vino corrisponde a questa ricerca. Prova con un altro produttore o rimuovi il filtro.</p>
+              <button type="button" onClick="{{ resetFilters }}" style="height:42px;padding:0 20px;border:1px solid #6B1E2E;background:transparent;color:#6B1E2E;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .16s,color .16s" style-hover="background:#6B1E2E;color:#FFFCF7">Azzera filtri</button>
+            </div>
+          </sc-if>
+        </section>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 20px 120px">
+        
+        <header style="padding:30px 0 16px;border-bottom:1px solid #1F1B19">
+          
+          <p style="margin: 0; color: #A08E7B; font-size: 10px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; position: relative; top: -10px">Memoria personale</p><h2 style="margin:3px 0 10px;font-family:Newsreader,serif;font-size:27px;font-weight:400;line-height:1;letter-spacing:-.01em">Bevuti</h2>
+          <p style="margin:0;max-width:280px;color:#7C7269;font-family:Newsreader,serif;font-size:16px;line-height:1.45">I vini, le persone e i momenti che vale la pena ricordare.</p>
+        </header>
+        <section style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(132px,.85fr);align-items:center;padding:6px 0;border-bottom:1px solid #E6DFD5">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-family:Newsreader,serif;font-size:34px;line-height:1;font-weight:300;color:#6B1E2E;letter-spacing:-.03em">{{ journalCount }}</span>
+            <span style="max-width:72px;color:#7C7269;font-size:11px;line-height:1.25">bottiglie<br>bevute</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px;padding:0 0 0 14px;border-left:1px solid #E6DFD5"><span style="font-family:'DM Sans',sans-serif;color:#7C7269;font-size:11px">valore</span><b style="font-family:Newsreader,serif;color:#6B1E2E;font-size:11px;font-weight:500">{{ drunkValue }}</b></div>
+        </section>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+          <span style="font-family:Newsreader,serif;font-size:17px;color:#6B1E2E">2026</span>
+          <span style="flex:1;height:1px;background:#E6DFD5"></span>
+          <span style="color:#8A8078;font-size:11px">{{ journalCount }} bevute</span>
+        </div>
+        <sc-for list="{{ journal }}" as="e" hint-placeholder-count="4">
+          <article style="padding:10px 0 12px;border-bottom:1px solid #E6DFD5">
+            <button type="button" onClick="{{ e.open }}" style="position:relative;width:100%;display:grid;grid-template-columns:62px minmax(0,1fr);gap:14px;align-items:center;padding:0;text-align:left;background:transparent;border:0;cursor:pointer">
+              <span style="position:absolute;top:0;right:0;z-index:2;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">{{ e.region }}</span>
+              <div style="width:62px;height:84px;display:grid;place-items:center;overflow:hidden;background:#F5F0E7;border-radius:12px">
+                <sc-if value="{{ e.img }}" hint-placeholder-val="{{ false }}">
+                  <img src="{{ e.img }}" alt="{{ e.alt }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply">
+                </sc-if>
+                <sc-if value="{{ e.noImg }}" hint-placeholder-val="{{ false }}">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B3A89C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+                </sc-if>
+              </div>
+              <div style="min-width:0">
+                <p style="margin: 0 0 5px; padding-right: 76px; color: #6B1E2E; font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; overflow-wrap: anywhere">{{ e.producer }}</p>
+                <h3 style="margin: 0; font-family: Newsreader,serif; font-size: 13px; font-weight: 400; line-height: 1.08; letter-spacing: -.01em; overflow-wrap: anywhere; text-wrap: pretty">{{ e.name }}</h3>
+                <p style="margin: 6px 0 0; color: #8A8078; font-size: 10px; line-height: 1.35">{{ e.meta }}</p><div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 13px; padding-top: 9px; border-top:1px solid #EFE9E0">
+                  
+                  <span style="text-align:right;color:#8A8078;font-size:11px;line-height:1.25">{{ e.date }}</span><span style="font-size: 11px; color: #8A8078">Valore · {{ e.price }}</span>
+                </div>
+                
+              </div>
+            </button><div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin:12px 0 0 76px;color:#8A8078;font-size:11px">
+              <span style="display: flex; align-items: baseline; gap: 5px; color: #1F1B19; font-size: 16px"><b style="font-family:Newsreader,serif;font-size:19px;font-weight:500;line-height:1;color:#6B1E2E">{{ e.rating }}</b><span style="font-size:11px;color:#6A625B">/ 5</span></span><button type="button" onClick="{{ e.restore }}" disabled="{{ e.restored }}" style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E6DFD5; background: transparent; color: #6B1E2E; font-size: 11px; cursor: pointer; transition: border-color .16s; border-radius: 14px; border-color: #6B1E2E" style-hover="border-color:#C6A97A">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="stroke: #6B1E2E"><path d="M3 2v6h6"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path></svg>
+                {{ e.restoreLabel }}
+              </button>
+              
+            </div>
+            
+            
+          </article>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 20px 130px">
+        <header style="padding:54px 0 28px;border-bottom:1px solid #1F1B19">
+          <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Ritratto della collezione</p>
+          <h2 style="margin:6px 0 10px;font-family:Newsreader,serif;font-size:46px;font-weight:300;line-height:1;letter-spacing:-.02em">Statistiche</h2>
+          <p style="margin:0;max-width:280px;color:#7C7269;font-family:Newsreader,serif;font-size:16px;line-height:1.45">Una lettura della cantina, costruita bottiglia dopo bottiglia.</p>
+        </header>
+
+        <section style="padding:30px 0 28px;border-bottom:1px solid #E6DFD5">
+          <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Valore della cantina</p>
+          <strong style="display:block;margin:10px 0 20px;font-family:Newsreader,serif;font-size:44px;font-weight:300;line-height:1;letter-spacing:-.02em">{{ sumValue }}</strong>
+          <div style="height:6px;background:#EDE6DA"><span style="display:block;height:100%;width:{{ valueRatio }};background:#6B1E2E"></span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;color:#8A8078;font-size:11px;line-height:1.45">
+            <span>Acquisti<br><b style="color:#1F1B19;font-size:13px;font-weight:600">{{ sumCost }}</b></span>
+            <span style="text-align:right">Stima attuale<br><b style="color:#1F1B19;font-size:13px;font-weight:600">{{ sumValue }}</b></span>
+          </div>
+        </section>
+
+        <section style="display:grid;grid-template-columns:repeat(3,1fr);padding:20px 0;border-bottom:1px solid #E6DFD5">
+          <div><strong style="display:block;font-family:Newsreader,serif;font-size:31px;font-weight:300">{{ sumBottles }}</strong><span style="display:block;margin-top:2px;color:#8A8078;font-size:11px">bottiglie</span></div>
+          <div style="padding-left:14px;border-left:1px solid #E6DFD5"><strong style="display:block;font-family:Newsreader,serif;font-size:31px;font-weight:300">{{ sumRefs }}</strong><span style="display:block;margin-top:2px;color:#8A8078;font-size:11px">referenze</span></div>
+          <div style="padding-left:14px;border-left:1px solid #E6DFD5"><strong style="display:block;font-family:Newsreader,serif;font-size:31px;font-weight:300">{{ journalCount }}</strong><span style="display:block;margin-top:2px;color:#8A8078;font-size:11px">bevute</span></div>
+        </section>
+
+        <section style="padding:30px 0;border-bottom:1px solid #E6DFD5">
+          <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Composizione</p>
+          <h3 style="margin:5px 0 22px;font-family:Newsreader,serif;font-size:24px;font-weight:400">Tipi di vino</h3>
+          <sc-for list="{{ distribution }}" as="d" hint-placeholder-count="5">
+            <div style="margin-bottom:15px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px"><span>{{ d.label }}</span><b style="font-weight:500">{{ d.value }}</b></div>
+              <div style="height:5px;background:#EDE6DA"><span style="display:block;height:100%;width:{{ d.width }};background:{{ d.color }}"></span></div>
+            </div>
+          </sc-for>
+        </section>
+
+        <section style="padding:30px 0;border-bottom:1px solid #E6DFD5">
+          <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Più presenti</p>
+          <h3 style="margin:5px 0 8px;font-family:Newsreader,serif;font-size:24px;font-weight:400">Produttori</h3>
+          <sc-for list="{{ producers }}" as="p" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid #EFE9E0">
+              <span style="color:#C6A97A;font-family:Newsreader,serif;font-size:13px">{{ p.rank }}</span>
+              <p style="margin:0;font-family:Newsreader,serif;font-size:16px;overflow-wrap:anywhere">{{ p.name }}</p>
+              <strong style="font-family:Newsreader,serif;font-size:18px;font-weight:400">{{ p.count }}</strong>
+            </div>
+          </sc-for>
+        </section>
+
+        <section style="padding:30px 0">
+          <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Prezzo d’acquisto</p>
+          <h3 style="margin:5px 0 4px;font-family:Newsreader,serif;font-size:24px;font-weight:400">Una cantina da bere</h3>
+          <div style="height:140px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end;margin-top:22px;border-bottom:1px solid #1F1B19">
+            <sc-for list="{{ priceBuckets }}" as="b" hint-placeholder-count="4">
+              <span style="display:block;background:#6B1E2E;opacity:.88;height:{{ b.height }}"></span>
+            </sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:8px;color:#8A8078;font-size:10px;text-align:center">
+            <span>&lt; €25</span><span>€25–50</span><span>€50–100</span><span>€100+</span>
+          </div>
+        </section>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ hasDetail }}" hint-placeholder-val="{{ false }}">
+      <div style="padding-bottom:104px;animation:fadeIn .2s ease both">
+        <div style="position:absolute;z-index:6;top:0;left:0;right:0;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 14px">
+          <button type="button" onClick="{{ closeDetail }}" aria-label="Torna alla cantina" style="width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #DDD4C7; border-radius: 50%; background: rgba(255,252,247,.85); backdrop-filter: blur(8px); color: #1F1B19; cursor: pointer; transition: border-color .16s; border-color: #6B1E2E" style-hover="border-color:#6B1E2E">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="stroke: #6B1E2E"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg>
+          </button>
+          <a href="{{ d.website }}" target="_blank" rel="noreferrer" aria-label="Sito del produttore" style="width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #DDD4C7; border-radius: 50%; background: rgba(255,252,247,.85); backdrop-filter: blur(8px); color: #1F1B19; border-color: #6B1E2E">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="stroke: #6B1E2E"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+          </a>
+        </div>
+
+        <section style="position:relative;padding:70px 22px 26px;background:#F0EAE0;text-align:center;overflow:hidden">
+          <div style="position:absolute;inset:0;z-index:0;background-image:url({{ d.regionPhoto }});background-size:cover;background-position:center"></div>
+          <div style="position:absolute;inset:0;z-index:1;background:linear-gradient(to bottom,rgba(240,234,224,.15) 0%,rgba(240,234,224,.30) 45%,rgba(240,234,224,.93) 62%,rgba(240,234,224,.97) 100%);pointer-events:none"></div>
+          <div style="position:relative;z-index:2;height:264px;display:grid;place-items:center;margin-bottom:6px">
+            <sc-if value="{{ d.hasImg }}" hint-placeholder-val="{{ false }}">
+              <div role="img" aria-label="{{ d.alt }}" style="width:190px;height:264px;background-image:url({{ d.img }});background-size:cover;background-position:center;background-repeat:no-repeat;border-radius:14px;overflow:hidden;mix-blend-mode:multiply"></div>
+            </sc-if>
+            <sc-if value="{{ d.noImg }}" hint-placeholder-val="{{ false }}">
+              <div style="width:170px;height:246px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#FBF7F0;color:#B3A89C">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+                <span style="font-size:10px;letter-spacing:.1em;text-transform:uppercase">Immagine non disponibile</span>
+              </div>
+            </sc-if>
+          </div>
+          <p style="position: relative; z-index: 2; margin: 0; color: #6B1E2E; font-size: 15px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase">{{ d.producer }}</p>
+          <h2 style="position: relative; z-index: 2; margin: 8px auto 0; max-width: 320px; font-family: Newsreader,serif; font-size: 25px; font-weight: 300; line-height: 1.02; letter-spacing: -.02em; text-wrap: balance">{{ d.name }}</h2>
+          <p style="position:relative;z-index:2;margin:10px 0 0;color:#5F564F;font-size:13px">{{ d.origin }}</p>
+          <p style="position:relative;z-index:2;margin:8px 0 0;color:#7C6A57;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">{{ d.region }}</p>
+        </section>
+
+        <section style="padding:26px 20px 6px">
+          <p style="margin:0 0 14px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">IL VINO</p><p style="margin: 0; font-family: Newsreader,serif; font-size: 16px; line-height: 1.5; color: #2B2522; text-wrap: pretty; width: 336px; height: 119px">{{ d.estate }}</p><p style="margin:0 0 6px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Profilo</p>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:11px 0;border-bottom:1px solid #EFE9E0"><span style="color:#8A8078;font-size:12px">Tipo</span><span style="font-size:12px;text-align:right;color:#4A423C">{{ d.type }}</span></div>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:11px 0;border-bottom:1px solid #EFE9E0"><span style="color:#8A8078;font-size:12px">Denominazione</span><span style="font-size:12px;text-align:right;color:#4A423C">{{ d.appellation }}</span></div>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:11px 0"><span style="color:#8A8078;font-size:12px">Vitigno</span>
+            <span style="display:flex;flex-direction:column;gap:3px;font-size:12px;color:#4A423C;text-align:right;line-height:1.35">
+              <sc-for list="{{ d.grapes }}" as="g" hint-placeholder-count="1"><span>{{ g }}</span></sc-for>
+            </span>
+          </div>
+        </section>
+
+        <section style="padding:20px 20px 6px">
+          <p style="margin:0 0 6px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Vinificazione</p>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:10px 0;border-bottom:1px solid #EFE9E0"><span style="color:#8A8078;font-size:12px">Macerazione</span><span style="font-size:12px;text-align:right;color:#4A423C">{{ d.maceration }}</span></div>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:10px 0;border-bottom:1px solid #EFE9E0"><span style="color:#8A8078;font-size:12px">Fermentazione</span><span style="font-size:12px;text-align:right;color:#4A423C">{{ d.fermentation }}</span></div>
+          <div style="display:grid;grid-template-columns:40% 60%;align-items:baseline;padding:10px 0"><span style="color:#8A8078;font-size:12px">Malolattica</span><span style="font-size:12px;text-align:right;color:#4A423C">{{ d.malolactic }}</span></div>
+        </section>
+
+        <section style="padding:26px 20px 28px">
+          <p style="margin:0 0 14px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">La cantina</p>
+          <p style="margin:0;font-family:Newsreader,serif;font-size:16px;line-height:1.5;color:#2B2522;text-wrap:pretty">{{ d.estate }}</p>
+        </section>
+
+        <sc-if value="{{ d.hasRecognition }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:20px 20px 0;padding:16px 18px;background:#F0EAE0;border-radius:14px">
+            <p style="margin:0 0 12px;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Riconoscimenti</p>
+            <div style="display:flex;gap:14px;align-items:center">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#A98B5B" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 5V2l-5.89 5.89"></path><circle cx="16.6" cy="15.89" r="3"></circle><circle cx="8.11" cy="7.4" r="3"></circle><circle cx="12.35" cy="11.65" r="3"></circle><circle cx="13.91" cy="5.85" r="3"></circle><circle cx="18.15" cy="10.09" r="3"></circle><circle cx="6.56" cy="13.2" r="3"></circle><circle cx="10.8" cy="17.44" r="3"></circle><circle cx="5" cy="19" r="3"></circle></svg>
+              <div><span style="color:#8A8078;font-size:10px;letter-spacing:.14em;text-transform:uppercase">Slow Wine</span><p style="margin:2px 0 0;font-family:Newsreader,serif;font-size:17px">{{ d.recognition }}</p></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="padding:22px 20px 0">
+          <a href="{{ d.website }}" target="_blank" rel="noreferrer" style="display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 16px; border: 1px solid #DDD4C7; border-radius: 14px; color: #6B1E2E; font-size: 13px; border-color: #6B1E2E">Sito del produttore
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B1E2E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"></path><path d="M7 17 17 7"></path></svg>
+          </a>
+        </div>
+
+        <section style="display:grid;grid-template-columns:1fr 1fr;margin-top:22px;border-top:1px solid #E6DFD5;border-bottom:1px solid #E6DFD5;background:#FFFCF7">
+          <div style="display:grid;grid-template-rows:1fr 1fr;padding:6px 0">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px">
+              <p style="margin:0;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">Acquisto</p>
+              <span style="font-family:Newsreader,serif;font-size:20px;line-height:1">{{ d.purchase }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid #EFE9E0">
+              <p style="margin:0;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">Valore</p>
+              <span style="font-family:Newsreader,serif;font-size:20px;line-height:1;color:#6B1E2E">{{ d.market }}</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-rows:1fr 1fr;padding:6px 0;border-left:1px solid #E6DFD5">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px">
+              <p style="margin:0;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">Bottiglie</p>
+              <span style="font-family:Newsreader,serif;font-size:20px;line-height:1">{{ d.bottles }}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid #EFE9E0">
+              <p style="margin:0;color:#A08E7B;font-size:9px;font-weight:600;letter-spacing:.16em;text-transform:uppercase">Giacenza</p>
+              <span style="font-family:Newsreader,serif;font-size:20px;line-height:1;color:#6B1E2E">{{ d.stockValue }}</span>
+            </div>
+          </div>
+        </section>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:18px 20px 0">
+          <button type="button" onClick="{{ editWine }}" style="height:46px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #DDD4C7;border-radius:14px;background:transparent;color:#1F1B19;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:border-color .16s,color .16s" style-hover="border-color:#6B1E2E;color:#6B1E2E">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            Modifica
+          </button>
+          <button type="button" onClick="{{ deleteWine }}" style="height:46px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid #E3C9CD;border-radius:14px;background:transparent;color:#6B1E2E;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .16s,color .16s" style-hover="background:#6B1E2E;color:#FFFCF7">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path></svg>
+            Elimina
+          </button>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ hasDetail }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;z-index:30;padding:18px 16px 18px;background:linear-gradient(to top,#FFFCF7 62%,rgba(255,252,247,0))">
+        <button type="button" onClick="{{ openDrink }}" style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:14px;background:#6B1E2E;color:#FFFCF7;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:background .16s" style-hover="background:#57182A">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+          Segna come bevuto
+        </button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="Navigazione principale" style="position:absolute;left:0;right:0;bottom:0;z-index:25;display:grid;grid-template-columns:repeat(3,1fr);height:72px;padding-bottom:4px;border-top:1px solid #E6DFD5;background:rgba(255,252,247,.96);backdrop-filter:blur(14px)">
+        <button type="button" onClick="{{ goCellar }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:0;background:transparent;color:{{ cellarColor }};cursor:pointer;position:relative">
+          <span style="position:absolute;top:0;width:22px;height:2px;background:{{ cellarMark }}"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M6.9 3.2h10.2v3.6a5.1 5.1 0 0 1-10.2 0Z"></path><path d="M6.9 6.8a5.1 5.1 0 0 0 10.2 0"></path><path d="M12 11.9v6.6"></path><path d="M8.6 20.6c0-1.2 1.5-2.1 3.4-2.1s3.4.9 3.4 2.1Z"></path></svg>
+          <span style="font-size:11px;letter-spacing:.02em">Cantina</span>
+        </button>
+        <button type="button" onClick="{{ goHistory }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:0;background:transparent;color:{{ historyColor }};cursor:pointer;position:relative">
+          <span style="position:absolute;top:0;width:22px;height:2px;background:{{ historyMark }}"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.6v13.2"></path><path d="M12 6.6C10.3 5.1 8 4.3 5.4 4.3H2.8v13.2h2.6c2.6 0 4.9.8 6.6 2.3"></path><path d="M12 6.6c1.7-1.5 4-2.3 6.6-2.3h2.6v13.2h-2.6c-2.6 0-4.9.8-6.6 2.3"></path></svg>
+          <span style="font-size:11px;letter-spacing:.02em">Bevuti</span>
+        </button>
+        <button type="button" onClick="{{ goStats }}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;border:0;background:transparent;color:{{ statsColor }};cursor:pointer;position:relative">
+          <span style="position:absolute;top:0;width:22px;height:2px;background:{{ statsMark }}"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 20.2h17.6"></path><path d="M6.6 20.2v-6.4"></path><path d="M11 20.2V6.2"></path><path d="M15.4 20.2v-9.4"></path><path d="M19.8 20.2v-4"></path></svg>
+          <span style="font-size:11px;letter-spacing:.02em">Statistiche</span>
+        </button>
+      </nav>
+    </sc-if>
+
+    <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;justify-content:flex-end">
+        <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(31,27,25,.42);animation:fadeIn .18s ease both"></div>
+        <div style="position:relative;max-height:88%;overflow-y:auto;background:#FFFCF7;border-top:1px solid #DDD4C7;box-shadow:0 -16px 44px rgba(31,27,25,.18);animation:sheetUp .26s cubic-bezier(.22,.8,.3,1) both">
+
+          <sc-if value="{{ drinkForm }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 26px 22px 28px; border-radius: 14px">
+              <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Nuova bevuta</p>
+              <h3 style="margin:5px 0 4px;font-family:Newsreader,serif;font-size:28px;font-weight:400">Com’è stata?</h3>
+              <p style="margin:0;color:#8A8078;font-size:12px">{{ d.sheetLine }}</p>
+              <div style="width: 150px; height: 150px; margin: 20px auto 6px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; align-content: center; border: 1px solid #C6A97A; border-radius: 50%; border-color: #6B1E2E">
+                <span style="font-family:Newsreader,serif;font-size:50px;line-height:.85;color:#6B1E2E">{{ ratingLabel }}</span>
+                <small style="color:#A79D93;font-size:12px;margin-left:4px">/ 5</small>
+                <em style="width:100%;margin-top:9px;color:#A08E7B;font-size:9px;font-style:normal;text-align:center;letter-spacing:.16em;text-transform:uppercase">La mia valutazione</em>
+              </div>
+              
+              <input type="range" min="1" max="5" step="0.1" value="{{ rating }}" onChange="{{ setRating }}" aria-label="Valutazione personale" style="width:100%;accent-color:#6B1E2E;background:transparent;margin:6px 0 0"><div style="display:flex;justify-content:space-between;color:#A79D93;font-size:10px">
+                <span>1,0</span><span>5,0</span>
+              </div>
+              <label style="display:grid;gap:7px;margin-top:20px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Nota personale
+                <textarea value="{{ note }}" onChange="{{ setNote }}" rows="3" placeholder="Profumi, momento, persone..." style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;resize:none;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19"></textarea>
+              </label>
+              <label style="display:grid;gap:7px;margin-top:16px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Data
+                <input type="date" value="{{ drinkDate }}" onChange="{{ setDate }}" style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19">
+              </label>
+              <button type="button" onClick="{{ saveDrink }}" style="width: 100%; height: 52px; margin-top: 24px; border: 0; background: #6B1E2E; color: #FFFCF7; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; border-radius: 14px">Salva nel diario</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ drinkDone }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;justify-items:center;gap:10px;padding:34px 24px 30px;text-align:center">
+              <span style="width:54px;height:54px;display:grid;place-items:center;border:1px solid #C6A97A;border-radius:50%;color:#6B1E2E">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+              </span>
+              <p style="margin:6px 0 0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Aggiunto al diario</p>
+              <h3 style="margin:0;font-family:Newsreader,serif;font-size:27px;font-weight:400">{{ d.name }}</h3>
+              <p style="margin:0;max-width:280px;color:#8A8078;font-size:13px;line-height:1.55">{{ leftMessage }}</p>
+              <button type="button" onClick="{{ closeSheet }}" style="height:46px;margin-top:10px;padding:0 26px;border:1px solid #6B1E2E;background:transparent;color:#6B1E2E;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .16s,color .16s" style-hover="background:#6B1E2E;color:#FFFCF7">Chiudi</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ addForm }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:26px 22px 28px">
+              <p style="margin:0;color:#A08E7B;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase">Nuova bottiglia</p>
+              <h3 style="margin:5px 0 6px;font-family:Newsreader,serif;font-size:28px;font-weight:400">Aggiungi alla cantina</h3>
+              <p style="margin:0 0 18px;color:#8A8078;font-size:13px;line-height:1.5">Parti dall’identità del vino. Potrai completare i dettagli in seguito.</p>
+              <div style="display: flex; gap: 14px; align-items: center; padding: 16px; background: #F0EAE0; border-radius: 14px">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6B1E2E" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22h8"></path><path d="M12 15v7"></path><path d="M7 2h10l-1.2 8a3.9 3.9 0 0 1-7.6 0Z"></path></svg>
+                <div><strong style="display:block;font-family:Newsreader,serif;font-size:16px;font-weight:400">Fotografa l’etichetta</strong><span style="display:block;margin-top:2px;color:#8A8078;font-size:11px">oppure aggiungi manualmente</span></div>
+              </div>
+              <label style="display:grid;gap:7px;margin-top:20px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Produttore
+                <input value="{{ addProducer }}" onChange="{{ setAddProducer }}" placeholder="Es. Giuseppe Rinaldi" style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19">
+              </label>
+              <label style="display:grid;gap:7px;margin-top:16px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Nome del vino
+                <input value="{{ addName }}" onChange="{{ setAddName }}" placeholder="Es. Barolo Brunate" style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19">
+              </label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:16px">
+                <label style="display:grid;gap:7px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Annata
+                  <input value="{{ addVintage }}" onChange="{{ setAddVintage }}" inputMode="numeric" placeholder="2019" style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19">
+                </label>
+                <label style="display:grid;gap:7px;color:#8A8078;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase">Bottiglie
+                  <input value="{{ addBottles }}" onChange="{{ setAddBottles }}" type="number" min="1" style="width:100%;box-sizing:border-box;padding:11px 0;border:0;border-bottom:1px solid #DDD4C7;background:transparent;outline:0;font-size:14px;font-weight:400;letter-spacing:0;text-transform:none;color:#1F1B19">
+                </label>
+              </div>
+              <button type="button" onClick="{{ saveAdd }}" style="width: 100%; height: 52px; margin-top: 26px; border: 0; background: #6B1E2E; color: #FFFCF7; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; border-radius: 14px">Continua</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ addDone }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;justify-items:center;gap:10px;padding:34px 24px 30px;text-align:center">
+              <span style="width:54px;height:54px;display:grid;place-items:center;border:1px solid #C6A97A;border-radius:50%;color:#6B1E2E">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+              </span>
+              <h3 style="margin:6px 0 0;font-family:Newsreader,serif;font-size:27px;font-weight:400">Bottiglia aggiunta</h3>
+              <p style="margin:0;max-width:280px;color:#8A8078;font-size:13px;line-height:1.55">{{ addedMessage }}</p>
+              <button type="button" onClick="{{ closeSheet }}" style="height:46px;margin-top:10px;padding:0 26px;border:1px solid #6B1E2E;background:transparent;color:#6B1E2E;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .16s,color .16s" style-hover="background:#6B1E2E;color:#FFFCF7">Torna alla cantina</button>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1080,&quot;height&quot;:980}}">
+class Component extends DCLogic {
+  REGION_PHOTO = { Toscana: "assets/vigneti-toscana.jpg", Piemonte: "assets/vigneti-piemonte.jpg" };
+
+  IMG = { barolo: "assets/bottle-barolo.jpg", burgundy: "assets/bottle-burgundy.jpg", orange: "assets/bottle-orange.jpg" };
+
+  WINES = [
+    { id:"rinaldi-brunate-2019", estate:"Storica cantina di Barolo condotta oggi da Marta e Carlotta Rinaldi: pochi ettari nei cru Brunate e Tre Tine, lavorazioni tradizionali e una fedeltà quasi testarda allo stile di casa.", region:"Piemonte", producer:"Giuseppe Rinaldi", name:"Barolo Brunate", vintage:2019, appellation:"Barolo DOCG", type:"Rosso", grape:"Nebbiolo", bottles:3, purchasePrice:138, marketValue:245, rating:4.8, tastings:2, image:"barolo",
+      description:"Austero e luminoso, con rosa appassita, scorza d’arancia e una trama tannica finissima. Un Barolo di grande profondità e misura.",
+      cellarNote:"Cassa aperta a marzo 2025. Conservare le ultime bottiglie almeno fino al 2029.",
+      tastingNote:"Molto giovane, ma già sorprendentemente aperto dopo tre ore in caraffa.",
+      maceration:"25–30 giorni sulle bucce", fermentation:"Lieviti indigeni, tini di cemento", malolactic:"Svolta naturalmente", recognition:"Slow Wine — Grande Vino 2024", website:"https://www.giusepperinaldi.it" },
+    { id:"produttori-barbaresco-2020", estate:"Cooperativa nata nel 1958 che riunisce cinquanta viticoltori del comune di Barbaresco: uno dei rari casi in cui la dimensione collettiva produce qualità e coerenza assolute.", region:"Piemonte", producer:"Produttori del Barbaresco", name:"Barbaresco", vintage:2020, appellation:"Barbaresco DOCG", type:"Rosso", grape:"Nebbiolo", bottles:8, purchasePrice:36, marketValue:44, rating:4.3, tastings:3, image:"barolo",
+      description:"Classico, fragrante e nitido: piccoli frutti rossi, viola, liquirizia e una progressione sapida.",
+      maceration:"28 giorni", fermentation:"Acciaio a temperatura controllata", malolactic:"Completa", website:"https://www.produttoridelbarbaresco.com" },
+    { id:"pepe-montepulciano-2018", estate:"Azienda familiare di Torano Nuovo, quattro generazioni di viticoltura biologica: uve pigiate a mano, nessun legno e affinamento in bottiglia per decenni in cantina.", region:"Abruzzo", producer:"Emidio Pepe", name:"Montepulciano d’Abruzzo", vintage:2018, appellation:"Montepulciano d’Abruzzo DOC", type:"Rosso", grape:"Montepulciano", bottles:4, purchasePrice:72, marketValue:98, image:"barolo",
+      description:"Materia scura e vibrante, con amarena, erbe mediterranee e una energia terrosa inconfondibile.",
+      cellarNote:"Una bottiglia da aprire nel 2027 per seguirne l’evoluzione.",
+      maceration:"Pigiatura a mano e lunga macerazione", fermentation:"Cemento vetrificato", malolactic:"Spontanea", recognition:"Slow Wine — Chiocciola", website:"https://www.emidiopepe.com" },
+    { id:"valentini-trebbiano-2019", estate:"Una delle cantine più riservate d’Italia, a Loreto Aprutino: produzione ridottissima, selezione severissima e vini imbottigliati solo nelle annate ritenute all’altezza.", region:"Abruzzo", producer:"Valentini", name:"Trebbiano d’Abruzzo", vintage:2019, appellation:"Trebbiano d’Abruzzo DOC", type:"Bianco", grape:"Trebbiano Abruzzese", bottles:1, purchasePrice:85, marketValue:145, rating:4.7, tastings:3, image:"burgundy",
+      description:"Profondo, salino e cangiante. Fiori secchi, cera d’api e agrumi maturi su una struttura sorprendente.",
+      maceration:"Pressatura soffice", fermentation:"Grandi botti di rovere", malolactic:"Parziale", website:"https://www.fattoriavalentini.it" },
+    { id:"leflaive-puligny-2020", estate:"Riferimento assoluto della Côte de Beaune, in biodinamica dagli anni Novanta: parcelle storiche a Puligny-Montrachet e uno stile di precisione cristallina.", region:"Borgogna", producer:"Domaine Leflaive", name:"Puligny-Montrachet", vintage:2020, appellation:"Puligny-Montrachet AOC", type:"Bianco", grape:"Chardonnay", bottles:2, purchasePrice:164, marketValue:230, image:"burgundy",
+      description:"Precisione minerale, agrume, mandorla fresca e un finale lungo, teso e gessoso.",
+      cellarNote:"Acquistate insieme; verificare evoluzione della prima nel 2026.",
+      maceration:"Pressatura pneumatica delicata", fermentation:"Barrique, lieviti indigeni", malolactic:"Completa", website:"https://www.leflaive.fr" },
+    { id:"devillaine-aligote-2021", estate:"La cantina di Aubert de Villaine a Bouzeron, dove l’Aligoté Doré è stato riabilitato a grande bianco di Borgogna, in agricoltura biologica certificata.", region:"Borgogna", producer:"Domaine A. & P. de Villaine", name:"Bouzeron Aligoté", vintage:2021, appellation:"Bouzeron AOC", type:"Bianco", grape:"Aligoté Doré", bottles:6, purchasePrice:29, marketValue:34, rating:4.1, tastings:1, image:"burgundy",
+      description:"Bianco affilato e gastronomico, tra limone, erbe fini e una netta vena salina.",
+      maceration:"Nessuna", fermentation:"Fusti grandi", malolactic:"Completa", website:"https://www.de-villaine.com" },
+    { id:"radikon-oslavje-2018", estate:"Sul Collio di Oslavia, la famiglia Radikon ha riportato la macerazione sulle bucce nel vino bianco contemporaneo: nessun solfito aggiunto e bottiglie da 500 e 1000 ml.", region:"Friuli", producer:"Radikon", name:"Oslavje", vintage:2018, appellation:"Venezia Giulia IGT", type:"Orange", grape:"Chardonnay 40%, Sauvignon 30%, Pinot Grigio 30%", bottles:2, purchasePrice:55, marketValue:68, rating:4.5, tastings:1, image:"orange",
+      description:"Ampio e materico, con albicocca, tè nero e scorza di mandarino. Tannino fine e finale sapido.",
+      maceration:"3 mesi sulle bucce", fermentation:"Tini di rovere, lieviti indigeni", malolactic:"Svolta naturalmente", website:"https://www.radikon.it" },
+    { id:"montevertine-pian-ciampolo-2022", estate:"A Radda in Chianti, la cantina fondata da Sergio Manetti ha scelto di restare fuori dalla denominazione: solo Sangiovese e vitigni storici, grandi botti e tempi lunghi.", region:"Toscana", producer:"Montevertine", name:"Pian Ciampolo", vintage:2022, appellation:"Toscana IGT", type:"Rosso", grape:"Sangiovese 90%, Canaiolo 5%, Colorino 5%", bottles:12, purchasePrice:19, marketValue:23,
+      description:"Succoso e quotidiano, con ciliegia fresca, alloro e una beva agile ma non semplice.",
+      maceration:"18 giorni", fermentation:"Cemento vetrificato", malolactic:"Completa", website:"https://www.montevertine.it" },
+    { id:"ca-del-bosco-2019", estate:"In Franciacorta, una cantina che unisce ricerca tecnologica e cura maniacale della vendemmia, dal celebre “spa” per i grappoli alla lunga sosta sui lieviti.", region:"Lombardia", producer:"Ca’ del Bosco", name:"Cuvée Annamaria Clementi", vintage:2015, appellation:"Franciacorta DOCG", type:"Bollicine", grape:"Chardonnay 55%, Pinot Nero 35%, Pinot Bianco 10%", bottles:2, purchasePrice:92, marketValue:108, rating:4.6, tastings:1,
+      description:"Perlage finissimo, agrumi canditi, pasticceria e una nitida freschezza minerale.",
+      maceration:"Pressatura soffice", fermentation:"Piccoli fusti di rovere", malolactic:"Parziale", website:"https://www.cadelbosco.com" },
+    { id:"eric-bordelet-sidre", estate:"In Normandia, l’ex sommelier Éric Bordelet coltiva in biodinamica meli e peri secolari, trattando il sidro con la stessa ambizione di un grande vino.", region:"Normandia", producer:"Éric Bordelet", name:"Sidre Brut Tendre", vintage:2022, appellation:"Normandie", type:"Sidro", grape:"Mele da sidro", bottles:5, purchasePrice:15,
+      description:"Mela cotogna, spezie e bollicina sottile; un sidro secco, complesso e rinfrescante.",
+      maceration:"Breve contatto con le bucce", fermentation:"Spontanea in vasca", malolactic:"Non svolta", website:"https://www.ericbordelet.com" }
+  ];
+
+  HISTORY = [
+    { id:"h1", wineId:"valentini-trebbiano-2019", date:"12 settembre 2026", rating:4.7, price:138, note:"Con una spigola al forno. Profondo e ancora giovanissimo, il calice più memorabile dell’estate." },
+    { id:"h2", wineId:"produttori-barbaresco-2020", date:"23 agosto 2026", rating:4.4, price:42, note:"Aperto in montagna. Rosa, arancia e una trama molto precisa; più aperto del previsto." },
+    { id:"h3", wineId:"radikon-oslavje-2018", date:"2 luglio 2026", rating:4.5, price:65, note:"Cena lunga con amici. Cambiava continuamente nel bicchiere, tra tè, albicocca e sale." },
+    { id:"h4", wineId:"rinaldi-brunate-2019", date:"18 maggio 2026", rating:4.8, price:220, note:"La prima bottiglia della cassa. Tre ore d’aria, poi una purezza straordinaria." }
+  ];
+
+  FILTERS = ["Tutti", "Rosso", "Bianco", "Orange", "Bollicine", "Rosé", "Sidro"];
+
+  TYPE_COLOR = { Rosso:"#6B1E2E", Bianco:"#CBAE6A", Orange:"#C2703B", Bollicine:"#A9AC72", "Rosé":"#C98795", Sidro:"#9A7B4F" };
+
+  state = {
+    view: "cellar", wineId: null, query: "", filter: "Tutti", searchOpen: false,
+    sheet: null, rating: 4.2, note: "", drinkDate: "2026-09-20",
+    taken: {}, added: [], extra: [], restored: [],
+    addProducer: "", addName: "", addVintage: "", addBottles: "1", lastAdded: ""
+  };
+
+  eur(v) { return new Intl.NumberFormat("it-IT").format(Math.round(v)) + " €"; }
+  num(v) { return v.toFixed(1).replace(".", ","); }
+  allWines() { return this.state.extra.concat(this.WINES); }
+  bottlesOf(w) { return Math.max(0, w.bottles - (this.state.taken[w.id] || 0)); }
+  findWine(id) { return this.allWines().find((w) => w.id === id); }
+  renderVals() {
+    const s = this.state;
+    const all = this.allWines();
+    const inCellar = all.filter((w) => this.bottlesOf(w) > 0);
+    const sumBottles = inCellar.reduce((t, w) => t + this.bottlesOf(w), 0);
+    const sumValueN = inCellar.reduce((t, w) => t + (w.marketValue || w.purchasePrice) * this.bottlesOf(w), 0);
+    const sumCostN = inCellar.reduce((t, w) => t + w.purchasePrice * this.bottlesOf(w), 0);
+
+    const needle = s.query.toLocaleLowerCase("it");
+    const list = inCellar.filter((w) => {
+      const okType = s.filter === "Tutti" || w.type === s.filter;
+      const hay = (w.producer + " " + w.name + " " + w.vintage + " " + w.grape).toLocaleLowerCase("it");
+      return okType && hay.includes(needle);
+    }).map((w) => {
+      const b = this.bottlesOf(w);
+      return {
+        id: w.id, producer: w.producer, name: w.name, region: w.region || "",
+        meta: w.vintage + " · " + w.appellation,
+        bottles: b, bottlesWord: b === 1 ? "bottiglia" : "bottiglie",
+        value: w.marketValue ? this.eur(w.marketValue) + " / bott." : "valore non stimato",
+        img: w.image ? this.IMG[w.image] : null, noImg: !w.image,
+        alt: "Bottiglia di " + w.producer + " " + w.name,
+        open: () => this.setState({ wineId: w.id })
+      };
+    });
+
+    const journalEntries = s.added.concat(this.HISTORY);
+    const journal = journalEntries.map((e) => {
+      const w = this.findWine(e.wineId) || {};
+      const done = s.restored.includes(e.id);
+      return {
+        id: e.id, date: e.date, producer: w.producer || "—", name: w.name || "—", region: w.region || "",
+        meta: (w.vintage || "") + " · " + (w.appellation || ""),
+        rating: this.num(e.rating), note: "“" + e.note + "”", price: this.eur(e.price),
+        img: w.image ? this.IMG[w.image] : null, noImg: !w.image,
+        alt: "Bottiglia di " + (w.producer || ""),
+        restored: done, restoreLabel: done ? "Ripristinata" : "Ripristina",
+        restoreColor: done ? "#A79D93" : "#4A423C",
+        restore: () => {
+          if (done) return;
+          const taken = Object.assign({}, s.taken);
+          taken[e.wineId] = Math.max(0, (taken[e.wineId] || 0) - 1);
+          this.setState({ restored: s.restored.concat(e.id), taken });
+        },
+        open: () => { if (w.id) this.setState({ wineId: w.id }); }
+      };
+    });
+
+    const counts = {};
+    inCellar.forEach((w) => { counts[w.type] = (counts[w.type] || 0) + this.bottlesOf(w); });
+    const maxCount = Math.max(1, ...Object.values(counts));
+    const distribution = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map((k) => ({
+      label: k === "Rosso" ? "Rossi" : k === "Bianco" ? "Bianchi" : k,
+      value: counts[k], width: Math.round((counts[k] / maxCount) * 100) + "%", color: this.TYPE_COLOR[k] || "#6B1E2E"
+    }));
+
+    const byProducer = {};
+    inCellar.forEach((w) => { byProducer[w.producer] = (byProducer[w.producer] || 0) + this.bottlesOf(w); });
+    const producers = Object.keys(byProducer).sort((a, b) => byProducer[b] - byProducer[a]).slice(0, 4)
+      .map((name, i) => ({ name, count: byProducer[name], rank: "0" + (i + 1) }));
+
+    const buckets = [0, 0, 0, 0];
+    inCellar.forEach((w) => {
+      const p = w.purchasePrice, b = this.bottlesOf(w);
+      if (p < 25) buckets[0] += b; else if (p < 50) buckets[1] += b; else if (p < 100) buckets[2] += b; else buckets[3] += b;
+    });
+    const maxB = Math.max(1, ...buckets);
+    const priceBuckets = buckets.map((v) => ({ height: Math.max(4, Math.round((v / maxB) * 100)) + "%" }));
+
+    const w = s.wineId ? this.findWine(s.wineId) : null;
+    let d = { sheetLine: "", name: "", website: "#", hasImg: false };
+    if (w) {
+      const b = this.bottlesOf(w);
+      d = {
+        producer: w.producer, name: w.name, origin: w.vintage + " · " + w.appellation,
+        region: w.region || "",
+        regionPhoto: this.REGION_PHOTO[w.region] || "",
+        img: w.image ? this.IMG[w.image] : null, noImg: !w.image,
+        hasImg: !!w.image,
+        alt: "Bottiglia di " + w.producer + " " + w.name,
+        rated: !!w.rating, unrated: !w.rating,
+        rating: w.rating ? this.num(w.rating) : "",
+        tastingsLabel: w.tastings ? w.tastings + (w.tastings === 1 ? " bevuta" : " bevute") : "prima bottiglia in cantina",
+        bottles: b, bottlesWord: b === 1 ? "bottiglia" : "bottiglie",
+        typeLine: w.type + " · " + w.grape,
+        stockValue: this.eur((w.marketValue || w.purchasePrice) * b),
+        description: w.description,
+        hasCellarNote: !!w.cellarNote, cellarNote: w.cellarNote || "",
+        hasTastingNote: !!w.tastingNote, tastingNote: w.tastingNote || "",
+        purchase: this.eur(w.purchasePrice),
+        market: w.marketValue ? this.eur(w.marketValue) : "—",
+        type: w.type, appellation: w.appellation, grape: w.grape,
+        estate: w.estate || "Scheda della cantina non ancora compilata.",
+        grapes: w.grape.split(",").map((g) => g.trim()).filter(Boolean),
+        maceration: w.maceration, fermentation: w.fermentation, malolactic: w.malolactic,
+        hasRecognition: !!w.recognition, recognition: (w.recognition || "").replace("Slow Wine — ", ""),
+        website: w.website,
+        sheetLine: w.producer + " · " + w.name + " · " + w.vintage
+      };
+    }
+
+    const leftB = w ? this.bottlesOf(w) : 0;
+
+    return {
+      isCellar: !s.wineId && s.view === "cellar",
+      isHistory: !s.wineId && s.view === "history",
+      isStats: !s.wineId && s.view === "stats",
+      hasDetail: !!w, showNav: !w,
+      sumBottles, sumRefs: inCellar.length, sumValue: this.eur(sumValueN), sumCost: this.eur(sumCostN),
+      valueRatio: Math.min(100, Math.round((sumCostN / Math.max(1, sumValueN)) * 100)) + "%",
+      filters: this.FILTERS.map((label) => ({
+        label,
+        bg: s.filter === label ? "#6B1E2E" : "transparent",
+        fg: s.filter === label ? "#FFFCF7" : "#4A423C",
+        bc: s.filter === label ? "#6B1E2E" : "#DDD4C7",
+        pick: () => this.setState({ filter: label })
+      })),
+      list, empty: list.length === 0,
+      resetFilters: () => this.setState({ filter: "Tutti", query: "", searchOpen: false }),
+      searchOpen: s.searchOpen, searchClosed: !s.searchOpen, query: s.query,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      openSearch: () => this.setState({ searchOpen: true }),
+      closeSearch: () => this.setState({ searchOpen: false, query: "" }),
+      goCellar: () => this.setState({ view: "cellar", wineId: null }),
+      goHistory: () => this.setState({ view: "history", wineId: null }),
+      goStats: () => this.setState({ view: "stats", wineId: null }),
+      cellarColor: s.view === "cellar" ? "#6B1E2E" : "#6A625B",
+      historyColor: s.view === "history" ? "#6B1E2E" : "#6A625B",
+      statsColor: s.view === "stats" ? "#6B1E2E" : "#6A625B",
+      cellarMark: s.view === "cellar" ? "#6B1E2E" : "transparent",
+      historyMark: s.view === "history" ? "#6B1E2E" : "transparent",
+      statsMark: s.view === "stats" ? "#6B1E2E" : "transparent",
+      journal, journalCount: journalEntries.length,
+      drunkValue: this.eur(journalEntries.reduce((t, e) => t + (e.price || 0), 0)),
+      distribution, producers, priceBuckets,
+      d, closeDetail: () => this.setState({ wineId: null }),
+      editWine: () => { if (!w) return; this.setState({ sheet: "add", addProducer: w.producer, addName: w.name, addVintage: String(w.vintage), addBottles: String(this.bottlesOf(w)) }); },
+      deleteWine: () => {
+        if (!w) return;
+        const taken = Object.assign({}, s.taken);
+        taken[w.id] = w.bottles;
+        this.setState({ taken, wineId: null, view: "cellar" });
+      },
+      openAdd: () => this.setState({ sheet: "add", addProducer: "", addName: "", addVintage: "", addBottles: "1" }),
+      openDrink: () => this.setState({ sheet: "drink", rating: 4.2, note: "" }),
+      sheetOpen: !!s.sheet, closeSheet: () => this.setState({ sheet: null }),
+      drinkForm: s.sheet === "drink", drinkDone: s.sheet === "drinkDone",
+      addForm: s.sheet === "add", addDone: s.sheet === "addDone",
+      rating: s.rating, ratingLabel: this.num(s.rating),
+      setRating: (e) => this.setState({ rating: parseFloat(e.target.value) }),
+      note: s.note, setNote: (e) => this.setState({ note: e.target.value }),
+      drinkDate: s.drinkDate, setDate: (e) => this.setState({ drinkDate: e.target.value }),
+      leftMessage: leftB === 1 ? "Il ricordo è salvato. In cantina resta 1 bottiglia." : "Il ricordo è salvato. In cantina restano " + leftB + " bottiglie.",
+      saveDrink: () => {
+        if (!w) return;
+        const taken = Object.assign({}, s.taken);
+        taken[w.id] = (taken[w.id] || 0) + 1;
+        const entry = {
+          id: "n" + Date.now(), wineId: w.id, rating: s.rating,
+          price: w.marketValue || w.purchasePrice,
+          note: s.note || "Nessuna nota per questa bottiglia.",
+          date: this.formatDate(s.drinkDate)
+        };
+        this.setState({ taken, added: [entry].concat(s.added), sheet: "drinkDone" });
+      },
+      addProducer: s.addProducer, addName: s.addName, addVintage: s.addVintage, addBottles: s.addBottles,
+      setAddProducer: (e) => this.setState({ addProducer: e.target.value }),
+      setAddName: (e) => this.setState({ addName: e.target.value }),
+      setAddVintage: (e) => this.setState({ addVintage: e.target.value }),
+      setAddBottles: (e) => this.setState({ addBottles: e.target.value }),
+      addedMessage: s.lastAdded ? s.lastAdded + " è entrata nella collezione. Completa i dettagli quando vuoi." : "Il nuovo vino è pronto per entrare nella tua collezione.",
+      saveAdd: () => {
+        const producer = s.addProducer.trim() || "Produttore da definire";
+        const name = s.addName.trim() || "Vino senza nome";
+        const bottles = Math.max(1, parseInt(s.addBottles, 10) || 1);
+        const wine = {
+          id: "new-" + Date.now(), producer, name,
+          vintage: s.addVintage.trim() || "s.a.", appellation: "Da completare", type: "Rosso",
+          grape: "Da completare", bottles, purchasePrice: 0,
+          description: "Scheda ancora da completare. Aggiungi denominazione, uva e note quando hai la bottiglia davanti.",
+          maceration: "—", fermentation: "—", malolactic: "—", website: "#"
+        };
+        this.setState({ extra: [wine].concat(s.extra), sheet: "addDone", lastAdded: name, view: "cellar", filter: "Tutti", query: "" });
+      }
+    };
+  }
+
+  formatDate(iso) {
+    const months = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+    const p = (iso || "").split("-");
+    if (p.length !== 3) return iso;
+    return parseInt(p[2], 10) + " " + months[parseInt(p[1], 10) - 1] + " " + p[0];
+  }
+}
+</script>
+</body>
+</html>
