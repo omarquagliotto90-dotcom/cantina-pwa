@@ -4,7 +4,7 @@ Sei un software architect senior. Stiamo evolvendo "La Mia Cantina", una PWA per
 
 ## Stack
 
-- React/JSX, singolo file `src/App.jsx` (~2016 righe), stili inline, nessuna libreria CSS
+- React/JSX, stili inline, nessuna libreria CSS. `src/App.jsx` (controller, ~1064 righe) + `src/ui/` (presentazione, 7 file) — vedi "Struttura dei file"
 - Material Design 3, seed vinaccia `#7B1D1D` (primary 2.0: `#9B3535`)
 - Deploy: Vercel `cantina-pwa-five.vercel.app`, auto-build dal push su GitHub `omarquagliotto90-dotcom/cantina-pwa` (branch `main`) — **si lavora direttamente su `main`, niente branch dedicato/PR di preview salvo richiesta esplicita**
 - Env vars su Vercel: `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `GEMINI`
@@ -16,7 +16,7 @@ Sei un software architect senior. Stiamo evolvendo "La Mia Cantina", una PWA per
 - Nessuna nuova dipendenza npm
 - Nessuna libreria CSS
 - Nessun SDK Supabase
-- Split di `App.jsx` in più file: in discussione, nessuna decisione presa — non farlo senza via libera esplicita
+- Split di `App.jsx`: **fatto** (refactor strutturale 20/09/2026). La direzione delle dipendenze è `App.jsx → ui/*`, mai il contrario: un file in `ui/` non importa mai `App.jsx`. Nessun file in `ui/` fa `fetch`, conosce Supabase o muta dati
 - Vincoli del piano 2.0: solo tre destinazioni (Lista, Bevuti, Statistiche) e mai una quarta tab; `RatingDial` sempre, mai stelline; FAB con una sola azione primaria; storico bevuti immutabile; valore di mercato AI sempre mostrato come stima con "~"; input mai sotto 16px; niente gradienti né animazioni decorative
 - Nel ridisegno della lista si possono aggiungere informazioni, mai toglierne
 
@@ -84,6 +84,7 @@ Prima i dati, perché gli step 4–6 del piano 2.0 dipendono dal modello.
 - **P3** — fatto (19/09/2026), fase 3 aperta. Anagrafica `produttori(id, nome, nome_norm UNIQUE generata, sito, sito_source, slow_chiocciola, regione)`: 80 righe dai nomi in `wines`, `wines.produttore_id` NOT NULL con FK, siti importati da `wine_websites` (26/29), `slow_chiocciola` per i 6 nomi che erano nel bundle. Nuova RPC `risolvi_produttore()` find-or-create usata da `aggiungi_o_incrementa` e `modifica_vino` (necessaria subito: la FK NOT NULL le avrebbe fatte fallire); `salva_sito_produttore` scrive su `produttori`. Client: `SW_CANTINA_CHIOCCIOLA` e `SW_VINO_BOTTIGLIA` rimossi, mappa `produttoriByNome` a livello di modulo così nessun call site di `hasCantina` cambia. **Bug reale chiuso:** la cache dei siti non era mai stata letta — `sb.get` appendeva `?order=` a un percorso che aveva già `?`, PostgREST rispondeva 400 e l'errore veniva inghiottito, quindi ogni apertura della tab Web richiamava Serper (era `F18` del vecchio PIANO_FIX). Il fallback Google non viene più salvato come sito ufficiale. **Fase 3 da fare:** drop di `wines.produttore` e di `wine_websites`. Lasciata aperta la fusione `Vina Krapez` / `Vina Krapež` (scelta editoriale, SQL pronto in `supabase/README.md`). Suite e2e: 19/19
 - **A4 / P1** — **rimandato (Q1 = b).** Auth Supabase via REST + RLS per `owner_id`, rinomina policy fuorvianti. Vedi `PIANO_DATI.md`: la revoca dei permessi di A3 ha spostato la superficie d'attacco sulle RPC (eseguibili da `anon`), non l'ha ridotta
 - **B** — interazione: "Bevi" in 2 tap con data modificabile, snackbar "Annulla" al posto delle conferme, stato Lista sollevato in `Cantina()`, cache stale-while-revalidate, `WineForm` unico, "Scheda tecnica" nel dettaglio
+- **Refactor strutturale** — fatto (20/09/2026). Presentazione separata dalla logica applicativa, così il ridisegno visivo della fase C non può toccare la logica di business. `App.jsx` 2119 → 1064 righe, nuova cartella `src/ui/` (7 file). Codice spostato **verbatim**: le uniche differenze sono le render prop `renderBottiglia`/`renderSito`, più il contatore `REV` accanto al titolo (unica modifica visibile, richiesta esplicita). Non toccati di proposito: i 3 modali, `useCantinaData`, `Card` annidata in `TabStatistiche`, props morte. Verificato a ogni passo con build e suite e2e (19/19) e confronto riga per riga con gli originali
 - **C** — UI (step 1–3, 5, 6 del piano 2.0): token tipografia/shape/colore, primitive `Button`/`Card`/`Field`/`Sheet`, riga Lista più densa, ordinamenti, palette M3 unica in `WineDetail`, card "Qualità dati" e trend in Statistiche
 
 ## Workflow obbligatorio
@@ -126,13 +127,33 @@ Raw:    https://raw.githubusercontent.com/omarquagliotto90-dotcom/cantina-pwa/ma
 - Ogni DDL su Supabase va committato in `supabase/migrations/` nella stessa sessione in cui viene eseguito (vedi `supabase/README.md`)
 - Vercel Hobby: 1 build alla volta (`On-Demand Concurrent Builds: Disabled`); se il collegamento Git si "silenzia" (push che non generano deployment), riconnettere Settings → Git → Disconnect/Connect rigenera il webhook
 
-## Stato attuale (v0.3, ~2016 righe)
+## Struttura dei file
 
-- `useCantinaData()` hook **non ancora estratto** — `loadData` resta funzione locale in `Cantina()`
-- `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
+Dal refactor strutturale del 20/09/2026. `App.jsx` è il **controller**, `src/ui/` è **solo presentazione**.
+
+| File | Righe | Contiene |
+|---|---|---|
+| `src/App.jsx` | 1064 | client `sb`, `normalizzaWine`, `annataDaForm`, `ratingPerVino`, `opzionale`, cache immagini + `imgQueue`, `DENOMINAZIONI`, `Lightbox`, `BottleImage`, `WebsiteView`, i 3 modali, `useCantinaData`, `Cantina()` con stato e handler |
+| `src/ui/components.jsx` | 504 | 22 icone SVG, `TIPO`, `IC`, `TipoLabel`, `TipoBadge`, `PressableRow`, `WineCard`, `RatingDial` |
+| `src/ui/WineDetail.jsx` | 211 | `SwBadge`, `WineDetail` |
+| `src/ui/Lista.jsx` | 126 | `FILTERS`, `FilterChip`, `TabLista` |
+| `src/ui/Statistiche.jsx` | 114 | `TabStatistiche` |
+| `src/ui/Bevuti.jsx` | 84 | `TabBevuti` |
+| `src/ui/domain.js` | 69 | funzioni pure: `resolveWine`, `valoreBottiglia`, `costoGiacenza`, `valoreMercatoGiacenza`, `formatDataIt`, anagrafica produttori |
+| `src/ui/theme.js` | 31 | `M3`, `S` |
+
+Regole da rispettare quando si tocca questa struttura:
+
+- `BottleImage` e `WebsiteView` fanno rete e cache, quindi **restano in App.jsx** e scendono a `WineDetail` come render prop `renderBottiglia` / `renderSito`, attraverso `Lista` e `Bevuti` che lo montano
+- ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
+- `src/version.js` (`VERSION = "0.3"`) non è importato da nessuno: è un file morto
+
+## Stato attuale (v0.3)
+
+- `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
 - Feature chatbot AI (`ask-wine.js`) in corso: route pronta, **Step 2 in sospeso** (tab "AI" + componente `AskAI` in `WineDetail`, in attesa di conferma)
 - `RatingDial` SVG implementato (arco 300°, gradiente `#F4D35E`→`#7B1D1D`, drag, checkpoint 1-5); `bevuti.rating` è `numeric(2,1)`
-- `TipoBadge`, `PressableRow`, costante di stile `S` già estratti come astrazioni condivise
+- Il debito misurato nella sezione "Debito nel codice" non è stato ridotto dal refactor: gli stili inline e i colori fuori token sono stati **spostati**, non riscritti. È la fase C
 
 ## Decisioni già prese
 
@@ -147,7 +168,7 @@ Raw:    https://raw.githubusercontent.com/omarquagliotto90-dotcom/cantina-pwa/ma
 2. ~~Login~~ — **deciso 19/09/2026: non ora.** Conseguenza accettata: senza `auth.uid()` il database non distingue Omar da un estraneo, quindi D1 resta aperto e non è mitigabile a metà (qualunque segreto lato client è nel bundle). Al suo posto si riduce la gravità con P1b: soft delete, log append-only, export ripetibile. A4 rientra in piano quando la decisione cambia
 3. "Riporta in cantina": tenerlo come correzione con undo, o rimuoverlo
 4. Nuovi campi (finestra di beva, posizione in cantina, formato) che abiliterebbero lo step 9 "cosa bere"
-5. Se spacchettare `App.jsx` in più file
+5. ~~Se spacchettare `App.jsx` in più file~~ — **deciso 20/09/2026: fatto.** Refactor strutturale in 4 passi (Statistiche, WineDetail, Bevuti, Lista), UI invariata, suite e2e 19/19 a ogni passo
 
 ## Decisioni prese in A2b
 
