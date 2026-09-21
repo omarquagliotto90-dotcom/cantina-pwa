@@ -13,7 +13,15 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.2";
+const REV = "1.3";
+
+// PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
+// il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
+// volta sola. `navigator.standalone` e' la variante iOS, non standard.
+const STANDALONE = typeof window !== "undefined" && (
+  window.matchMedia?.("(display-mode: standalone)").matches === true ||
+  window.navigator.standalone === true
+);
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -887,12 +895,24 @@ export default function Cantina() {
     { id: "statistiche", Icona: NavStatisticheIcon, label: "Statistiche" },
   ];
 
-  // `position: fixed` invece di `height: 100dvh`: su iOS il valore di `dvh`
-  // insegue la barra del browser e per un istante e' piu' corto dello schermo,
-  // lasciando una striscia vuota sotto la barra di navigazione. Ancorarsi a
-  // inset:0 toglie il problema alla radice.
+  // Bug noto di WebKit: nelle PWA standalone iOS sottostima innerHeight,
+  // clientHeight, visualViewport.height e 100dvh ESATTAMENTE del safe-area
+  // superiore. Misurato su iPhone 14 Pro Max il 21/09/2026: viewport 873,
+  // schermo 932, safe-area top 59. Il guscio si ancora correttamente al bordo
+  // alto, quindi l'ammanco affiora tutto come banda vuota in fondo.
+  //
+  // Con `black-translucent` la webview e' a tutto schermo: sono i NUMERI a
+  // essere corti, non lo spazio. Quindi il guscio si allunga di quei 59px e
+  // arriva al fondo vero.
+  //
+  // Solo in standalone: in Safari e Chrome il viewport e' riportato giusto, e
+  // sommare il safe-area spingerebbe la barra di navigazione sotto la toolbar
+  // del browser. Non si puo' fare con una media query perche' qui gli stili
+  // sono inline, e la modalita' non cambia a runtime: si legge una volta.
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0,
+      height: STANDALONE ? "calc(100% + env(safe-area-inset-top))" : "100%",
+      display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
         /* C1: le due famiglie del ridisegno. Roboto resta finché le schermate
