@@ -100,6 +100,53 @@ test.describe("Scontorno del fondo", () => {
     expect(scontornaFondo(d, 60, 60)).toBe(0);
   });
 
+  test("la tasca di fondo murata dall'ombra viene recuperata", () => {
+    // Il difetto vero, visto sulla foto di Pistis Sophia il 21/09/2026: il
+    // flood fill parte dai bordi e avanza sui contigui, quindi un'ombra
+    // grigia attorno alla bottiglia gli fa da muro e il bianco chiuso dietro
+    // resta opaco — un blocco bianco appiccicato alla bottiglia.
+    const d = tela({ w: 200, h: 300, oggetto: { x: 80, y: 40, larghezza: 40, altezza: 220 } });
+    const grigio = (x0, x1, y0, y1) => {
+      for (let y = y0; y < y1; y++)
+        for (let x = x0; x < x1; x++) d.set([205, 205, 205, 255], (y * 200 + x) * 4);
+    };
+    // Un arco d'ombra che chiude una tasca a destra della bottiglia.
+    grigio(120, 165, 200, 215);
+    grigio(150, 165, 215, 262);
+    grigio(120, 165, 248, 262);
+
+    scontornaFondo(d, 200, 300);
+    expect(alpha(d, 200, 135, 230), "la tasca deve sparire").toBe(0);
+    expect(alpha(d, 200, 100, 150), "la bottiglia deve restare").toBe(255);
+  });
+
+  test("l'etichetta bianca resta anche col recupero delle tasche", () => {
+    // La controprova del test sopra. Il recupero allarga la tolleranza, quindi
+    // deve distinguere una tasca di fondo — contornata da fondo gia' tolto —
+    // da un'etichetta, contornata dal vetro. Senza questa distinzione la
+    // bottiglia di Pistis Sophia perderebbe l'etichetta, che e' bianca.
+    const d = tela({ w: 100, h: 200, oggetto: { x: 30, y: 20, larghezza: 40, altezza: 160 } });
+    for (let y = 80; y < 120; y++)
+      for (let x = 32; x < 68; x++) d.set([255, 255, 255, 255], (y * 100 + x) * 4);
+
+    scontornaFondo(d, 100, 200);
+    expect(alpha(d, 100, 50, 100), "centro etichetta").toBe(255);
+    expect(alpha(d, 100, 33, 100), "etichetta a filo del vetro").toBe(255);
+  });
+
+  test("un riflesso chiaro sul bordo del vetro non viene scavato", () => {
+    // Il rischio che il recupero delle tasche porta con se': una lumeggiatura
+    // sul fianco della bottiglia e' chiara quasi come il fondo e lo tocca. Non
+    // e' una tasca, e' vetro: confina per meta' col soggetto, quindi la quota
+    // del 70% la salva. Se un giorno questa soglia si alza, questo test cade.
+    const d = tela({ w: 100, h: 200, oggetto: { x: 30, y: 20, larghezza: 40, altezza: 160 } });
+    for (let y = 30; y < 170; y++)
+      for (let x = 64; x < 70; x++) d.set([215, 215, 215, 255], (y * 100 + x) * 4);
+
+    scontornaFondo(d, 100, 200);
+    expect(alpha(d, 100, 66, 100), "il riflesso e' vetro, non fondo").toBe(255);
+  });
+
   test("dopo lo scontorno il riquadro segue la sagoma, non il rettangolo", () => {
     // Bottiglia stretta con una base larga e chiara quasi come il fondo: senza
     // scontorno il riquadro la includerebbe, con lo scontorno no.

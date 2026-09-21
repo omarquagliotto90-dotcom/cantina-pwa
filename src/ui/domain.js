@@ -74,6 +74,12 @@ export function getGoogleFallback(produttore, vino) {
 // basso abbastanza da non mangiare un'etichetta chiara.
 const TOLLERANZA = 18;
 
+// Seconda passata dello scontorno: vedi `recuperaTasche`. La tolleranza e' piu'
+// larga perche' deve arrivare a coprire l'ombra, che e' fondo anch'essa ma piu'
+// scura; la quota di contorno e' cio' che impedisce di mangiare un'etichetta.
+const TOLLERANZA_RESIDUO = TOLLERANZA * 3;
+const QUOTA_CONTORNO_LIBERO = 0.7;
+
 /**
  * Riquadro che contiene tutto cio' che non e' fondo.
  * `null` quando non c'e' niente da rifilare: fondo non uniforme (foto
@@ -133,6 +139,70 @@ export function riquadroContenuto(dati, larghezza, altezza) {
  *
  * Muta `dati` sul posto. Restituisce quanti pixel ha reso trasparenti.
  */
+/**
+ * Recupera le tasche di fondo che il flood fill non ha potuto raggiungere.
+ *
+ * Il fill avanza sui contigui, quindi un'ombra attorno alla bottiglia gli fa da
+ * muro: il fondo chiuso dietro l'ombra resta opaco e si vede come un blocco
+ * bianco appiccicato al soggetto. Allargare e basta la tolleranza del fill non
+ * va bene: su una bottiglia con l'etichetta bianca gliela mangerebbe.
+ *
+ * La distinzione non e' nel colore — tasca ed etichetta sono lo stesso bianco —
+ * ma in CHI le circonda. Una tasca di fondo confina quasi tutta con fondo gia'
+ * tolto; un'etichetta confina col vetro. Quindi qui si raccolgono le componenti
+ * connesse di pixel quasi-fondo ancora opachi e si toglie solo quelle cinte per
+ * almeno il 70% da pixel gia' marcati.
+ *
+ * Lavora su `daPulire`, non sui pixel: la decisione di mutare resta a chi chiama.
+ */
+function recuperaTasche(dati, larghezza, altezza, daPulire, rf, gf, bf) {
+  const n = larghezza * altezza;
+
+  const quasiFondo = (p) => {
+    if (daPulire[p]) return false;          // gia' riconosciuto come fondo
+    const i = p * 4;
+    if (dati[i + 3] < 16) return false;
+    return Math.abs(dati[i] - rf) <= TOLLERANZA_RESIDUO &&
+           Math.abs(dati[i + 1] - gf) <= TOLLERANZA_RESIDUO &&
+           Math.abs(dati[i + 2] - bf) <= TOLLERANZA_RESIDUO;
+  };
+
+  const visto = new Uint8Array(n);
+  let recuperati = 0;
+
+  for (let seme = 0; seme < n; seme++) {
+    if (visto[seme] || !quasiFondo(seme)) continue;
+
+    const componente = [];
+    const pila = [seme];
+    visto[seme] = 1;
+    let libero = 0, soggetto = 0;
+
+    while (pila.length) {
+      const p = pila.pop();
+      componente.push(p);
+      const x = p % larghezza, y = (p - x) / larghezza;
+      const vicini = [];
+      if (x > 0)             vicini.push(p - 1);
+      if (x < larghezza - 1) vicini.push(p + 1);
+      if (y > 0)             vicini.push(p - larghezza);
+      if (y < altezza - 1)   vicini.push(p + larghezza);
+
+      for (const q of vicini) {
+        if (quasiFondo(q)) { if (!visto[q]) { visto[q] = 1; pila.push(q); } }
+        else if (daPulire[q]) libero++;
+        else soggetto++;
+      }
+    }
+
+    const contorno = libero + soggetto;
+    if (!contorno || libero / contorno < QUOTA_CONTORNO_LIBERO) continue;
+    for (const p of componente) { daPulire[p] = 1; recuperati++; }
+  }
+
+  return recuperati;
+}
+
 export function scontornaFondo(dati, larghezza, altezza, tolleranza = TOLLERANZA) {
   const n = larghezza * altezza;
   const angoli = [[0, 0], [larghezza - 1, 0], [0, altezza - 1], [larghezza - 1, altezza - 1]]
@@ -183,6 +253,10 @@ export function scontornaFondo(dati, larghezza, altezza, tolleranza = TOLLERANZA
   // senza margini ha gli angoli tutti uguali e verrebbe cancellata per intero.
   // Meglio non scontornare che restituire un'immagine vuota.
   if (marcati > n * 0.92) return 0;
+
+  // Le tasche che l'ombra ha murato: il fill da solo non le raggiunge.
+  marcati += recuperaTasche(dati, larghezza, altezza, daPulire, rf, gf, bf);
+  if (marcati > n * 0.92) return 0;   // la stessa guardia, sul totale
 
   let tolti = 0;
   for (let p = 0; p < n; p++) {
