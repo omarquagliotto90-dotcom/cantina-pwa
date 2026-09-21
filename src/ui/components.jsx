@@ -304,11 +304,13 @@ export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null
             <b style={{ fontFamily: T.serif, fontSize: 17, fontWeight: 500, lineHeight: 1 }}>{wine.bottiglie}</b>
             <span style={{ fontSize: 11, color: T.testoUnita }}>{wine.bottiglie === 1 ? "bottiglia" : "bottiglie"}</span>
           </span>
-          {/* Due righe invece di una: il design mostrava solo la stima, ma il
-              prezzo pagato non va perso. La stima compare solo se esiste. */}
+          {/* Due righe invece di una: il design mostrava solo il valore, ma il
+              prezzo pagato non va perso. La seconda riga compare solo se esiste.
+              Le due cifre sono spesso uguali, quindi ciascuna porta la sua
+              etichetta: senza, non si capisce quale sia quale. */}
           <span style={{ textAlign: "right", color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>
-            {wine.prezzo != null ? `${wine.prezzo} € / bott.` : "prezzo non noto"}
-            {wine.valore != null && <><br />stima {wine.valore} €</>}
+            {wine.prezzo != null ? `costo ${wine.prezzo} €` : "prezzo non noto"}
+            {wine.valore != null && <><br />valore {wine.valore} €</>}
           </span>
         </div>
       </div>
