@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.0";
+const REV = "2.1";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -291,6 +291,36 @@ async function rifila(url) {
   return out.toDataURL("image/png");
 }
 
+// Perche' una foto non e' stata rifilata. In memoria e per sessione: non e' un
+// log, e' un modo per rispondere a "perche' questa bottiglia ha il riquadro
+// bianco?" senza doverlo dedurre.
+//
+// Serve perche' tutte le strade che falliscono — 403 dell'origine, timeout,
+// angoli non concordi, canvas contaminato — producono lo stesso identico
+// risultato sullo schermo. Il 21/09/2026 per sapere che rossopastrengo.com
+// rispondeva 403 ho dovuto interrogare il proxy a mano.
+export const motiviRifilo = new Map();   // url originale -> motivo leggibile
+if (typeof window !== "undefined") window.motiviRifilo = motiviRifilo;
+
+/**
+ * Traduce un fallimento in una frase. Fa una richiesta in piu', ma solo quando
+ * qualcosa e' gia' andato storto, e il risultato resta in cache: una volta per
+ * URL per sessione.
+ */
+async function motivoDelFallimento(url, err) {
+  const sorgente = sorgenteLeggibile(url);
+  if (!sorgente?.startsWith("/api/")) return err?.name || "errore sconosciuto";
+  try {
+    const r = await fetch(sorgente);
+    // I byte ci sono: allora il guaio e' a valle, nella decodifica o nel canvas.
+    if (r.ok) return `immagine scaricata ma non elaborabile (${err?.name || "errore"})`;
+    const corpo = await r.json().catch(() => ({}));
+    return `proxy ${r.status}: ${corpo.error || "nessun dettaglio"}`;
+  } catch {
+    return "proxy irraggiungibile";
+  }
+}
+
 /** Versione con cache e senza eccezioni: in caso di guaio si tiene l'originale. */
 export async function immagineRifilata(url) {
   if (!url) return null;
@@ -301,10 +331,13 @@ export async function immagineRifilata(url) {
   try {
     const dataUrl = await rifila(url);
     rifilateCache.set(url, dataUrl || "NIENTE_DA_FARE");
+    if (!dataUrl) motiviRifilo.set(url, "fondo non uniforme, o niente da togliere");
     return dataUrl;
   } catch (err) {
     // Proxy giu', origine morta, canvas contaminato: si mostra l'originale.
     rifilateCache.set(url, "NIENTE_DA_FARE");
+    motiviRifilo.set(url, "in accertamento…");
+    motivoDelFallimento(url, err).then(m => motiviRifilo.set(url, m));
     return null;
   }
 }

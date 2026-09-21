@@ -37,6 +37,8 @@ class Cantina {
       wine_websites: [],
     };
     this.rpcOverrides = {};
+    /** Risposte su misura per le route /api: nome -> { status, body }. */
+    this.apiOverrides = {};
     this.failing = new Set();
     this._nextUid = 1789000000100;
   }
@@ -158,6 +160,14 @@ class Cantina {
     const req = route.request();
     const name = req.url().split("/api/")[1].split("?")[0];
     this.calls.push({ kind: "api", name, args: req.postData(), method: req.method() });
+    const su_misura = this.apiOverrides[name];
+    if (su_misura) {
+      return route.fulfill({
+        status: su_misura.status ?? 200,
+        headers: JSON_HEADERS,
+        body: JSON.stringify(su_misura.body ?? {}),
+      });
+    }
     return route.fulfill({
       status: 200,
       headers: JSON_HEADERS,

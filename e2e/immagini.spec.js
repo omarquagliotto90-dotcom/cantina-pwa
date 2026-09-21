@@ -48,6 +48,30 @@ test.describe("Foto di bottiglia", () => {
     expect(dim.h).toBeLessThanOrEqual(330);
   });
 
+  test("se l'origine rifiuta il proxy, il motivo viene registrato", async ({ page, cantina }) => {
+    // Il caso reale del 21/09/2026: rossopastrengo.com risponde 403 al proxy,
+    // quindi i byte non arrivano e non c'e' nessuno scontorno da fare. Prima
+    // il fallimento era muto e identico a ogni altro: per sapere la causa ho
+    // dovuto interrogare il proxy a mano. Ora la ragione resta in memoria.
+    const REMOTA = "https://rossopastrengo.example/Malibran-Teatrale.jpg";
+    cantina.apiOverrides.immagine = { status: 502, body: { error: "origine ha risposto 403" } };
+    cantina.setTable("wines", [VINO]).setTable("bevuti", [])
+      .setTable("wine_images", [{ wine_id: 1, image_url: REMOTA }]);
+
+    await apriApp(page);
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+
+    // La garanzia di sempre: la foto non si perde, si mostra l'originale.
+    const img = page.getByRole("dialog").getByRole("img", { name: /Pieropan/ });
+    await expect(img).toHaveAttribute("src", REMOTA);
+
+    // E la novita': il perche' e' leggibile invece che da dedurre.
+    await expect.poll(
+      () => page.evaluate(u => window.motiviRifilo?.get(u) ?? null, REMOTA),
+      { timeout: 10_000 }
+    ).toMatch(/502.*403/);
+  });
+
   test("se il rifilo non trova margine si tiene l'originale", async ({ page, cantina }) => {
     // Tela tutta piena: niente da togliere. L'immagine non deve sparire.
     const pieno = "data:image/svg+xml;utf8," + encodeURIComponent(

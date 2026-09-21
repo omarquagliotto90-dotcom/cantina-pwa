@@ -21,6 +21,25 @@ const MAX_BYTE = 8 * 1024 * 1024;
 const HOST_VIETATI = /^(localhost|.*\.local|.*\.internal|metadata\..*)$/i;
 const IP_LETTERALE = /^\d{1,3}(\.\d{1,3}){3}$|^\[?[0-9a-f:]+\]?$/i;
 
+// Molti siti rispondono 403 a chi non sembra un browser: guardano User-Agent e
+// Referer. Misurato il 21/09/2026 su rossopastrengo.com, vignetiradica.it e
+// triplea.it — 3 host su 6 fra i piu' numerosi. Con questi header il proxy si
+// presenta come il browser che sta gia' caricando quella stessa foto nell'<img>
+// della scheda: non prende niente che l'app non stia gia' prendendo, serve solo
+// ad avere i byte sul nostro dominio e quindi accesso ai pixel.
+const UA_BROWSER = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+function intestazioniDaBrowser(u) {
+  return {
+    "User-Agent": UA_BROWSER,
+    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
+    // Il Referer e' l'anti-hotlink piu' diffuso: vuole vedere una pagina del
+    // sito stesso. L'origine nuda basta e non finge una pagina che non esiste.
+    "Referer": u.origin + "/",
+  };
+}
+
 function indirizzoAmmesso(u) {
   if (u.protocol !== "https:") return "solo https";
   if (HOST_VIETATI.test(u.hostname)) return "host non instradabile";
@@ -40,6 +59,11 @@ export default async function handler(req, res) {
   try { u = new URL(grezzo); }
   catch { return res.status(400).json({ error: "url non valida" }); }
 
+  // 3 foto in cantina sono salvate con schema http. Rifiutarle e basta le
+  // rendeva impossibili da rifilare per sempre; provare in https e' sia piu'
+  // sicuro sia l'unica speranza che funzionino.
+  if (u.protocol === "http:") u.protocol = "https:";
+
   const motivo = indirizzoAmmesso(u);
   if (motivo) return res.status(400).json({ error: motivo });
 
@@ -47,7 +71,7 @@ export default async function handler(req, res) {
     const r = await fetch(u.toString(), {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; LaMiaCantina/1.0)" },
+      headers: intestazioniDaBrowser(u),
     });
     if (!r.ok) return res.status(502).json({ error: `origine ha risposto ${r.status}` });
 
