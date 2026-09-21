@@ -46,6 +46,27 @@ export function punteggioImmagine(url) {
 // — e-commerce, PNG, scontornata — per superarla.
 export const SOGLIA_MINIMA = 3;
 
+/**
+ * La stringa mandata a Serper.
+ *
+ * **Prima il vino, poi la cantina** (decisione di Omar, 21/09/2026). Con il
+ * produttore in testa, "Peroni Marzemino Montelungo" tornava con la bottiglia
+ * sbagliata: le prime parole pesano di piu', e quando il produttore e' anche
+ * una marca famosa di altro — Peroni e' soprattutto una birra — vince quella.
+ *
+ * **L'annata entra solo se e' un'annata.** Dal client arriva la stringa "n.d."
+ * quando non si conosce (`normalizzaWine` in App.jsx la mette per il display),
+ * e infilarla nella ricerca e' spazzatura. Qui passa solo cio' che somiglia a
+ * un anno: "n.d.", vuoto, null e altri residui restano fuori.
+ *
+ * Pura e verificata in `e2e/ranking.spec.mjs`, come `punteggioImmagine`.
+ */
+export function costruisciQuery(produttore, vino, annata) {
+  const grezza = String(annata ?? "").trim();
+  const anno = /^\d{4}$/.test(grezza) ? ` ${grezza}` : "";
+  return `${vino} ${produttore}${anno} bottiglia vino`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
@@ -56,8 +77,7 @@ export default async function handler(req, res) {
   if (!produttore || !vino) return res.status(400).json({ error: "produttore e vino richiesti" });
 
   try {
-    const annata = req.body.annata || "";
-    const query = `${produttore} ${vino}${annata ? " " + annata : ""} bottiglia vino`;
+    const query = costruisciQuery(produttore, vino, req.body.annata);
     console.log("Searching:", query);
 
     const serperRes = await fetch("https://google.serper.dev/images", {

@@ -9,7 +9,7 @@
 // `1057-large_default` col trattino, non `/large_default`.
 
 import { test, expect } from "@playwright/test";
-import { punteggioImmagine, SOGLIA_MINIMA } from "../api/search-image.js";
+import { punteggioImmagine, SOGLIA_MINIMA, costruisciQuery } from "../api/search-image.js";
 
 // Scartate: sono il ritaglio dell'etichetta, non la bottiglia.
 const NON_BOTTIGLIE = [
@@ -56,5 +56,26 @@ test.describe("Ranking immagini bottiglia", () => {
   test("http vale meno di https, a parita' di tutto il resto", () => {
     const base = "wivood.com/cdn/shop/files/Bianchetta.jpg";
     expect(punteggioImmagine(`https://${base}`)).toBeGreaterThan(punteggioImmagine(`http://${base}`));
+  });
+});
+
+test.describe("Stringa di ricerca", () => {
+  test("prima il vino, poi la cantina", () => {
+    // Col produttore in testa, "Peroni Marzemino Montelungo" tornava con la
+    // bottiglia sbagliata: Peroni e' soprattutto una birra, e le prime parole
+    // pesano di piu'. Invertire l'ordine e' la richiesta di Omar del
+    // 21/09/2026.
+    expect(costruisciQuery("Peroni", 'Marzemino "Montelungo"', null))
+      .toBe('Marzemino "Montelungo" Peroni bottiglia vino');
+  });
+
+  test("l'annata entra solo se e' un'annata", () => {
+    // Dal client arriva la stringa "n.d." quando non si conosce: e' un
+    // segnaposto per il display, non un dato, e nella ricerca e' spazzatura.
+    // Erano esattamente i due vini Peroni a portarsela dietro.
+    expect(costruisciQuery("Peroni", "Merlot", "n.d.")).toBe("Merlot Peroni bottiglia vino");
+    expect(costruisciQuery("Peroni", "Merlot", "")).toBe("Merlot Peroni bottiglia vino");
+    expect(costruisciQuery("Peroni", "Merlot", null)).toBe("Merlot Peroni bottiglia vino");
+    expect(costruisciQuery("Bisci", "Verdicchio", 2019)).toBe("Verdicchio Bisci 2019 bottiglia vino");
   });
 });
