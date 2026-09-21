@@ -29,11 +29,18 @@ l'hero vuoto. Nessuno dei due darebbe errore da solo.
 |---|---|---|
 | Trentino-Alto Adige | `trentino-alto-adige.jpg` | 580×580, 107 KB. **Sotto specifica:** su iPhone l'hero è 1125×1350 fisici a 3x, quindi viene ingrandita ~2,4 volte e al 100% i filari risultano morbidi. Sostituibile con un ritaglio verticale ≥1200px dello stesso scatto, senza toccare il codice |
 | Veneto | `veneto.jpg` | 620×438, 122 KB. **La più sotto specifica delle tre, e la più vista** (27 bottiglie, 15 produttori): l'hero ne usa la fascia centrale, ~365px, ingranditi 3,1 volte a 3x. Al 100% i filari sono impastati. Funziona perché il soggetto è controluce e sfocato, ma è la prima da sostituire con un originale ≥1200px |
+| Marche | `marche.jpg` | 2048×1366, 448 KB. **La prima sopra specifica davvero:** il ritaglio dell'hero usa 1182px contro i 1170 necessari a 3×, quindi **riduce invece di ingrandire** — nitida sul serio. L'originale era 2560×1707 e 643 KB; ridimensionato a 2048 perché è la larghezza minima che resta pixel-perfetta (la fascia usata è il 57,7% del totale, e 2048 × 0,577 = 1182 ≥ 1170) |
 | Abruzzo | `abruzzo.jpg` | 678×452, 74 KB. Sotto specifica: il ritaglio dell'hero usa 377px di larghezza, ingranditi 3× su iPhone. **Porta il watermark di `vivillvino.it` in basso a destra.** Reso e verificato a schermo: non si vede, perché cade nella fascia bassa dove il velo è ormai quasi opaco (non è il ritaglio a escluderlo, come si poteva pensare dal calcolo). Resta però nel file, e il repo è pubblico. Montata comunque su decisione di Omar, 21/09/2026 |
 | Valle d'Aosta | `valle-d-aosta.jpg` | 1920×1080, 231 KB. Dimensioni buone. **Dormiente:** al 20/09/2026 nessun produttore è in Valle d'Aosta, quindi non viene mai mostrata. Si accende da sola il giorno che entra un vino valdostano |
 
-Sopra i 100 KB indicativi, ma ricomprimerla la fa *crescere*: è già
-ottimizzata. Il tetto vero, verificato dai test, è 300 KB.
+Il tetto vero, verificato dai test, è **500 KB**. Era 300, alzato il 21/09/2026:
+i 300 erano tarati su foto piccole e ingrandite 3 volte, e avrebbero costretto
+a degradare la prima foto davvero nitida. Resta un tetto: serve a impedire che
+finisca qui un file non ottimizzato.
+
+**Se una foto sfora**, ridimensionala invece di comprimerla di più: la larghezza
+minima utile è **2048px**, perché l'hero usa il 57,7% centrale e a 3× servono
+1170px fisici. Sotto i 2048 si torna a ingrandire.
 
 Il secondo passo è quello che accende la foto: l'elenco è esplicito apposta,
 così per le regioni senza foto il browser non parte con una richiesta destinata
