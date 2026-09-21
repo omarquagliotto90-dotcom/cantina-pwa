@@ -151,7 +151,7 @@ Regole da rispettare quando si tocca questa struttura:
 - ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
 - la revisione sta in **un solo posto**: la costante `REV` in cima ad `App.jsx`, mostrata accanto al titolo nell'app bar. Sale di 0.1 a ogni modifica di `App.jsx`. `src/version.js` è stato cancellato (era fermo a 0.3 e non lo importava nessuno) e il commento d'intestazione non porta più un numero: erano le due fonti di disallineamento
 
-## Stato attuale (REV 0.5)
+## Stato attuale (REV 1.1)
 
 - `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
 - `REV` è l'unico numero di versione del progetto. Attenzione: misura le modifiche ad `App.jsx`, non i passi della roadmap — P1b.1 e P1b.3 non l'hanno alzato perché non hanno toccato quel file

@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.0";
+const REV = "1.1";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -887,8 +887,12 @@ export default function Cantina() {
     { id: "statistiche", Icona: NavStatisticheIcon, label: "Statistiche" },
   ];
 
+  // `position: fixed` invece di `height: 100dvh`: su iOS il valore di `dvh`
+  // insegue la barra del browser e per un istante e' piu' corto dello schermo,
+  // lasciando una striscia vuota sotto la barra di navigazione. Ancorarsi a
+  // inset:0 toglie il problema alla radice.
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
         /* C1: le due famiglie del ridisegno. Roboto resta finché le schermate
@@ -929,7 +933,7 @@ export default function Cantina() {
 
       {/* ── Extended FAB ── */}
       {tab === "lista" && (
-        <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
+        <div style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
           {selectedWineForScheda && (
             <button onClick={handleSchedaTecnica} disabled={schedaFabLoading} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: schedaFabLoading ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", opacity: schedaFabLoading ? 0.7 : 1 }}>
               {schedaFabLoading
@@ -942,9 +946,16 @@ export default function Cantina() {
 
       {/* ── Navigation Bar — ridisegno 2026 ── */}
       {/* La pastiglia M3 lascia il posto a un trattino di 2px sopra la voce
-          attiva. Il padding in basso somma i 4px del design al safe-area
-          dell'iPhone, che il prototipo non doveva gestire. */}
-      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", height: 72, paddingBottom: "calc(4px + env(safe-area-inset-bottom))", borderTop: `1px solid ${T.divisoreMedio}`, background: "rgba(255,252,247,.96)", backdropFilter: "blur(14px)", zIndex: 10 }}>
+          attiva.
+
+          Il design e' `height:72px; padding-bottom:4px`, cioe' 68px di
+          contenuto. Con `box-sizing: border-box` il safe-area dell'iPhone,
+          che il prototipo non doveva gestire, andava SOTTRATTO da quei 72:
+          su un telefono con home indicator il contenuto scendeva a 33px
+          mentre i bottoni ne chiedono 37, e la barra si schiacciava.
+          Ora il safe-area si somma all'altezza, quindi il contenuto resta
+          68px su qualunque dispositivo. */}
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", height: "calc(72px + env(safe-area-inset-bottom))", paddingBottom: "calc(4px + env(safe-area-inset-bottom))", borderTop: `1px solid ${T.divisoreMedio}`, background: "rgba(255,252,247,.96)", backdropFilter: "blur(14px)", zIndex: 10 }}>
         {NAV.map(({ id, Icona, label }) => {
           const attiva = tab === id;
           return (
