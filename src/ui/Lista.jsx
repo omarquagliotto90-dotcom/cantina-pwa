@@ -110,7 +110,12 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             numerone: tolta il 21/09/2026, era la terza cifra in euro a pochi
             centimetri dalle altre due e non aggiungeva niente. */}
         <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(132px,.85fr)", alignItems: "end", padding: "10px 0 9px", borderTop: `1px solid ${T.divisoreMedio}`, borderBottom: `1px solid ${T.divisoreMedio}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+          {/* `alignSelf: center` contro l'`alignItems: end` della sezione: la
+              colonna di destra e' alta 90px e detta la riga, questa cella solo
+              55, quindi allineata in fondo restava con 36px di vuoto sopra e 1
+              sotto. Centrata qui e non sulla sezione, cosi' la colonna di
+              destra — che riempie gia' la riga — non si sposta. */}
+          <div style={{ display: "flex", alignItems: "center", alignSelf: "center", gap: 11 }}>
             <span data-testid="tot-bottiglie" style={{ fontFamily: T.serif, fontSize: 55, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{totalB}</span>
             <span style={{ color: T.secondario, fontSize: 12, lineHeight: 1 }}>bottiglie</span>
           </div>

@@ -105,6 +105,26 @@ test.describe("Caricamento e Lista", () => {
     await expect(page.getByText("Foto etichetta")).toBeVisible();
   });
 
+  test("il blocco 117 bottiglie e' centrato nel riepilogo", async ({ page }) => {
+    // La colonna di destra (referenze/costo/valore) e' alta 90px e detta
+    // l'altezza della riga; questa cella ne occupa 55. Con l'`alignItems: end`
+    // della sezione restava in fondo, con 36px di vuoto sopra e 1 sotto —
+    // misurato il 21/09/2026, ed era ben visibile una volta tolte le due
+    // righe di troppo sotto "bottiglie".
+    await apriApp(page);
+    const m = await page.evaluate(() => {
+      const cella = document.querySelector('[data-testid="tot-bottiglie"]').parentElement;
+      const sez = cella.parentElement;
+      const cs = getComputedStyle(sez);
+      const s = sez.getBoundingClientRect(), c = cella.getBoundingClientRect();
+      return {
+        sopra: c.top - (s.top + parseFloat(cs.paddingTop)),
+        sotto: (s.bottom - parseFloat(cs.paddingBottom)) - c.bottom,
+      };
+    });
+    expect(Math.abs(m.sopra - m.sotto), `sopra ${m.sopra}px, sotto ${m.sotto}px`).toBeLessThan(1);
+  });
+
   test("il + sparisce quando si apre la scheda di un vino", async ({ page, cantina }) => {
     // La scheda e' un overlay a tutto schermo: un "+" che ci resta sopra
     // sarebbe il bug del FAB, non una scorciatoia.
