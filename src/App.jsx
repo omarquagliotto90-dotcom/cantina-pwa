@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.3";
+const REV = "1.4";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -895,23 +895,14 @@ export default function Cantina() {
     { id: "statistiche", Icona: NavStatisticheIcon, label: "Statistiche" },
   ];
 
-  // Bug noto di WebKit: nelle PWA standalone iOS sottostima innerHeight,
-  // clientHeight, visualViewport.height e 100dvh ESATTAMENTE del safe-area
-  // superiore. Misurato su iPhone 14 Pro Max il 21/09/2026: viewport 873,
-  // schermo 932, safe-area top 59. Il guscio si ancora correttamente al bordo
-  // alto, quindi l'ammanco affiora tutto come banda vuota in fondo.
-  //
-  // Con `black-translucent` la webview e' a tutto schermo: sono i NUMERI a
-  // essere corti, non lo spazio. Quindi il guscio si allunga di quei 59px e
-  // arriva al fondo vero.
-  //
-  // Solo in standalone: in Safari e Chrome il viewport e' riportato giusto, e
-  // sommare il safe-area spingerebbe la barra di navigazione sotto la toolbar
-  // del browser. Non si puo' fare con una media query perche' qui gli stili
-  // sono inline, e la modalita' non cambia a runtime: si legge una volta.
+  // Il guscio riempie il viewport riportato, e basta. Provato e scartato il
+  // 21/09/2026: allungarlo di `env(safe-area-inset-top)` in standalone, per
+  // recuperare i 59px che iOS non conta, TAGLIA la barra di navigazione. La
+  // webview si ferma davvero al viewport riportato e scarta quel che c'e'
+  // sotto, quindi li' il CSS non arriva. La banda residua sull'iPhone si
+  // chiude solo cambiando `apple-mobile-web-app-status-bar-style`.
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0,
-      height: STANDALONE ? "calc(100% + env(safe-area-inset-top))" : "100%",
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100%",
       display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
