@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.8";
+const REV = "1.9";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -845,9 +845,20 @@ export default function Cantina() {
   // BottleImage e WebsiteView fanno rete e cache: restano qui e scendono a
   // WineDetail come render prop, attraverso le schermate che lo montano.
   const renderBottiglia = (w, attiva) => <BottleImage wine={w} active={attiva} />;
+  // `minWidth/minHeight: 0` non sono decorazione. Il contenitore e' un grid, e
+  // un grid item ha una DIMENSIONE MINIMA AUTOMATICA che gli impedisce di
+  // rimpicciolirsi sotto il proprio contenuto: la riga si allargava fino
+  // all'altezza naturale dell'immagine (misurato `grid-template-rows: 278px`
+  // dentro un riquadro alto 84), quindi `height: 100%` valeva 278px e
+  // `overflow: hidden` mostrava solo il tappo della bottiglia.
+  //
+  // Prima del rifilo non si vedeva, perche' le immagini erano quasi quadrate.
+  // Col rifilo diventano strette e alte e il difetto taglia tutto. Non era
+  // `object-fit: contain` a sbagliare: non aveva mai la possibilita' di agire,
+  // perche' l'elemento era gia' della misura sbagliata.
   const renderMiniatura = (immagine) => (
     <Miniatura immagine={immagine}
-      stile={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
+      stile={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />
   );
 
   useEffect(() => {

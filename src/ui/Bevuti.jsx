@@ -38,7 +38,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatur
           {immagine
             ? (renderMiniatura
                 ? renderMiniatura(immagine)
-                : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />)
+                : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />)
             : <CaliceIcon size={18} color={T.tenueAlt} />}
         </div>
         <div style={{ minWidth: 0 }}>

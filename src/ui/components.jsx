@@ -283,7 +283,7 @@ export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null
         {immagine ? (
           renderMiniatura
             ? renderMiniatura(immagine)
-            : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
+            : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: T.tenueAlt }}>
             <CaliceIcon size={20} />

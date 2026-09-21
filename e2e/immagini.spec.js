@@ -115,4 +115,30 @@ test.describe("Foto di bottiglia", () => {
     await ultima.scrollIntoViewIfNeeded();
     await expect(ultima).toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
   });
+
+  test("la miniatura non straborda dal suo riquadro", async ({ page, cantina }) => {
+    // Regressione vera, introdotta in REV 1.8 e vista da Omar: col rifilo le
+    // immagini diventano strette e alte, e la dimensione minima automatica dei
+    // grid item allargava la riga fino all'altezza naturale — img 62x279 in un
+    // riquadro 62x84, con `overflow: hidden` che mostrava solo il tappo.
+    // L'invariante e' semplice: l'immagine non puo' essere piu' grande del
+    // riquadro che la contiene.
+    const alta = "data:image/svg+xml;utf8," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800">`
+      + `<rect width="800" height="800" fill="#ffffff"/>`
+      + `<rect x="340" y="90" width="120" height="630" fill="#2E4A2E"/></svg>`);
+    cantina.setTable("wines", [VINO]).setTable("bevuti", [])
+      .setTable("wine_images", [{ wine_id: 1, image_url: alta }]);
+
+    await apriApp(page);
+    const mini = page.locator('img[alt=""]').first();
+    await expect(mini).toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
+
+    const g = await mini.evaluate(el => {
+      const r = el.getBoundingClientRect(), p = el.parentElement.getBoundingClientRect();
+      return { img: { w: r.width, h: r.height }, box: { w: p.width, h: p.height } };
+    });
+    expect(g.img.h).toBeLessThanOrEqual(g.box.h + 1);
+    expect(g.img.w).toBeLessThanOrEqual(g.box.w + 1);
+  });
 });
