@@ -122,7 +122,10 @@ test.describe("Caricamento e Lista", () => {
         sotto: (s.bottom - parseFloat(cs.paddingBottom)) - c.bottom,
       };
     });
-    expect(Math.abs(m.sopra - m.sotto), `sopra ${m.sopra}px, sotto ${m.sotto}px`).toBeLessThan(1);
+    // Tolleranza 1px: l'altezza della riga non e' sempre pari, quindi il
+    // centraggio puo' cadere su mezzo pixel per parte. Il difetto vero valeva
+    // 35px di scarto, quindi 1 non gli fa da scappatoia.
+    expect(Math.abs(m.sopra - m.sotto), `sopra ${m.sopra}px, sotto ${m.sotto}px`).toBeLessThanOrEqual(1);
   });
 
   test("il + sparisce quando si apre la scheda di un vino", async ({ page, cantina }) => {

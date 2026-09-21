@@ -96,11 +96,13 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             appiccicata, quindi scorreva via e restava irraggiungibile per il
             98% della lista. Misurato: dopo 1200px di scroll stava a y=-1191,
             e la cantina vera e' alta circa 11.500px. */}
-        <header style={{ minHeight: 62, display: "flex", alignItems: "center" }}>
-          <div>
-            <p style={{ ...OCCHIELLO }}>Collezione privata{rev && <span style={{ opacity: .65 }}> · {rev}</span>}</p>
-            <h2 style={{ margin: "3px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
-          </div>
+        {/* Stessa gabbia dell'intestazione di Bevuti (21/09/2026): 30px sopra,
+            16 sotto, e la riga forte in fondo. Li' sotto il titolo c'e' un
+            paragrafo, qui no e non va aggiunto: lo stacco dalla riga lo fa il
+            padding, quindi il margine sotto l'h2 resta 0. */}
+        <header style={{ padding: "30px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
+          <p style={{ ...OCCHIELLO }}>Collezione privata{rev && <span style={{ opacity: .65 }}> · {rev}</span>}</p>
+          <h2 style={{ margin: "3px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
         </header>
 
         {/* ── Riepilogo ── */}
@@ -109,13 +111,12 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             nessuna delle due va persa. La media per bottiglia stava sotto il
             numerone: tolta il 21/09/2026, era la terza cifra in euro a pochi
             centimetri dalle altre due e non aggiungeva niente. */}
-        <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(132px,.85fr)", alignItems: "end", padding: "10px 0 9px", borderTop: `1px solid ${T.divisoreMedio}`, borderBottom: `1px solid ${T.divisoreMedio}` }}>
-          {/* `alignSelf: center` contro l'`alignItems: end` della sezione: la
-              colonna di destra e' alta 90px e detta la riga, questa cella solo
-              55, quindi allineata in fondo restava con 36px di vuoto sopra e 1
-              sotto. Centrata qui e non sulla sezione, cosi' la colonna di
-              destra — che riempie gia' la riga — non si sposta. */}
-          <div style={{ display: "flex", alignItems: "center", alignSelf: "center", gap: 11 }}>
+        <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(132px,.85fr)", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${T.divisoreMedio}` }}>
+          {/* Il centraggio ora lo fa l'`alignItems: center` della sezione, come
+              in Bevuti. Serve: la colonna di destra e' alta 90px e detta la
+              riga, questa cella solo 55, e con l'`end` di prima restava con
+              36px di vuoto sopra e 1 sotto. C'e' un test che lo blocca. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span data-testid="tot-bottiglie" style={{ fontFamily: T.serif, fontSize: 55, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{totalB}</span>
             <span style={{ color: T.secondario, fontSize: 12, lineHeight: 1 }}>bottiglie</span>
           </div>
