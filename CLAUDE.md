@@ -9,7 +9,7 @@ Sei un software architect senior. Stiamo evolvendo "La Mia Cantina", una PWA per
 - Deploy: Vercel `cantina-pwa-five.vercel.app`, auto-build dal push su GitHub `omarquagliotto90-dotcom/cantina-pwa` (branch `main`) — **si lavora direttamente su `main`, niente branch dedicato/PR di preview salvo richiesta esplicita**
 - Env vars su Vercel: `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `GEMINI`
 - Supabase `etbrgdldduadgbulasmy`, solo REST (`/rest/v1`), nessun SDK
-- Route serverless in `/api/`: `analyze-label.js` (Anthropic Vision, `claude-sonnet-4-6`, `temperature: 0`, non cambiare modello), `enrich-wine.js` (Gemini 2.5 Flash con grounding), `search-image.js` (Serper), `ask-wine.js` (`claude-sonnet-5`, `temperature` va omesso o risponde 400)
+- Route serverless in `/api/`: `analyze-label.js` (Anthropic Vision, `claude-sonnet-4-6`, `temperature: 0`, non cambiare modello), `enrich-wine.js` (Gemini 2.5 Flash con grounding), `search-image.js` (Serper, con `punteggioImmagine()` che preferisce bottiglie intere e scontornate), `immagine.js` (proxy per i byte di un'immagine remota: senza, il canvas resta contaminato e il rifilo è impossibile), `ask-wine.js` (`claude-sonnet-5`, `temperature` va omesso o risponde 400)
 
 ## Vincoli duri
 
@@ -146,16 +146,16 @@ Dal refactor strutturale del 20/09/2026. `App.jsx` è il **controller**, `src/ui
 | `src/ui/Lista.jsx` | 126 | `FILTERS`, `FilterChip`, `TabLista` |
 | `src/ui/Statistiche.jsx` | 114 | `TabStatistiche` |
 | `src/ui/Bevuti.jsx` | 84 | `TabBevuti` |
-| `src/ui/domain.js` | 69 | funzioni pure: `resolveWine`, `valoreBottiglia`, `costoGiacenza`, `valoreMercatoGiacenza`, `formatDataIt`, anagrafica produttori |
+| `src/ui/domain.js` | 143 | funzioni pure: `resolveWine`, `valoreBottiglia`, `costoGiacenza`, `valoreMercatoGiacenza`, `formatDataIt`, anagrafica produttori, `riquadroContenuto` (rifilo del margine delle foto, su `ImageData`) |
 | `src/ui/theme.js` | 31 | `M3`, `S` |
 
 Regole da rispettare quando si tocca questa struttura:
 
-- `BottleImage` e `WebsiteView` fanno rete e cache, quindi **restano in App.jsx** e scendono a `WineDetail` come render prop `renderBottiglia` / `renderSito`, attraverso `Lista` e `Bevuti` che lo montano
+- `BottleImage` e `WebsiteView` fanno rete e cache, quindi **restano in App.jsx** e scendono a `WineDetail` come render prop `renderBottiglia` / `renderSito`, attraverso `Lista` e `Bevuti` che lo montano. Dal 21/09/2026 lo stesso vale per `Miniatura`, che scende come `renderMiniatura` a `WineCard` e alle righe di Bevuti: rifila il margine, quindi fa rete
 - ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
 - la revisione sta in **un solo posto**: la costante `REV` in cima ad `App.jsx`, mostrata accanto al titolo nell'app bar. Sale di 0.1 a ogni modifica di `App.jsx`. `src/version.js` è stato cancellato (era fermo a 0.3 e non lo importava nessuno) e il commento d'intestazione non porta più un numero: erano le due fonti di disallineamento
 
-## Stato attuale (REV 1.7)
+## Stato attuale (REV 1.8)
 
 - `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
 - `REV` è l'unico numero di versione del progetto. Attenzione: misura le modifiche ad `App.jsx`, non i passi della roadmap — P1b.1 e P1b.3 non l'hanno alzato perché non hanno toccato quel file

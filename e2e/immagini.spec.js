@@ -76,4 +76,43 @@ test.describe("Foto di bottiglia", () => {
     await expect(page.getByRole("dialog").getByRole("img", { name: /Pieropan/ }))
       .toHaveCSS("object-fit", "contain");
   });
+
+  // ── Miniature della lista ────────────────────────────────────────────────
+  // Stesso rifilo della scheda, ma pigro: parte quando la riga entra nello
+  // schermo, non all'apertura. Con 91 righe la differenza sono ~82 richieste
+  // al proxy risparmiate per immagini che magari non scorri nemmeno.
+
+  const vinoN = (i, immagineDiversa = false) => ({
+    ...VINO, id: i, vino: `Vino numero ${i}`, produttore: `Produttore ${i}`,
+  });
+
+  test("anche la miniatura in Cantina viene rifilata", async ({ page, cantina }) => {
+    cantina.setTable("wines", [VINO]).setTable("bevuti", [])
+      .setTable("wine_images", [{ wine_id: 1, image_url: CON_MARGINE }]);
+
+    await apriApp(page);
+    const mini = page.locator('img[alt=""]').first();
+    await expect(mini).toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
+  });
+
+  test("le righe lontane non vengono rifilate finche' non le scorri", async ({ page, cantina }) => {
+    const wines = Array.from({ length: 30 }, (_, i) => vinoN(i + 1));
+    cantina.setTable("wines", wines).setTable("bevuti", [])
+      .setTable("wine_images", wines.map(w => ({ wine_id: w.id, image_url: CON_MARGINE })));
+
+    await apriApp(page);
+    // La prima e' a schermo: si rifila.
+    await expect(page.locator('img[alt=""]').first())
+      .toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
+
+    // L'ultima e' a migliaia di pixel di distanza: deve essere ancora
+    // l'originale. Se questo test fallisse, l'osservatore non sta filtrando
+    // niente e paghiamo 82 richieste a ogni apertura.
+    const ultima = page.locator('img[alt=""]').last();
+    await expect(ultima).toHaveAttribute("src", CON_MARGINE);
+
+    // Portandocela davanti, si rifila anche lei.
+    await ultima.scrollIntoViewIfNeeded();
+    await expect(ultima).toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
+  });
 });

@@ -265,7 +265,7 @@ export function RigaPremibile({ onClick, children }) {
   );
 }
 
-export function WineCard({ wine, onOpen, immagine = null }) {
+export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null }) {
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   // Riga della Cantina — ridisegno 2026. La miniatura arriva gia' risolta in
@@ -281,7 +281,9 @@ export function WineCard({ wine, onOpen, immagine = null }) {
             bottiglia. Con `contain` la bottiglia si vede sempre intera e tutte
             stanno nello stesso riquadro. */}
         {immagine ? (
-          <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
+          renderMiniatura
+            ? renderMiniatura(immagine)
+            : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: T.tenueAlt }}>
             <CaliceIcon size={20} />

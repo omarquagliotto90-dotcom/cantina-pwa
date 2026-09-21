@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.7";
+const REV = "1.8";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -295,6 +295,69 @@ export async function immagineRifilata(url) {
     rifilateCache.set(url, "NIENTE_DA_FARE");
     return null;
   }
+}
+
+// ─── Miniatura con rifilo pigro ───────────────────────────────────────────────
+// La lista ha 91 righe: rifilarle tutte all'apertura vorrebbe dire 82 richieste
+// al proxy per immagini che magari non scorri nemmeno. Quindi il rifilo parte
+// solo quando la riga entra davvero nello schermo, e il risultato resta in
+// `rifilateCache`, condivisa con la scheda: aprire un vino e poi tornare in
+// lista non ricalcola niente.
+//
+// Sta qui e non in `ui/` perche' fa rete, come `BottleImage`: scende alle
+// schermate come render prop, lo stesso schema gia' usato per `renderBottiglia`.
+
+// Coda a parte da `imgQueue`, che e' seriale con 2s di pausa perche' parla con
+// Serper. Qui si parla col nostro proxy: niente pause, ma nemmeno 82 richieste
+// in parallelo addosso a una connessione mobile.
+const rifiloQueue = {
+  _attivi: 0,
+  _coda: [],
+  MAX: 3,
+  add(fn) {
+    return new Promise((resolve) => {
+      this._coda.push({ fn, resolve });
+      this._avvia();
+    });
+  },
+  async _avvia() {
+    if (this._attivi >= this.MAX || this._coda.length === 0) return;
+    this._attivi++;
+    const { fn, resolve } = this._coda.shift();
+    try { resolve(await fn()); } catch { resolve(null); }
+    finally { this._attivi--; this._avvia(); }
+  },
+};
+
+function Miniatura({ immagine, stile }) {
+  const [rifilata, setRifilata] = useState(null);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setRifilata(null);
+    if (!immagine) return;
+    const el = ref.current;
+    if (!el) return;
+
+    let annullato = false;
+    const parti = () => {
+      rifiloQueue.add(() => immagineRifilata(immagine))
+        .then(d => { if (!annullato && d) setRifilata(d); });
+    };
+
+    // Senza IntersectionObserver (browser vecchi, jsdom) si rifila e basta:
+    // meglio qualche richiesta in piu' che una funzione che non parte mai.
+    if (typeof IntersectionObserver !== "function") { parti(); return () => { annullato = true; }; }
+
+    const osservatore = new IntersectionObserver((voci) => {
+      if (voci.some(v => v.isIntersecting)) { osservatore.disconnect(); parti(); }
+    }, { rootMargin: "200px" });   // un po' di anticipo: arriva gia' pronta
+    osservatore.observe(el);
+
+    return () => { annullato = true; osservatore.disconnect(); };
+  }, [immagine]);
+
+  return <img ref={ref} src={rifilata || immagine} alt="" loading="lazy" style={stile} />;
 }
 
 function BottleImage({ wine, active }) {
@@ -782,6 +845,10 @@ export default function Cantina() {
   // BottleImage e WebsiteView fanno rete e cache: restano qui e scendono a
   // WineDetail come render prop, attraverso le schermate che lo montano.
   const renderBottiglia = (w, attiva) => <BottleImage wine={w} active={attiva} />;
+  const renderMiniatura = (immagine) => (
+    <Miniatura immagine={immagine}
+      stile={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
+  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1027,8 +1094,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} immagini={immagini} rev={REV} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} immagini={immagini} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} rev={REV} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 

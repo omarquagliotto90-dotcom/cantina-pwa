@@ -21,7 +21,7 @@ const IconaRiporta = ({ size = 13 }) => (
 
 // Una riga del diario. Il bottone apre il dettaglio; voto e "riporta" stanno
 // sotto, fuori dal bottone, perche' sono azioni e letture separate.
-function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
+function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatura }) {
   const [hover, setHover] = useState(false);
   const regione = produttoreDi(wine.produttore)?.regione;
   const meta = [wine.annata, wine.denominazione !== "n.d." ? wine.denominazione : null].filter(Boolean).join(" · ");
@@ -36,7 +36,9 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
         <span style={{ position: "absolute", top: 0, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
         <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
           {immagine
-            ? <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
+            ? (renderMiniatura
+                ? renderMiniatura(immagine)
+                : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />)
             : <CaliceIcon size={18} color={T.tenueAlt} />}
         </div>
         <div style={{ minWidth: 0 }}>
@@ -68,7 +70,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
   );
 }
 
-export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, immagini = {} }) {
+export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, renderMiniatura, immagini = {} }) {
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
@@ -157,7 +159,8 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
                 immagine={immagini[b.id] || null}
                 voto={ratings[b.id] || 0}
                 onOpen={handleOpen(b.uid)}
-                onRiporta={() => onRiporta(b.uid)} />
+                onRiporta={() => onRiporta(b.uid)}
+                renderMiniatura={renderMiniatura} />
             );
           })}
         </section>
