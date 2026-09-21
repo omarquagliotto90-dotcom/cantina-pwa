@@ -36,7 +36,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
         <span style={{ position: "absolute", top: 0, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
         <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
           {immagine
-            ? <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />
+            ? <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
             : <CaliceIcon size={18} color={T.tenueAlt} />}
         </div>
         <div style={{ minWidth: 0 }}>

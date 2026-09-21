@@ -67,3 +67,55 @@ export function getGoogleFallback(produttore, vino) {
   const q = encodeURIComponent(`${produttore} ${vino || ""} cantina sito ufficiale`);
   return `https://www.google.com/search?q=${q}`;
 }
+
+// ─── Rifilo del margine delle foto di bottiglia ───────────────────────────────
+// Quanto un pixel puo' discostarsi dal fondo e contare ancora come fondo.
+// Alto abbastanza da assorbire la compressione JPEG attorno alla bottiglia,
+// basso abbastanza da non mangiare un'etichetta chiara.
+const TOLLERANZA = 18;
+
+/**
+ * Riquadro che contiene tutto cio' che non e' fondo.
+ * `null` quando non c'e' niente da rifilare: fondo non uniforme (foto
+ * ambientata), oppure margine gia' trascurabile. Funzione pura su ImageData,
+ * verificata in `e2e/rifilo.spec.mjs`.
+ */
+export function riquadroContenuto(dati, larghezza, altezza) {
+  const px = (x, y) => (y * larghezza + x) * 4;
+  const angoli = [[0, 0], [larghezza - 1, 0], [0, altezza - 1], [larghezza - 1, altezza - 1]]
+    .map(([x, y]) => { const i = px(x, y); return [dati[i], dati[i + 1], dati[i + 2], dati[i + 3]]; });
+
+  // Se gli angoli non si somigliano non c'e' un fondo uniforme da togliere.
+  const trasparente = angoli.every(a => a[3] < 16);
+  if (!trasparente) {
+    const [r0, g0, b0] = angoli[0];
+    const concordi = angoli.every(([r, g, b]) =>
+      Math.abs(r - r0) <= TOLLERANZA && Math.abs(g - g0) <= TOLLERANZA && Math.abs(b - b0) <= TOLLERANZA);
+    if (!concordi) return null;
+  }
+
+  const [rf, gf, bf] = angoli[0];
+  const eFondo = (i) => trasparente
+    ? dati[i + 3] < 16
+    : dati[i + 3] < 16 || (Math.abs(dati[i] - rf) <= TOLLERANZA &&
+                           Math.abs(dati[i + 1] - gf) <= TOLLERANZA &&
+                           Math.abs(dati[i + 2] - bf) <= TOLLERANZA);
+
+  let sx = larghezza, dx = -1, su = altezza, giu = -1;
+  for (let y = 0; y < altezza; y++) {
+    for (let x = 0; x < larghezza; x++) {
+      if (eFondo(px(x, y))) continue;
+      if (x < sx) sx = x;
+      if (x > dx) dx = x;
+      if (y < su) su = y;
+      if (y > giu) giu = y;
+    }
+  }
+  if (dx < 0) return null;                       // tutto fondo: immagine vuota
+
+  // Meno del 3% di margine su ogni lato: non vale la pena ridisegnare.
+  const margine = Math.min(sx, su, larghezza - 1 - dx, altezza - 1 - giu);
+  if (margine <= Math.min(larghezza, altezza) * 0.03) return null;
+
+  return { sx, su, larghezza: dx - sx + 1, altezza: giu - su + 1 };
+}

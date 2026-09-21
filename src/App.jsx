@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { M3, T, OCCHIELLO } from "./ui/theme";
 import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { formatDataIt, setProduttori } from "./ui/domain";
+import { formatDataIt, setProduttori, riquadroContenuto } from "./ui/domain";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.6";
+const REV = "1.7";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -225,9 +225,82 @@ function Lightbox({ url, onClose }) {
 }
 
 // ─── BottleImage ──────────────────────────────────────────────────────────────
+// ─── Rifilo del margine ───────────────────────────────────────────────────────
+// Obiettivo: bottiglie tutte della stessa altezza. `contain` da solo non basta,
+// perche' uno scatto con molto bianco attorno rende la bottiglia piccola e uno
+// inquadrato stretto la rende grande. Togliendo il margine il problema sparisce
+// alla fonte, e come effetto collaterale si ottiene anche lo scontorno dei
+// fondi pieni.
+//
+// Il lavoro e' nel browser: farlo sul server vorrebbe dire una libreria di
+// image processing, e le dipendenze nuove sono fuori dai vincoli.
+
+const rifilateCache = new Map();  // url originale -> dataURL | "NIENTE_DA_FARE"
+
+// Le immagini sono hotlinkate: cross-origin contamina il canvas e getImageData
+// lancia SecurityError. `data:` e percorsi nostri non ne hanno bisogno.
+export function sorgenteLeggibile(url) {
+  if (!url) return null;
+  if (url.startsWith("data:") || url.startsWith("/")) return url;
+  return `/api/immagine?url=${encodeURIComponent(url)}`;
+}
+
+const LATO_MAX = 900;  // oltre non serve: la bottiglia si vede a 190x264
+
+/** Scarica, rifila e restituisce un dataURL. `null` se non c'e' niente da fare. */
+async function rifila(url) {
+  const sorgente = sorgenteLeggibile(url);
+  if (!sorgente) return null;
+
+  const img = new Image();
+  img.src = sorgente;
+  await img.decode();
+
+  const scala = Math.min(1, LATO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scala));
+  const h = Math.max(1, Math.round(img.naturalHeight * scala));
+
+  const tela = document.createElement("canvas");
+  tela.width = w; tela.height = h;
+  const ctx = tela.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const riquadro = riquadroContenuto(ctx.getImageData(0, 0, w, h).data, w, h);
+  if (!riquadro) return null;
+
+  // Un filo d'aria attorno: una bottiglia a filo del bordo sembra tagliata.
+  const aria = Math.round(Math.max(riquadro.larghezza, riquadro.altezza) * 0.02);
+  const out = document.createElement("canvas");
+  out.width = riquadro.larghezza + aria * 2;
+  out.height = riquadro.altezza + aria * 2;
+  const octx = out.getContext("2d");
+  octx.drawImage(tela, riquadro.sx, riquadro.su, riquadro.larghezza, riquadro.altezza,
+                 aria, aria, riquadro.larghezza, riquadro.altezza);
+  return out.toDataURL("image/png");
+}
+
+/** Versione con cache e senza eccezioni: in caso di guaio si tiene l'originale. */
+export async function immagineRifilata(url) {
+  if (!url) return null;
+  if (rifilateCache.has(url)) {
+    const v = rifilateCache.get(url);
+    return v === "NIENTE_DA_FARE" ? null : v;
+  }
+  try {
+    const dataUrl = await rifila(url);
+    rifilateCache.set(url, dataUrl || "NIENTE_DA_FARE");
+    return dataUrl;
+  } catch (err) {
+    // Proxy giu', origine morta, canvas contaminato: si mostra l'originale.
+    rifilateCache.set(url, "NIENTE_DA_FARE");
+    return null;
+  }
+}
+
 function BottleImage({ wine, active }) {
   const [status, setStatus] = useState("idle");
   const [url, setUrl]       = useState(null);
+  const [rifilata, setRifilata] = useState(null);
   const [lightbox, setLightbox] = useState(false);
 
   useEffect(() => {
@@ -277,6 +350,19 @@ function BottleImage({ wine, active }) {
     return () => { cancelled = true; };
   }, [wine.id, active]);
 
+  // Rifilo del margine: toglie il bianco attorno alla bottiglia, cosi' tutte
+  // occupano la stessa altezza invece di dipendere da come e' stato inquadrato
+  // lo scatto. Se fallisce — proxy giu', fondo non uniforme, niente da togliere
+  // — `rifilata` resta null e si mostra l'originale: non si perde mai la foto.
+  useEffect(() => {
+    if (!url) { setRifilata(null); return; }
+    let annullato = false;
+    immagineRifilata(url).then(d => { if (!annullato && d) setRifilata(d); });
+    return () => { annullato = true; };
+  }, [url]);
+
+  const mostrata = rifilata || url;
+
   // C5: misure e resa dell'hero del ridisegno (190x264, mix-blend multiply
   // sul fondo caldo). La ricerca e la cache restano qui sopra: e' la ragione
   // per cui questo componente non e' mai sceso in ui/.
@@ -294,8 +380,9 @@ function BottleImage({ wine, active }) {
 
   return (
     <>
+      {/* Nel lightbox l'originale: li' si vuole vedere la foto com'e'. */}
       {lightbox && <Lightbox url={url} onClose={() => setLightbox(false)} />}
-      <img src={url} alt={wine.produttore + " " + wine.vino}
+      <img src={mostrata} alt={wine.produttore + " " + wine.vino}
         onClick={() => setLightbox(true)}
         onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
         style={{ width: 190, height: 264, objectFit: "contain", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
