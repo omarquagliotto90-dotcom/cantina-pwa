@@ -104,7 +104,7 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             padding, quindi il margine sotto l'h2 resta 0. */}
         <header style={{ padding: "16px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
           <p style={{ ...OCCHIELLO }}>Collezione privata{rev && <span style={{ opacity: .65 }}> · {rev}</span>}</p>
-          <h2 style={{ margin: "3px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
+          <h2 style={{ margin: "9px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
         </header>
 
         {/* ── Riepilogo ── */}
