@@ -307,8 +307,8 @@ export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null
           {/* Due righe invece di una: il design mostrava solo la stima, ma il
               prezzo pagato non va perso. La stima compare solo se esiste. */}
           <span style={{ textAlign: "right", color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>
-            {wine.prezzo != null ? `~${wine.prezzo} € / bott.` : "prezzo non noto"}
-            {wine.valore != null && <><br />stima ~{wine.valore} €</>}
+            {wine.prezzo != null ? `${wine.prezzo} € / bott.` : "prezzo non noto"}
+            {wine.valore != null && <><br />stima {wine.valore} €</>}
           </span>
         </div>
       </div>

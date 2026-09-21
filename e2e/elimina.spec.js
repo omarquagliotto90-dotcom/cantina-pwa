@@ -42,7 +42,7 @@ test.describe("Elimina dalla cantina", () => {
 
     await expect(page.getByText("Orange Unico")).toHaveCount(0);
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie - 1));
-    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo - 20} €`);
+    await expect(page.getByTestId("tot-costo")).toHaveText(`${ATTESI.costo - 20} €`);
   });
 
   test("se la RPC fallisce, la riga torna al suo posto", async ({ page, cantina }) => {

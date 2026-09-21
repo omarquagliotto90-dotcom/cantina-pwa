@@ -113,14 +113,14 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             <span data-testid="tot-bottiglie" style={{ fontFamily: T.serif, fontSize: 55, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{totalB}</span>
             <span style={{ maxWidth: 88, color: T.secondario, fontSize: 12, lineHeight: 1.3 }}>
               bottiglie<br />custodite
-              {totalB > 0 && <><br /><span data-testid="media-bottiglia" style={{ color: T.tenue, fontSize: 11 }}>~{Math.round(totalV / totalB)} € l'una</span></>}
+              {totalB > 0 && <><br /><span data-testid="media-bottiglia" style={{ color: T.tenue, fontSize: 11 }}>{Math.round(totalV / totalB)} € l'una</span></>}
             </span>
           </div>
           <div style={{ display: "grid", borderLeft: `1px solid ${T.divisoreMedio}` }}>
             {[
               { id: "tot-referenze", l: "referenze", v: filtered.length },
-              { id: "tot-costo",     l: "costo",     v: `~${totalV} €` },
-              { id: "tot-valore",    l: "valore",    v: `~${totalMercato} €` },
+              { id: "tot-costo",     l: "costo",     v: `${totalV} €` },
+              { id: "tot-valore",    l: "valore",    v: `${totalMercato} €` },
             ].map((r, i) => (
               <div key={r.l} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 30, padding: "0 0 0 14px", borderTop: i === 0 ? "none" : `1px solid ${T.divisoreMedio}` }}>
                 <span style={{ color: T.secondario, fontSize: 11 }}>{r.l}</span>

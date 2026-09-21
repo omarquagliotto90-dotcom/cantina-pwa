@@ -244,10 +244,10 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
         {/* ── I quattro numeri ── */}
         <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginTop: 22, borderTop: `1px solid ${T.divisoreMedio}`, borderBottom: `1px solid ${T.divisoreMedio}` }}>
           {[
-            [{ l: "Acquisto", v: wine.prezzo != null ? `~${wine.prezzo} €` : "—", forte: false },
-             { l: "Valore",   v: wine.valore != null ? `~${wine.valore} €` : "—", forte: true }],
+            [{ l: "Acquisto", v: wine.prezzo != null ? `${wine.prezzo} €` : "—", forte: false },
+             { l: "Valore",   v: wine.valore != null ? `${wine.valore} €` : "—", forte: true }],
             [{ l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie, forte: false },
-             { l: "Giacenza",  v: bevutoInfo || giacenza == null ? "—" : `~${giacenza} €`, forte: true }],
+             { l: "Giacenza",  v: bevutoInfo || giacenza == null ? "—" : `${giacenza} €`, forte: true }],
           ].map((colonna, c) => (
             <div key={c} style={{ display: "grid", gridTemplateRows: "1fr 1fr", padding: "6px 0", borderLeft: c === 1 ? `1px solid ${T.divisoreMedio}` : "none" }}>
               {colonna.map((n, r) => (

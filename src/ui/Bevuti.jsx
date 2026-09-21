@@ -47,7 +47,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatur
           <p style={{ margin: "6px 0 0", color: T.secondarioAlt, fontSize: 10, lineHeight: 1.35 }}>{meta}</p>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 13, paddingTop: 9, borderTop: `1px solid ${T.divisoreTenue}` }}>
             <span style={{ color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>{formatDataIt(b.consumedOn) || b.data}</span>
-            <span style={{ fontSize: 11, color: T.secondarioAlt }}>Valore · ~{valore} €</span>
+            <span style={{ fontSize: 11, color: T.secondarioAlt }}>Valore · {valore} €</span>
           </div>
         </div>
       </button>
@@ -139,7 +139,7 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 30, padding: "0 0 0 14px", borderLeft: `1px solid ${T.divisoreMedio}` }}>
           <span style={{ color: T.secondario, fontSize: 11 }}>valore</span>
-          <b data-testid="tot-consumato" style={{ fontFamily: T.serif, color: T.accento, fontSize: 11, fontWeight: 500 }}>~{totalSpeso} €</b>
+          <b data-testid="tot-consumato" style={{ fontFamily: T.serif, color: T.accento, fontSize: 11, fontWeight: 500 }}>{totalSpeso} €</b>
         </div>
       </section>
 
