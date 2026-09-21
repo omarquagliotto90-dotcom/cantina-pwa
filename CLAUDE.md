@@ -128,6 +128,8 @@ Raw:    https://raw.githubusercontent.com/omarquagliotto90-dotcom/cantina-pwa/ma
 - Bug iOS PWA swipe-back: risolto con unmount immediato invece di animazione di chiusura
 - L'ambiente remoto di Claude Code non ha accesso di rete diretto a `*.supabase.co` (policy dell'agent proxy), ma **il server MCP di Supabase sì**: lettura schema, query, `apply_migration` e advisor funzionano. Verificato il 19/09/2026. Solo `curl`/`fetch` verso il REST restano bloccati
 - Ogni DDL su Supabase va committato in `supabase/migrations/` nella stessa sessione in cui viene eseguito (vedi `supabase/README.md`)
+- **Banda vuota sotto la barra su iPhone (21/09/2026).** Misurato sul dispositivo: viewport 873, `screen.height` 932, `safe-area top` 59, `standalone` true — e l'app riempiva 873 su 873. **Non era un difetto di layout:** la banda sta FUORI dalla webview, nessun CSS può raggiungerla. La contraddizione da riconoscere è `safe-area-inset-top` valorizzato (comportamento `black-translucent`, viewport atteso = schermo intero) insieme a un `innerHeight` accorciato proprio di quei 59px (comportamento `default`/`black`). iOS congela le `apple-mobile-web-app-*` al momento in cui si aggiunge l'icona alla home: se l'app è stata installata prima di un cambio di quelle meta, continua a dimensionare la finestra col criterio vecchio. **Prima di toccare il codice: reinstallare l'icona dalla home.** Corollario: quando il viewport è già accorciato, lo spaziatore `env(safe-area-inset-top)` spreca i 59px una seconda volta
+- **`box-sizing: border-box` e `env()`:** `height: 72` con `padding-bottom: calc(4px + env(safe-area-inset-bottom))` NON fa una barra alta 110px, ne fa una alta 72 con 33px di contenuto. Il safe-area va sommato all'altezza — `height: calc(72px + env(...))` — non lasciato al solo padding. Vale per ogni barra fissa
 - Vercel Hobby: 1 build alla volta (`On-Demand Concurrent Builds: Disabled`); se il collegamento Git si "silenzia" (push che non generano deployment), riconnettere Settings → Git → Disconnect/Connect rigenera il webhook
 
 ## Struttura dei file
@@ -151,7 +153,7 @@ Regole da rispettare quando si tocca questa struttura:
 - ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
 - la revisione sta in **un solo posto**: la costante `REV` in cima ad `App.jsx`, mostrata accanto al titolo nell'app bar. Sale di 0.1 a ogni modifica di `App.jsx`. `src/version.js` è stato cancellato (era fermo a 0.3 e non lo importava nessuno) e il commento d'intestazione non porta più un numero: erano le due fonti di disallineamento
 
-## Stato attuale (REV 1.1)
+## Stato attuale (REV 1.2)
 
 - `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
 - `REV` è l'unico numero di versione del progetto. Attenzione: misura le modifiche ad `App.jsx`, non i passi della roadmap — P1b.1 e P1b.3 non l'hanno alzato perché non hanno toccato quel file

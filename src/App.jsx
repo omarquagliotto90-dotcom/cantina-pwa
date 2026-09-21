@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.2-diag";
+const REV = "1.2";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -292,84 +292,6 @@ function BottleImage({ wine, active }) {
         onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
         style={{ width: 190, height: 264, objectFit: "cover", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
     </>
-  );
-}
-
-// ─── TEMPORANEO: diagnostica viewport ─────────────────────────────────────────
-// Serve a capire perche' su iPhone resta una banda vuota sotto la barra di
-// navigazione. Il difetto non si riproduce in Chromium, quindi i numeri devono
-// arrivare dal dispositivo vero. VA RIMOSSA appena la causa e' chiara.
-function DiagnosticaViewport() {
-  const [d, setD] = useState(null);
-
-  useEffect(() => {
-    const misura = () => {
-      // Le safe-area non sono leggibili direttamente: le si fa calcolare al
-      // browser su un elemento sonda e poi si legge l'altezza risultante.
-      const sonda = document.createElement("div");
-      sonda.style.cssText = "position:fixed;visibility:hidden;top:0;height:env(safe-area-inset-top)";
-      const sondaB = document.createElement("div");
-      sondaB.style.cssText = "position:fixed;visibility:hidden;top:0;height:env(safe-area-inset-bottom)";
-      document.body.append(sonda, sondaB);
-      const safeTop = Math.round(sonda.getBoundingClientRect().height);
-      const safeBottom = Math.round(sondaB.getBoundingClientRect().height);
-      sonda.remove(); sondaB.remove();
-
-      const root = document.getElementById("root");
-      const app = root?.firstElementChild;
-      const vv = window.visualViewport;
-
-      setD({
-        innerHW: `${window.innerWidth} x ${window.innerHeight}`,
-        docClientH: document.documentElement.clientHeight,
-        visualVP: vv ? `${Math.round(vv.height)} @${Math.round(vv.offsetTop)}` : "assente",
-        screenH: window.screen.height,
-        dpr: window.devicePixelRatio,
-        safeTop, safeBottom,
-        standalone: window.matchMedia("(display-mode: standalone)").matches
-          || window.navigator.standalone === true,
-        rootH: root ? Math.round(root.getBoundingClientRect().height) : "?",
-        appBottom: app ? Math.round(app.getBoundingClientRect().bottom) : "?",
-        appH: app ? Math.round(app.getBoundingClientRect().height) : "?",
-      });
-    };
-    misura();
-    window.addEventListener("resize", misura);
-    window.addEventListener("orientationchange", misura);
-    window.visualViewport?.addEventListener("resize", misura);
-    const t = setTimeout(misura, 800); // dopo che iOS ha assestato le barre
-    return () => {
-      window.removeEventListener("resize", misura);
-      window.removeEventListener("orientationchange", misura);
-      window.visualViewport?.removeEventListener("resize", misura);
-      clearTimeout(t);
-    };
-  }, []);
-
-  if (!d) return null;
-  const riga = (k, v) => (
-    <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-      <span style={{ opacity: .7 }}>{k}</span><b>{String(v)}</b>
-    </div>
-  );
-
-  return (
-    <div style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 999,
-      padding: "10px 12px", borderRadius: 10, background: "rgba(20,16,14,.92)", color: "#FFE9C7",
-      font: "600 11px/1.5 ui-monospace, Menlo, monospace", pointerEvents: "none" }}>
-      <div style={{ marginBottom: 4, color: "#FFB3B3" }}>DIAGNOSTICA — temporanea</div>
-      {riga("window.inner", d.innerHW)}
-      {riga("doc.clientH", d.docClientH)}
-      {riga("visualViewport", d.visualVP)}
-      {riga("screen.height", d.screenH)}
-      {riga("devicePixelRatio", d.dpr)}
-      {riga("safe-area top", d.safeTop)}
-      {riga("safe-area bottom", d.safeBottom)}
-      {riga("standalone", d.standalone)}
-      {riga("#root altezza", d.rootH)}
-      {riga("app altezza", d.appH)}
-      {riga("app bordo basso", d.appBottom)}
-    </div>
   );
 }
 
@@ -1046,8 +968,6 @@ export default function Cantina() {
           );
         })}
       </div>
-
-      <DiagnosticaViewport />
 
       {/* ── Modals ── */}
       {pendingBevi && <ModalBevi wine={pendingBevi} onConferma={handleConferma} onAnnulla={() => setPendingBevi(null)} />}
