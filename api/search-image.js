@@ -12,7 +12,12 @@
 
 // Percorsi tipici delle piattaforme e-commerce: PrestaShop, Shopify, OpenCart,
 // WooCommerce, Magento. Chi vende bottiglie le fotografa su fondo bianco.
-const RE_ECOMMERCE = /[-\/]large_default\/|\/cdn\/shop\/|\/image\/cache\/|\/wp-content\/uploads\/|\/media\/catalog\/|\/product[s]?\/|[-\/]cart_default\/|[-\/]home_default\//i;
+// `<nome>_default/` e' generico di proposito. Avevo elencato i tre formati che
+// comparivano nelle 86 URL campionate — large, home, cart — scambiando "i
+// formati presenti nel mio campione" per "i formati esistenti". PrestaShop ne
+// emette almeno sei, e il 21/09/2026 `medium_default` ha fatto scartare la foto
+// GIUSTA di due vini Peroni mentre ne passavano due sbagliate dallo stesso sito.
+const RE_ECOMMERCE = /[-\/][a-z]+_default\/|\/cdn\/shop\/|\/image\/cache\/|\/wp-content\/uploads\/|\/media\/catalog\/|\/product[s]?\//i;
 
 // Chi ha gia' fatto il lavoro lo scrive nel nome del file.
 const RE_SCONTORNATA = /removebg|remove-bg|no-?bg|transparent|trasparente/i;
@@ -67,7 +72,82 @@ export function costruisciQuery(produttore, vino, annata) {
   return `${vino} ${produttore}${anno} bottiglia vino`;
 }
 
+// Parole troppo comuni per dire qualcosa su QUALE vino sia.
+const GENERICHE = new Set([
+  "vino","wine","vini","wines","bianco","rosso","nero","rose","rosé",
+  "fermo","frizzante","spumante","secco","dolce","passito","riserva",
+  "bottiglia","bottle","produttore","cantina","azienda","agricola",
+  "agricolo","della","delle","degli","dello","nella","nelle",
+  "anno","annata","vintage","doc","docg","igt","dop","igp","classico",
+]);
+
+/** minuscolo, senza accenti: "Montealbì" e "montealbi" devono combaciare. */
+const piatto = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/**
+ * Le parole che identificano DAVVERO questo vino.
+ *
+ * Lo split e' su tutto cio' che non e' lettera o cifra, quindi le virgolette
+ * del nome restano fuori: prima producevano la keyword '"montealbi"', che in
+ * un URL non si trova mai.
+ */
+export function parolePortanti(produttore, vino) {
+  return [...new Set(piatto(`${produttore} ${vino}`).split(/[^a-z0-9]+/))]
+    .filter(w => w.length >= 4 && !GENERICHE.has(w));
+}
+
+/**
+ * Quanto un risultato parla di QUESTO vino.
+ *
+ * L'URL vale il doppio del titolo, e la ragione e' concreta: l'URL di uno
+ * scatto prodotto nomina il prodotto — `peroni-montealbi.jpg` dice tutto —
+ * mentre il titolo di una pagina e-commerce nomina anche altro (correlati,
+ * categoria, briciole di pane). Era la falla: bastava UNA parola qualsiasi nel
+ * titolo e passava, cosi' "maccaboni-francesco-donna-virginia" entrava in gara
+ * e poi vinceva per il punteggio dell'immagine.
+ */
+export function rilevanza(parole, url, titolo) {
+  const u = piatto(url), t = piatto(titolo);
+  let p = 0;
+  for (const w of parole) {
+    if (u.includes(w)) p += 2;
+    else if (t.includes(w)) p += 1;
+  }
+  return p;
+}
+
+/**
+ * Sceglie l'immagine fra i risultati di Serper. Pura: e' verificata in
+ * `e2e/ranking.spec.mjs` contro le URL vere che i log hanno registrato.
+ *
+ * Ordine: **prima la rilevanza, poi la qualita'**. Il punteggio dice quanto
+ * l'immagine sembra uno scatto prodotto pulito, non se e' il vino giusto: da
+ * solo, fra due foto egualmente pulite, sceglieva quella con l'URL piu'
+ * fortunato. La soglia continua a valere sul punteggio.
+ */
+export function scegliImmagine(immagini, produttore, vino) {
+  const salta   = /logo|icon|banner|avatar|flag|map|chart|graph/i;
+  const estensione = /\.(jpg|jpeg|png|webp)(\?.*)?$/i;
+  const parole  = parolePortanti(produttore, vino);
+
+  const valutati = (immagini || [])
+    .filter(i => i && i.imageUrl && !salta.test(i.imageUrl))
+    // https prima di valutare: cambia il punteggio, e un http darebbe mixed
+    // content su una pagina sicura.
+    .map(i => ({ ...i, imageUrl: i.imageUrl.replace(/^http:\/\//, "https://") }))
+    .map(i => ({
+      url: i.imageUrl,
+      punteggio: punteggioImmagine(i.imageUrl),
+      rilevanza: parole.length ? rilevanza(parole, i.imageUrl, i.title) : 1,
+    }))
+    .filter(i => i.punteggio !== null && i.rilevanza > 0 && estensione.test(i.url))
+    .sort((a, b) => b.rilevanza - a.rilevanza || b.punteggio - a.punteggio);
+
+  return { parole, valutati, migliore: valutati[0] || null };
+}
+
 export default async function handler(req, res) {
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const serperKey = process.env.SERPER_API_KEY;
@@ -101,55 +181,15 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: data.message || "Serper error" });
     }
 
-    const images = data.images || [];
+    const { parole, valutati, migliore } = scegliImmagine(data.images, produttore, vino);
 
-    const imgExtRe  = /\.(jpg|jpeg|png|webp)(\?.*)?$/i;
-    const skipRe    = /logo|icon|banner|avatar|flag|map|chart|graph/i;
-
-    // Parole generiche da escludere dalle keyword di rilevanza
-    const genericWords = new Set([
-      "vino","wine","vini","wines","bianco","rosso","nero","rose","rosé",
-      "fermo","frizzante","spumante","secco","dolce","passito","riserva",
-      "bottiglia","bottle","produttore","cantina","azienda","agricola",
-      "agricolo","della","delle","degli","degli","dello","nella","nelle",
-      "anno","annata","vintage","doc","docg","igt","dop","igp","classico"
-    ]);
-
-    // Keyword specifiche: solo parole non generiche con almeno 4 caratteri
-    const keywords = `${produttore} ${vino}`
-      .toLowerCase()
-      .split(/[\s\-\/=+&@#%*()\[\]{}]+/)
-      .filter(w => w.length >= 4 && !genericWords.has(w));
-
-    console.log("Specific keywords:", keywords);
-
-    // Rilevanza: almeno 1 keyword specifica nel titolo OPPURE nell'URL
-    const isRelevant = (img) => {
-      if (keywords.length === 0) return true; // nessuna keyword specifica → accetta tutto
-      const haystack = `${(img.title || "")} ${(img.imageUrl || "")}`.toLowerCase();
-      return keywords.some(kw => haystack.includes(kw));
-    };
-
-    const candidates = images.filter(i => !skipRe.test(i.imageUrl));
-    const relevant   = candidates.filter(isRelevant);
-
-    // La rilevanza resta un cancello, non un punteggio: un'immagine bellissima
-    // di un altro vino non serve a niente.
-    const valutati = relevant
-      // HTTPS prima di valutare: l'upgrade cambia il punteggio, e comunque
-      // un http:// darebbe mixed content sulla pagina sicura.
-      .map(i => ({ ...i, imageUrl: i.imageUrl.replace(/^http:\/\//, "https://") }))
-      .map(i => ({ url: i.imageUrl, punteggio: punteggioImmagine(i.imageUrl) }))
-      .filter(i => i.punteggio !== null && imgExtRe.test(i.url))
-      .sort((a, b) => b.punteggio - a.punteggio);
-
+    console.log("Parole portanti:", parole);
     console.log("Valutati:", JSON.stringify(valutati));
 
-    const migliore = valutati[0];
     // Meglio nessuna immagine che una sbagliata: sotto soglia si restituisce
     // null e la riga resta con il segnaposto "senza foto".
     const url = migliore && migliore.punteggio >= SOGLIA_MINIMA ? migliore.url : null;
-    console.log("Best URL:", url, migliore ? `(punteggio ${migliore.punteggio})` : "(nessun candidato)");
+    console.log("Best URL:", url, migliore ? `(punteggio ${migliore.punteggio}, rilevanza ${migliore.rilevanza})` : "(nessun candidato)");
 
     return res.status(200).json({ url });
 

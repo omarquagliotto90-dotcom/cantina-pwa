@@ -9,7 +9,7 @@
 // `1057-large_default` col trattino, non `/large_default`.
 
 import { test, expect } from "@playwright/test";
-import { punteggioImmagine, SOGLIA_MINIMA, costruisciQuery } from "../api/search-image.js";
+import { punteggioImmagine, SOGLIA_MINIMA, costruisciQuery, parolePortanti, rilevanza, scegliImmagine } from "../api/search-image.js";
 
 // Scartate: sono il ritaglio dell'etichetta, non la bottiglia.
 const NON_BOTTIGLIE = [
@@ -77,5 +77,70 @@ test.describe("Stringa di ricerca", () => {
     expect(costruisciQuery("Peroni", "Merlot", "")).toBe("Merlot Peroni bottiglia vino");
     expect(costruisciQuery("Peroni", "Merlot", null)).toBe("Merlot Peroni bottiglia vino");
     expect(costruisciQuery("Bisci", "Verdicchio", 2019)).toBe("Verdicchio Bisci 2019 bottiglia vino");
+  });
+});
+
+// ── Il caso Peroni, 21/09/2026 ───────────────────────────────────────────────
+// Non e' un esempio costruito: sono i 5 risultati che Serper ha davvero
+// restituito, copiati dai log di produzione. Le foto GIUSTE venivano scartate
+// e due sbagliate dello stesso sito passavano.
+const RISULTATI_VERI_MARZEMINO = [
+  { imageUrl: "https://www.gardavino.it/1356-home_default/maccaboni-francesco-donna-virginia-riserva-.jpg",
+    title: "Maccaboni Francesco Donna Virginia Riserva" },
+  { imageUrl: "https://www.gardavino.it/1190-home_default/pietta-groppello-pietta.jpg",
+    title: "Pietta Groppello" },
+  { imageUrl: "https://images.vivino.com/thumbs/Un9kloZZQnSCV5PueRNECw_pb_x960.png",
+    title: "Peroni Marzemino" },
+  { imageUrl: "https://www.gardavino.it/1171-medium_default/peroni-montelungo.jpg",
+    title: "Peroni Montelungo Marzemino" },
+];
+
+test.describe("Formati PrestaShop", () => {
+  test("medium_default vale come large_default", () => {
+    // Il difetto: avevo elencato i formati visti nel campione invece di
+    // riconoscere lo schema. Stesso negozio, stessa foto, 1 punto invece di 4.
+    for (const f of ["small", "medium", "large", "home", "cart", "thickbox"]) {
+      const url = `https://www.gardavino.it/1172-${f}_default/peroni-montealbi.jpg`;
+      expect(punteggioImmagine(url), `${f}_default`).toBeGreaterThanOrEqual(SOGLIA_MINIMA);
+    }
+  });
+});
+
+test.describe("Rilevanza", () => {
+  test("le virgolette del nome non finiscono nelle parole", () => {
+    // Producevano la keyword '\"montealbi\"', che in un URL non si trova mai.
+    expect(parolePortanti("Peroni", 'Merlot "Montealbi"')).toEqual(["peroni", "merlot", "montealbi"]);
+  });
+
+  test("l'accento non spezza il confronto", () => {
+    // In etichetta e' "Montealbì", nel database "Montealbi".
+    expect(parolePortanti("Peroni", 'Merlot "Montealbì"')).toContain("montealbi");
+    expect(rilevanza(["montealbi"], "https://x.it/peroni-montealbì.jpg", "")).toBeGreaterThan(0);
+  });
+
+  test("l'URL pesa piu' del titolo", () => {
+    // L'URL di uno scatto prodotto nomina il prodotto; il titolo di una pagina
+    // e-commerce nomina anche i correlati.
+    expect(rilevanza(["montelungo"], "https://x.it/peroni-montelungo.jpg", ""))
+      .toBeGreaterThan(rilevanza(["montelungo"], "https://x.it/altro.jpg", "Peroni Montelungo"));
+  });
+
+  test("sui risultati veri sceglie la bottiglia giusta", () => {
+    const { migliore } = scegliImmagine(RISULTATI_VERI_MARZEMINO, "Peroni", 'Marzemino "Montelungo"');
+    expect(migliore.url).toBe("https://www.gardavino.it/1171-medium_default/peroni-montelungo.jpg");
+    expect(migliore.punteggio).toBeGreaterThanOrEqual(SOGLIA_MINIMA);
+  });
+
+  test("vince anche se la sbagliata nomina il vino nel titolo", () => {
+    // Il caso ostile: la pagina sbagliata cita produttore E vitigno fra i
+    // correlati. Prima bastava quello per entrare in gara e vincere.
+    const ostili = [
+      { imageUrl: "https://www.gardavino.it/1356-home_default/maccaboni-donna-virginia.jpg",
+        title: "Donna Virginia — vedi anche Peroni Marzemino Montelungo" },
+      { imageUrl: "https://www.gardavino.it/1171-medium_default/peroni-montelungo.jpg",
+        title: "Peroni Montelungo" },
+    ];
+    const { migliore } = scegliImmagine(ostili, "Peroni", 'Marzemino "Montelungo"');
+    expect(migliore.url).toContain("peroni-montelungo");
   });
 });
