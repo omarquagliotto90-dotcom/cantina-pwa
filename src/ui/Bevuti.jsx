@@ -123,7 +123,7 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
     <div style={{ padding: "0 20px 24px", fontFamily: T.sans, color: T.testo }}>
 
       {/* ── Intestazione editoriale ── */}
-      <header style={{ padding: "30px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
+      <header style={{ padding: "16px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
         <p style={{ ...OCCHIELLO }}>Memoria personale</p>
         <h2 style={{ margin: "3px 0 10px", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>Bevuti</h2>
         <p style={{ margin: 0, maxWidth: 280, color: T.secondario, fontFamily: T.serif, fontSize: 16, lineHeight: 1.45 }}>

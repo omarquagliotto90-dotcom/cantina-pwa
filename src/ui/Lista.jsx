@@ -96,11 +96,13 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
             appiccicata, quindi scorreva via e restava irraggiungibile per il
             98% della lista. Misurato: dopo 1200px di scroll stava a y=-1191,
             e la cantina vera e' alta circa 11.500px. */}
-        {/* Stessa gabbia dell'intestazione di Bevuti (21/09/2026): 30px sopra,
-            16 sotto, e la riga forte in fondo. Li' sotto il titolo c'e' un
+        {/* Stessa gabbia dell'intestazione di Bevuti (21/09/2026): 16px sopra
+            e sotto, e la riga forte in fondo. I 30px sopra erano tutto lo
+            spazio bianco fra la barra e l'occhiello — sopra l'header non c'e'
+            altro padding da cui attingere — e Omar li ha voluti ridotti. Li' sotto il titolo c'e' un
             paragrafo, qui no e non va aggiunto: lo stacco dalla riga lo fa il
             padding, quindi il margine sotto l'h2 resta 0. */}
-        <header style={{ padding: "30px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
+        <header style={{ padding: "16px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
           <p style={{ ...OCCHIELLO }}>Collezione privata{rev && <span style={{ opacity: .65 }}> · {rev}</span>}</p>
           <h2 style={{ margin: "3px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
         </header>
