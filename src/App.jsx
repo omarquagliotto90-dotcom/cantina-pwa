@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.5";
+const REV = "1.6";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -298,7 +298,10 @@ function BottleImage({ wine, active }) {
       <img src={url} alt={wine.produttore + " " + wine.vino}
         onClick={() => setLightbox(true)}
         onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
-        style={{ width: 190, height: 264, objectFit: "cover", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
+        style={{ width: 190, height: 264, objectFit: "contain", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
+        {/* `contain`: vedi il commento gemello in WineCard. Il rifilo del
+            margine bianco, che rendera' le bottiglie tutte della stessa
+            altezza, e' il passo successivo e richiede una route proxy. */}
     </>
   );
 }

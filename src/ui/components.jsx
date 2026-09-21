@@ -276,8 +276,12 @@ export function WineCard({ wine, onOpen, immagine = null }) {
     <RigaPremibile onClick={onOpen}>
       <span style={{ position: "absolute", top: 14, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
       <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
+        {/* `contain` e non `cover`: `cover` riempie il riquadro TAGLIANDO, e su
+            uno scatto prodotto quadrato o orizzontale mangiava i lati della
+            bottiglia. Con `contain` la bottiglia si vede sempre intera e tutte
+            stanno nello stesso riquadro. */}
         {immagine ? (
-          <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />
+          <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "contain", mixBlendMode: "multiply" }} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: T.tenueAlt }}>
             <CaliceIcon size={20} />
