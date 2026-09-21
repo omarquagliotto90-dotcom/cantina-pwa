@@ -141,4 +141,35 @@ test.describe("Foto di bottiglia", () => {
     expect(g.img.h).toBeLessThanOrEqual(g.box.h + 1);
     expect(g.img.w).toBeLessThanOrEqual(g.box.w + 1);
   });
+
+  test("il fondo viene reso trasparente, non solo ritagliato", async ({ page, cantina }) => {
+    // Fondo GRIGIO di proposito: `mix-blend-mode: multiply` nasconde il bianco,
+    // quindi col bianco non si distingue un vero scontorno da un ritaglio. Col
+    // grigio si': se resta, si vede il riquadro attorno alla bottiglia.
+    const grigio = "data:image/svg+xml;utf8," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600">`
+      + `<rect width="600" height="600" fill="#DEDEDE"/>`
+      + `<rect x="250" y="80" width="100" height="480" rx="8" fill="#2E4A2E"/></svg>`);
+    cantina.setTable("wines", [VINO]).setTable("bevuti", [])
+      .setTable("wine_images", [{ wine_id: 1, image_url: grigio }]);
+
+    await apriApp(page);
+    const mini = page.locator('img[alt=""]').first();
+    await expect(mini).toHaveAttribute("src", /^data:image\/png/, { timeout: 10_000 });
+
+    const alpha = await mini.evaluate(el => new Promise(ok => {
+      const i = new Image();
+      i.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = i.naturalWidth; c.height = i.naturalHeight;
+        const x = c.getContext("2d"); x.drawImage(i, 0, 0);
+        const d = x.getImageData(0, 0, i.naturalWidth, i.naturalHeight).data;
+        const centro = ((Math.floor(i.naturalHeight / 2) * i.naturalWidth) + Math.floor(i.naturalWidth / 2)) * 4;
+        ok({ angolo: d[3], centro: d[centro + 3] });
+      };
+      i.src = el.src;
+    }));
+    expect(alpha.angolo).toBe(0);      // fondo: trasparente
+    expect(alpha.centro).toBe(255);    // bottiglia: opaca
+  });
 });

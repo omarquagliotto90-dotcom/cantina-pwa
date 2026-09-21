@@ -6,7 +6,7 @@
 // rete, su immagini sintetiche con margini NOTI.
 
 import { test, expect } from "@playwright/test";
-import { riquadroContenuto } from "../src/ui/domain.js";
+import { riquadroContenuto, scontornaFondo } from "../src/ui/domain.js";
 
 /** Tela piena di `fondo` con un rettangolo `oggetto` dentro. */
 function tela({ w, h, fondo = [255, 255, 255, 255], oggetto = null }) {
@@ -57,5 +57,55 @@ test.describe("Rifilo del margine", () => {
                      oggetto: { x: 80, y: 50, larghezza: 40, altezza: 200 } });
     const r = riquadroContenuto(d, 200, 300);
     expect(r).toEqual({ sx: 80, su: 50, larghezza: 40, altezza: 200 });
+  });
+});
+
+test.describe("Scontorno del fondo", () => {
+  const alpha = (d, w, x, y) => d[(y * w + x) * 4 + 3];
+
+  test("il fondo attorno alla bottiglia diventa trasparente", () => {
+    const d = tela({ w: 100, h: 200, oggetto: { x: 40, y: 20, larghezza: 20, altezza: 160 } });
+    const tolti = scontornaFondo(d, 100, 200);
+    expect(tolti).toBeGreaterThan(0);
+    expect(alpha(d, 100, 2, 2)).toBe(0);        // angolo: via
+    expect(alpha(d, 100, 50, 100)).toBe(255);   // bottiglia: intatta
+  });
+
+  test("il bianco DENTRO l'etichetta non viene bucato", () => {
+    // E' il modo tipico di sbagliare uno scontorno: cancellare per colore
+    // invece che per contiguita' dal bordo mangerebbe anche questa etichetta.
+    const d = tela({ w: 100, h: 200, oggetto: { x: 30, y: 20, larghezza: 40, altezza: 160 } });
+    // Etichetta bianca dentro il corpo scuro.
+    for (let y = 80; y < 120; y++)
+      for (let x = 35; x < 65; x++) d.set([255, 255, 255, 255], (y * 100 + x) * 4);
+
+    scontornaFondo(d, 100, 200);
+    expect(alpha(d, 100, 50, 100)).toBe(255);   // etichetta: ancora opaca
+    expect(alpha(d, 100, 2, 2)).toBe(0);        // fondo: via
+  });
+
+  test("un'immagine senza fondo non viene cancellata per intero", () => {
+    // Trovato da un test in rosso, non a tavolino: una tela tutta soggetto ha
+    // gli angoli uguali, quindi il flood fill la mangiava tutta e restituiva
+    // un PNG vuoto. Meglio non scontornare che far sparire la bottiglia.
+    const d = tela({ w: 80, h: 120, fondo: [34, 17, 17, 255] });
+    expect(scontornaFondo(d, 80, 120)).toBe(0);
+    expect(alpha(d, 80, 40, 60)).toBe(255);
+  });
+
+  test("una foto ambientata non viene toccata", () => {
+    const d = tela({ w: 60, h: 60, fondo: [120, 200, 90, 255] });
+    d.set([10, 10, 10, 255], 0);
+    d.set([240, 240, 240, 255], (59 * 60 + 59) * 4);
+    expect(scontornaFondo(d, 60, 60)).toBe(0);
+  });
+
+  test("dopo lo scontorno il riquadro segue la sagoma, non il rettangolo", () => {
+    // Bottiglia stretta con una base larga e chiara quasi come il fondo: senza
+    // scontorno il riquadro la includerebbe, con lo scontorno no.
+    const d = tela({ w: 120, h: 200, oggetto: { x: 50, y: 10, larghezza: 20, altezza: 180 } });
+    scontornaFondo(d, 120, 200);
+    const r = riquadroContenuto(d, 120, 200);
+    expect(r).toEqual({ sx: 50, su: 10, larghezza: 20, altezza: 180 });
   });
 });

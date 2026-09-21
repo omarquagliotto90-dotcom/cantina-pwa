@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { M3, T, OCCHIELLO } from "./ui/theme";
 import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { formatDataIt, setProduttori, riquadroContenuto } from "./ui/domain";
+import { formatDataIt, setProduttori, riquadroContenuto, scontornaFondo } from "./ui/domain";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.9";
+const REV = "2.0";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -265,17 +265,29 @@ async function rifila(url) {
   const ctx = tela.getContext("2d", { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, w, h);
 
-  const riquadro = riquadroContenuto(ctx.getImageData(0, 0, w, h).data, w, h);
-  if (!riquadro) return null;
+  // Prima lo scontorno vero: i pixel di fondo diventano trasparenti. Senza,
+  // il ritaglio lascia comunque il rettangolo di fondo attorno alla bottiglia.
+  const dati = ctx.getImageData(0, 0, w, h);
+  const tolti = scontornaFondo(dati.data, w, h);
+  if (tolti > 0) ctx.putImageData(dati, 0, 0);
+
+  // Poi il riquadro, calcolato su cio' che resta opaco: dopo lo scontorno e'
+  // la sagoma della bottiglia, non piu' il rettangolo del soggetto.
+  const riquadro = riquadroContenuto(dati.data, w, h);
+  if (!riquadro && tolti === 0) return null;
+
+  // Se lo scontorno ha tolto qualcosa ma non c'e' margine da rifilare, si tiene
+  // comunque l'immagine intera: e' gia' migliore dell'originale.
+  const box = riquadro || { sx: 0, su: 0, larghezza: w, altezza: h };
 
   // Un filo d'aria attorno: una bottiglia a filo del bordo sembra tagliata.
-  const aria = Math.round(Math.max(riquadro.larghezza, riquadro.altezza) * 0.02);
+  const aria = Math.round(Math.max(box.larghezza, box.altezza) * 0.02);
   const out = document.createElement("canvas");
-  out.width = riquadro.larghezza + aria * 2;
-  out.height = riquadro.altezza + aria * 2;
+  out.width = box.larghezza + aria * 2;
+  out.height = box.altezza + aria * 2;
   const octx = out.getContext("2d");
-  octx.drawImage(tela, riquadro.sx, riquadro.su, riquadro.larghezza, riquadro.altezza,
-                 aria, aria, riquadro.larghezza, riquadro.altezza);
+  octx.drawImage(tela, box.sx, box.su, box.larghezza, box.altezza,
+                 aria, aria, box.larghezza, box.altezza);
   return out.toDataURL("image/png");
 }
 
