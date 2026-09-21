@@ -34,6 +34,7 @@ import { hasCantina, produttoreDi, getGoogleFallback } from "./domain";
 export const REGIONI_CON_FOTO = [
   "Trentino-Alto Adige",
   "Veneto",
+  "Abruzzo",
   // Nessun produttore in Valle d'Aosta al 20/09/2026: la foto c'e' ma
   // resta dormiente finche' non entra in cantina un vino valdostano.
   "Valle d'Aosta",
