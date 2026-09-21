@@ -61,4 +61,59 @@ test.describe("Caricamento e Lista", () => {
 
     await expect(page.getByText(/impossibile caricare la cantina/i)).toBeVisible();
   });
+
+  // ── Il "+" resta raggiungibile ──────────────────────────────────────────
+  // Prima stava nell'intestazione, che scorre via: dopo 1200px era a y=-1191
+  // e per aggiungere un vino bisognava risalire tutta la lista (~11.500px
+  // sulla cantina vera). Ora e' flottante. Questo test e' l'unica cosa che
+  // impedisce a un ritocco futuro di rimetterlo dentro il contenitore che
+  // scorre, perche' il difetto non si vede finche' la lista e' corta.
+
+  const listaLunga = () => Array.from({ length: 40 }, (_, i) => ({
+    id: i + 1, produttore: `Produttore ${i + 1}`, produttore_id: 1,
+    vino: `Vino numero ${i + 1}`, annata: 2020, tipologia: "Rosso fermo",
+    bottiglie: 2, prezzo: 12, valore: 18, denominazione: "DOC", vitigno: "Sangiovese",
+    macerazione: null, fermentazione: null, malolattica: null, note: null,
+    note_cantina: null, slow_vino_bott: false,
+    created_at: "2026-01-10T10:00:00+00:00", deleted_at: null,
+  }));
+
+  test("il + resta a schermo dopo aver scorso la lista", async ({ page, cantina }) => {
+    cantina.setTable("wines", listaLunga()).setTable("bevuti", []).setTable("wine_images", []);
+    await apriApp(page);
+
+    const piu = page.getByRole("button", { name: "Aggiungi un vino" });
+    await expect(piu).toBeVisible();
+
+    const scrollato = await page.evaluate(() => {
+      const el = [...document.querySelectorAll("div")]
+        .find(d => d.scrollHeight > d.clientHeight + 50 && getComputedStyle(d).overflowY === "auto");
+      el.scrollTop = 1500;
+      return el.scrollTop;
+    });
+    expect(scrollato).toBeGreaterThan(1000);
+
+    // Visibile e dentro il viewport, non solo presente nel DOM.
+    await expect(piu).toBeVisible();
+    const box = await piu.boundingBox();
+    const vp = page.viewportSize();
+    expect(box.y).toBeGreaterThan(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+
+    // E funziona: apre lo sheet con le due scelte.
+    await piu.click();
+    await expect(page.getByText("Inserimento manuale")).toBeVisible();
+    await expect(page.getByText("Foto etichetta")).toBeVisible();
+  });
+
+  test("il + sparisce quando si apre la scheda di un vino", async ({ page, cantina }) => {
+    // La scheda e' un overlay a tutto schermo: un "+" che ci resta sopra
+    // sarebbe il bug del FAB, non una scorciatoia.
+    cantina.setTable("wines", listaLunga()).setTable("bevuti", []).setTable("wine_images", []);
+    await apriApp(page);
+
+    await page.getByRole("button", { name: /Vino numero 1\b/ }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Aggiungi un vino" })).toHaveCount(0);
+  });
 });

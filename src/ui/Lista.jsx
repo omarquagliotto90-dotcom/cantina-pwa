@@ -47,7 +47,7 @@ const IconaLente = ({ size = 17, color = "currentColor" }) => (
   </svg>
 );
 
-export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, onAggiungi, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, immagini = {}, rev = "" }) {
+export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, immagini = {}, rev = "" }) {
   const [filtro, setFiltro] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [ricercaAperta, setRicercaAperta] = useState(false);
@@ -91,15 +91,16 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
       <div style={{ padding: "0 20px 24px", fontFamily: T.sans, color: T.testo }}>
 
         {/* ── Intestazione editoriale ── */}
-        <header style={{ minHeight: 62, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        {/* Il "+" del design stava qui, in alto a destra. Spostato nel bottone
+            flottante di App.jsx il 21/09/2026: l'intestazione non e'
+            appiccicata, quindi scorreva via e restava irraggiungibile per il
+            98% della lista. Misurato: dopo 1200px di scroll stava a y=-1191,
+            e la cantina vera e' alta circa 11.500px. */}
+        <header style={{ minHeight: 62, display: "flex", alignItems: "center" }}>
           <div>
             <p style={{ ...OCCHIELLO }}>Collezione privata{rev && <span style={{ opacity: .65 }}> · {rev}</span>}</p>
             <h2 style={{ margin: "3px 0 0", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>La mia cantina</h2>
           </div>
-          <button type="button" onClick={onAggiungi} aria-label="Aggiungi un vino"
-            style={{ flex: "0 0 auto", width: 44, height: 44, display: "grid", placeItems: "center", border: `1px solid ${T.accento}`, borderRadius: "50%", background: T.accento, color: T.superficie, cursor: "pointer" }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-          </button>
         </header>
 
         {/* ── Riepilogo ── */}

@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.4";
+const REV = "1.5";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -937,12 +937,34 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} immagini={immagini} rev={REV} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} immagini={immagini} rev={REV} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
-      {/* ── Extended FAB ── */}
+      {/* ── "+" flottante: l'azione primaria della Cantina ──
+          Sta qui e non nell'intestazione di Lista perche' quella scorre via:
+          il "+" spariva dopo poche decine di pixel e non tornava piu'. In
+          basso a destra e' sempre a portata di pollice mentre si scorre.
+          Sparisce quando e' aperta la scheda di un vino, che e' un overlay a
+          tutto schermo: li' la slot ospita gia' "Scheda tecnica". Che la slot
+          abbia ancora due significati resta il bug noto, e si chiude nello
+          step B, quando "Scheda tecnica" entra nel dettaglio. */}
+      {tab === "lista" && !selectedWineForScheda && (
+        <button type="button" onClick={() => setShowAggiungi(true)} aria-label="Aggiungi un vino"
+          style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", right: 16, zIndex: 50,
+            width: 56, height: 56, display: "grid", placeItems: "center",
+            border: `1px solid ${T.accento}`, borderRadius: "50%", background: T.accento, color: T.superficie,
+            cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)",
+            opacity: fabVisible ? 1 : 0,
+            transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)",
+            transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)",
+            pointerEvents: fabVisible ? "auto" : "none" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+        </button>
+      )}
+
+      {/* ── Extended FAB "Scheda tecnica" ── */}
       {tab === "lista" && (
         <div style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
           {selectedWineForScheda && (

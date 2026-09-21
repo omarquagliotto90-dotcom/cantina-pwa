@@ -67,7 +67,7 @@ Altri bug aperti:
 - `ModalAggiungi` e `ModalModifica` duplicano il form, con validazioni diverse; l'enrichment è duplicato in due punti con logiche di merge diverse
 - `Card` è definito dentro `TabStatistiche`, quindi si rimonta a ogni render
 - Filtri, ricerca e scroll della Lista si perdono cambiando tab
-- Il FAB cambia significato ("Scheda tecnica") e resta sopra il `WineDetail`
+- Il FAB cambia ancora significato: dal 21/09/2026 la slot in basso a destra ospita il **"+"** quando si sfoglia la Cantina e **"Scheda tecnica"** quando e' aperto un dettaglio. Il "+" si nasconde sull'overlay (c'e' un test), "Scheda tecnica" no: **resta sopra il `WineDetail`**, e finche' non si sposta dentro il dettaglio — step B — la slot continua ad avere due significati
 - `ModalBevi`: il date-picker "data apertura" ha `max` impostato a oggi ma non blocca davvero la selezione di date future su tutti i browser/dispositivi (il vincolo HTML `max` non è enforced ovunque) — non urgente, da sistemare in futuro (probabile fix: validazione esplicita on-change, o CHECK lato DB su `bevuti.consumed_on`)
 
 ## Roadmap concordata
@@ -153,7 +153,7 @@ Regole da rispettare quando si tocca questa struttura:
 - ricerca, filtro e vino selezionato sono **stato locale di `Lista.jsx`**: sollevarli in `Cantina()` li farebbe sopravvivere al cambio tab, cioè cambierebbe il comportamento. È lo step B della roadmap
 - la revisione sta in **un solo posto**: la costante `REV` in cima ad `App.jsx`, mostrata accanto al titolo nell'app bar. Sale di 0.1 a ogni modifica di `App.jsx`. `src/version.js` è stato cancellato (era fermo a 0.3 e non lo importava nessuno) e il commento d'intestazione non porta più un numero: erano le due fonti di disallineamento
 
-## Stato attuale (REV 1.4)
+## Stato attuale (REV 1.5)
 
 - `useCantinaData()` **estratto** (A1); `handleSalva`, `handleSalvaModifica`, `handleSchedaTecnica` restano inline in `Cantina()`
 - `REV` è l'unico numero di versione del progetto. Attenzione: misura le modifiche ad `App.jsx`, non i passi della roadmap — P1b.1 e P1b.3 non l'hanno alzato perché non hanno toccato quel file
