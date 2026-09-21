@@ -25,7 +25,6 @@ test.describe("Caricamento e Lista", () => {
     // Costo e valore sono grandezze diverse e devono restare distinte.
     await expect(page.getByTestId("tot-costo")).toHaveText(`${ATTESI.costo} €`);
     await expect(page.getByTestId("tot-valore")).toHaveText(`${ATTESI.valoreMercato} €`);
-    await expect(page.getByTestId("media-bottiglia")).toHaveText(`${ATTESI.mediaBottiglia} € l'una`);
   });
 
   test("i campi NULL diventano placeholder, non stringhe vuote", async ({ page, cantina }) => {

@@ -106,15 +106,13 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
         {/* ── Riepilogo ── */}
         {/* Il design aveva due voci a destra (referenze, valore). Qui sono tre:
             costo d'acquisto e stima di mercato sono grandezze diverse (A1) e
-            nessuna delle due va persa. La media per bottiglia resta sotto il
-            numerone, dov'era piu' leggibile che in una tile a se'. */}
+            nessuna delle due va persa. La media per bottiglia stava sotto il
+            numerone: tolta il 21/09/2026, era la terza cifra in euro a pochi
+            centimetri dalle altre due e non aggiungeva niente. */}
         <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(132px,.85fr)", alignItems: "end", padding: "10px 0 9px", borderTop: `1px solid ${T.divisoreMedio}`, borderBottom: `1px solid ${T.divisoreMedio}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
             <span data-testid="tot-bottiglie" style={{ fontFamily: T.serif, fontSize: 55, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{totalB}</span>
-            <span style={{ maxWidth: 88, color: T.secondario, fontSize: 12, lineHeight: 1.3 }}>
-              bottiglie<br />custodite
-              {totalB > 0 && <><br /><span data-testid="media-bottiglia" style={{ color: T.tenue, fontSize: 11 }}>{Math.round(totalV / totalB)} € l'una</span></>}
-            </span>
+            <span style={{ color: T.secondario, fontSize: 12, lineHeight: 1 }}>bottiglie</span>
           </div>
           <div style={{ display: "grid", borderLeft: `1px solid ${T.divisoreMedio}` }}>
             {[
