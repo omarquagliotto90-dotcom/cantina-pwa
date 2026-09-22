@@ -51,6 +51,7 @@ export default function AddWineSheet({
   onChange,      // (campo, valore) => void
   onFotografa,   // () => void
   onSalva,       // () => void
+  onAnnulla,     // () => void
   avviso = null, // nodo opzionale: l'esito del riconoscimento dell'etichetta
 }) {
   const pronto = produttore.trim() && vino.trim();
@@ -135,17 +136,31 @@ export default function AddWineSheet({
         </label>
       </div>
 
-      <button type="button" onClick={onSalva} disabled={!pronto}
-        style={{
-          width: "100%", height: 52, marginTop: 26, border: 0, borderRadius: 14,
-          background: pronto ? T.accento : T.divisore,
-          color: pronto ? T.superficie : T.tenue,
-          fontFamily: T.sans, fontSize: 12, fontWeight: 600,
-          letterSpacing: ".14em", textTransform: "uppercase",
-          cursor: pronto ? "pointer" : "default",
-        }}>
-        Continua
-      </button>
+      {/* Stessa coppia di `ModalBevi`: 1fr 2fr, l'uscita a sinistra col solo
+          bordo, l'azione a destra piena. Chiudere il foglio era gia' possibile
+          toccando fuori, ma non si vedeva. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10, marginTop: 26 }}>
+        <button type="button" onClick={onAnnulla}
+          style={{
+            height: 52, border: `1px solid ${T.divisore}`, borderRadius: 14,
+            background: "transparent", color: T.testo,
+            fontFamily: T.sans, fontSize: 12, fontWeight: 600,
+            letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer",
+          }}>
+          Annulla
+        </button>
+        <button type="button" onClick={onSalva} disabled={!pronto}
+          style={{
+            height: 52, border: 0, borderRadius: 14,
+            background: pronto ? T.accento : T.divisore,
+            color: pronto ? T.superficie : T.tenue,
+            fontFamily: T.sans, fontSize: 12, fontWeight: 600,
+            letterSpacing: ".14em", textTransform: "uppercase",
+            cursor: pronto ? "pointer" : "default",
+          }}>
+          Continua
+        </button>
+      </div>
     </div>
   );
 }

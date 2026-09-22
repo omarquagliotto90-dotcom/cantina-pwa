@@ -131,6 +131,19 @@ test.describe("Caricamento e Lista", () => {
     expect(Math.abs(m.sopra - m.sotto), `sopra ${m.sopra}px, sotto ${m.sotto}px`).toBeLessThanOrEqual(1);
   });
 
+  test("Annulla chiude il foglio senza salvare", async ({ page, cantina }) => {
+    // Fino al 22/09/2026 l'unica uscita era toccare fuori dal foglio: invisibile
+    // e, su un foglio alto quanto lo schermo, quasi irraggiungibile.
+    await apriApp(page);
+    await page.getByRole("button", { name: "Aggiungi un vino" }).click();
+    await page.getByLabel("Produttore", { exact: true }).fill("Da buttare");
+
+    await page.getByRole("button", { name: "Annulla" }).click();
+
+    await expect(page.getByRole("heading", { name: "Aggiungi alla cantina" })).toHaveCount(0);
+    expect(cantina.rpcCalls("aggiungi_o_incrementa")).toHaveLength(0);
+  });
+
   test("il + sparisce quando si apre la scheda di un vino", async ({ page, cantina }) => {
     // La scheda e' un overlay a tutto schermo: un "+" che ci resta sopra
     // sarebbe il bug del FAB, non una scorciatoia.

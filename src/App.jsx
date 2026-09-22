@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.2";
+const REV = "2.3";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -574,6 +574,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             }))}
             onFotografa={() => fileRef.current?.click()}
             onSalva={() => { if (form.produttore.trim() && form.vino.trim()) onSalva(form); }}
+            onAnnulla={onAnnulla}
             avviso={imagePreview ? (
               <div style={{ display: "flex", gap: 10, alignItems: "center", background: aiError ? "#FDECEA" : "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 18 }}>
                 <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
