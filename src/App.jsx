@@ -1,6 +1,7 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { M3, T, OCCHIELLO } from "./ui/theme";
 import { TIPO, IC, SliderVoto, SchedaTecnicaIcon, FORMATI, FORMATO_PREDEFINITO,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
@@ -14,7 +15,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.9";
+const REV = "3.0";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -188,20 +189,30 @@ const imgQueue = {
 const DENOMINAZIONI = ["DOC", "DOCG", "IGT", "AOC", "IGP", "QbA", "QmP", "AVA", "n.d."];
 
 // ─── Lightbox fullscreen ──────────────────────────────────────────────────────
+// Va in un portale su `document.body`, e non e' un dettaglio: viene montato
+// dentro `BottleImage`, che nell'hero della scheda sta dentro `sopraFoto`
+// (`position: relative; z-index: 2` in WineDetail.jsx). Un elemento posizionato
+// con `z-index` crea uno stacking context, quindi da li' dentro il `z-index`
+// del lightbox compete solo coi fratelli: il nome del vino, che sta nello
+// stesso contesto piu' avanti nel DOM, restava dipinto SOPRA la foto
+// ingrandita (visto da Omar il 22/09/2026, misurato con `elementFromPoint`).
+// E' la stessa trappola gia' registrata in CLAUDE.md per `mix-blend-mode`.
+// Il portale lo porta fuori da qualunque contesto: "clicco sulla foto, compare
+// solo la foto". Se un giorno rientrasse nell'albero, il difetto torna.
 function Lightbox({ url, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
-  return (
+  return createPortal((
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.18s ease", cursor: "zoom-out" }}>
       <img src={url} alt="Bottiglia ingrandita" onClick={e => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.6)", cursor: "default" }} />
       <button onClick={onClose} style={{ position: "absolute", top: 18, right: 18, width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
         <span style={{display:"flex"}}>{IC.close}</span>
       </button>
     </div>
-  );
+  ), document.body);
 }
 
 // ─── BottleImage ──────────────────────────────────────────────────────────────
