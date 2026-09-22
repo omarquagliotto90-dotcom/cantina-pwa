@@ -16,7 +16,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { T, OCCHIELLO } from "./theme";
-import { TIPO, WineCard, CaliceIcon } from "./components";
+import { TIPO, WineCard, CaliceIcon, IconaLente } from "./components";
 import { costoGiacenza, valoreMercatoGiacenza } from "./domain";
 import WineDetail from "./WineDetail";
 
@@ -40,12 +40,6 @@ function Chip({ label, attivo, onClick }) {
     </button>
   );
 }
-
-const IconaLente = ({ size = 17, color = "currentColor" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round">
-    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
-  </svg>
-);
 
 export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, onRate, onWineOpen, onWineClose, renderBottiglia, renderMiniatura, immagini = {}, formati = {}, rev = "" }) {
   const [filtro, setFiltro] = useState("Tutti");

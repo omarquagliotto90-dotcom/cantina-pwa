@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.8";
+const REV = "2.9";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una

@@ -191,6 +191,14 @@ export const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {
 // (P6). `valore` e' cio' che finisce nel database, `etichetta` cio' che si
 // legge nei form. In lista si mostra il solo `valore`, e soltanto quando non
 // e' Standard: una cantina di bottiglie normali non ha bisogno di dirlo.
+// La lente della ricerca. Sta qui e non in Lista.jsx da quando la usano due
+// schermate: Cantina e Bevuti.
+export const IconaLente = ({ size = 17, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round">
+    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+  </svg>
+);
+
 export const FORMATI = [
   { valore: "Mezza",    etichetta: "Mezza (0,37 l)" },
   { valore: "Medium",   etichetta: "Medium (0,5 l)" },
