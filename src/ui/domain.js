@@ -264,3 +264,47 @@ export function scontornaFondo(dati, larghezza, altezza, tolleranza = TOLLERANZA
   }
   return tolti;
 }
+
+// ─── Formati delle bottiglie (P6 fase 3) ─────────────────────────────────────
+// Riduce le righe di `bottiglie` in giacenza a una stringa per vino, da
+// mostrare accanto al conteggio in lista. Restituisce SOLO i formati diversi
+// da Standard: una cantina di bottiglie normali non ha bisogno di dirlo, e
+// stampare "Standard" su 117 righe su 118 sarebbe rumore.
+//
+// Un vino puo' averne piu' d'uno — tre Standard e un Magnum e' un caso vero,
+// reso possibile dal fatto che `aggiungi_o_incrementa` somma alla stessa
+// etichetta. In quel caso si elencano, i piu' numerosi per primi.
+export const FORMATO_STANDARD = "Standard";
+
+export function formatiPerVino(righe) {
+  const conta = new Map();   // wine_id -> Map(formato -> quante)
+  for (const r of righe || []) {
+    if (r?.wine_id == null) continue;
+    if (!r.formato || r.formato === FORMATO_STANDARD) continue;
+    if (!conta.has(r.wine_id)) conta.set(r.wine_id, new Map());
+    const perVino = conta.get(r.wine_id);
+    perVino.set(r.formato, (perVino.get(r.formato) || 0) + 1);
+  }
+  const out = {};
+  for (const [wineId, perVino] of conta) {
+    out[wineId] = [...perVino.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([formato]) => formato)
+      .join(" · ");
+  }
+  return out;
+}
+
+// Il formato da mostrare nel form di modifica: il piu' diffuso fra le giacenze
+// del vino, Standard se non ce ne sono. Serve perche' la modifica agisce su
+// tutte le bottiglie insieme, quindi il campo deve partire da qualcosa di vero.
+export function formatoPrevalente(righe, wineId) {
+  const conta = new Map();
+  for (const r of righe || []) {
+    if (r?.wine_id !== wineId || !r.formato) continue;
+    conta.set(r.formato, (conta.get(r.formato) || 0) + 1);
+  }
+  if (!conta.size) return FORMATO_STANDARD;
+  return [...conta.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
+}

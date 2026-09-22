@@ -262,6 +262,14 @@ GRANT SELECT ON public.bottiglie TO anon;
 -- impedire. In modifica_vino `p_bottiglie` e' un TOTALE, non un delta, quindi
 -- la giacenza viene riconciliata; lo snapshot sulle righe bevute non si
 -- aggiorna mai, nemmeno se il vino viene rinominato.
+--
+-- P6 fase 3: aggiungi_o_incrementa e modifica_vino prendono `p_formato`.
+-- Sono state DROPPATE e ricreate, non affiancate da un overload: due funzioni
+-- che si distinguono per un solo parametro con DEFAULT sono ambigue per
+-- PostgREST quando il client ne manda 12. Con il drop+create il client vecchio
+-- continua a funzionare e prende il default. In modifica_vino il default e'
+-- NULL e significa "non toccare il formato", altrimenti una modifica
+-- qualunque riporterebbe a Standard un Magnum gia' registrato.
 
 -- ─── Permessi ───────────────────────────────────────────────────────────────
 

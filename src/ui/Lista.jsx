@@ -47,7 +47,7 @@ const IconaLente = ({ size = 17, color = "currentColor" }) => (
   </svg>
 );
 
-export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, renderMiniatura, immagini = {}, rev = "" }) {
+export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, renderMiniatura, immagini = {}, formati = {}, rev = "" }) {
   const [filtro, setFiltro] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [ricercaAperta, setRicercaAperta] = useState(false);
@@ -182,7 +182,7 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
               </button>
             </div>
           ) : filtered.map(wine => (
-            <WineCard key={wine.id} wine={wine} onOpen={handleOpen(wine.id)} immagine={immagini[wine.id] || null} renderMiniatura={renderMiniatura} />
+            <WineCard key={wine.id} wine={wine} onOpen={handleOpen(wine.id)} immagine={immagini[wine.id] || null} renderMiniatura={renderMiniatura} formato={formati[wine.id] || null} />
           ))}
         </section>
       </div>

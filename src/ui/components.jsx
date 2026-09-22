@@ -187,6 +187,20 @@ export const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {
 // del design non coincidono con i valori del database — "Bollicine" e' uno
 // Spumante, "Rose'" e' uno Spumante rosso — e l'ordine qui sotto e' quello in
 // cui compaiono i chip.
+// I sei formati ammessi, stessa lista chiusa del CHECK su `bottiglie.formato`
+// (P6). `valore` e' cio' che finisce nel database, `etichetta` cio' che si
+// legge nei form. In lista si mostra il solo `valore`, e soltanto quando non
+// e' Standard: una cantina di bottiglie normali non ha bisogno di dirlo.
+export const FORMATI = [
+  { valore: "Mezza",    etichetta: "Mezza (0,37 l)" },
+  { valore: "Medium",   etichetta: "Medium (0,5 l)" },
+  { valore: "Standard", etichetta: "Standard (0,75 l)" },
+  { valore: "Litro",    etichetta: "Litro (1 l)" },
+  { valore: "Magnum",   etichetta: "Magnum (1,5 l)" },
+  { valore: "Jeroboam", etichetta: "Jeroboam (3 l)" },
+];
+export const FORMATO_PREDEFINITO = "Standard";
+
 export const TIPO = {
   "Rosso fermo":    { etichetta: "Rosso",     colore: "#6B1E2E", container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: <RossoIcon /> },
   "Bianco fermo":   { etichetta: "Bianco",    colore: "#CBAE6A", container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: <BiancoIcon /> },
@@ -265,7 +279,7 @@ export function RigaPremibile({ onClick, children }) {
   );
 }
 
-export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null }) {
+export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null, formato = null }) {
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   // Riga della Cantina — ridisegno 2026. La miniatura arriva gia' risolta in
@@ -303,6 +317,12 @@ export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null
           <span style={{ display: "flex", alignItems: "baseline", gap: 5, color: T.testo }}>
             <b style={{ fontFamily: T.serif, fontSize: 17, fontWeight: 500, lineHeight: 1 }}>{wine.bottiglie}</b>
             <span style={{ fontSize: 11, color: T.testoUnita }}>{wine.bottiglie === 1 ? "bottiglia" : "bottiglie"}</span>
+            {/* P6: compare solo per i formati diversi da Standard. Sta qui,
+                accanto al numero, perche' e' la stessa informazione: quante
+                bottiglie e di che taglia. */}
+            {formato && (
+              <span style={{ marginLeft: 2, padding: "2px 6px", border: `1px solid ${T.divisore}`, borderRadius: T.pillola, color: T.oroCaldo, fontSize: 9, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{formato}</span>
+            )}
           </span>
           {/* Due righe invece di una: il design mostrava solo il valore, ma il
               prezzo pagato non va perso. La seconda riga compare solo se esiste.

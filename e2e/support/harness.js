@@ -12,7 +12,7 @@
 //   test("…", async ({ page, cantina }) => { … });
 
 const base = require("@playwright/test");
-const { WINES, BEVUTI, PRODUTTORI } = require("../fixtures/cantina");
+const { WINES, BEVUTI, PRODUTTORI, BOTTIGLIE } = require("../fixtures/cantina");
 
 const RE_SUPABASE = /supabase\.co/;
 const RE_API = /\/api\//;
@@ -33,6 +33,7 @@ class Cantina {
       bevuti: BEVUTI.map(b => ({ ...b })),
       produttori: PRODUTTORI.map(p => ({ ...p })),
       wine_images: [],
+      bottiglie: BOTTIGLIE.map(b => ({ ...b })),
       // P3: non più letta dal client, resta finché la fase 3 non la elimina.
       wine_websites: [],
     };
@@ -148,6 +149,12 @@ class Cantina {
     let righe = this.tables[target] ?? [];
     if (path.includes("deleted_at=is.null")) {
       righe = righe.filter(r => r.deleted_at == null);
+    }
+    // P6: il client chiede le sole bottiglie in giacenza. Come sopra, servire
+    // la tabella intera nasconderebbe una regressione sul filtro — e qui
+    // peserebbe il doppio, perche' le righe bevute hanno anche loro un formato.
+    if (path.includes("stato=eq.in_cantina")) {
+      righe = righe.filter(r => r.stato === "in_cantina");
     }
     return route.fulfill({
       status: 200,

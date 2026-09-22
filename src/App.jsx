@@ -1,10 +1,10 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { M3, T, OCCHIELLO } from "./ui/theme";
-import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
+import { TIPO, IC, SliderVoto, SchedaTecnicaIcon, FORMATI, FORMATO_PREDEFINITO,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { formatDataIt, setProduttori, riquadroContenuto, scontornaFondo } from "./ui/domain";
+import { formatDataIt, setProduttori, riquadroContenuto, scontornaFondo, formatiPerVino, formatoPrevalente } from "./ui/domain";
 import AddWineSheet from "./ui/AddWineSheet";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.3";
+const REV = "2.4";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -505,7 +505,7 @@ function BottleImage({ wine, active }) {
 // ─── Modal: Aggiungi Vino ─────────────────────────────────────────────────────
 function ModalAggiungi({ onSalva, onAnnulla }) {
   const [modo, setModo] = useState(null);
-  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "n.d.", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
+  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "n.d.", annata: "", tipologia: "Rosso fermo", formato: FORMATO_PREDEFINITO, bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMime, setImageMime] = useState("image/jpeg");
@@ -568,7 +568,7 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
         {modo !== "analisi" && (
           <AddWineSheet
             produttore={form.produttore} vino={form.vino} tipologia={form.tipologia}
-            annata={form.annata} bottiglie={form.bottiglie}
+            formato={form.formato} annata={form.annata} bottiglie={form.bottiglie}
             onChange={(campo, valore) => setForm(p => ({
               ...p, [campo]: campo === "bottiglie" ? Math.max(1, Number(valore) || 1) : valore,
             }))}
@@ -621,7 +621,8 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
 function ModalModifica({ wine, onSalva, onAnnulla }) {
   const [form, setForm] = useState({
     produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "n.d.", annata: wine.annata || "",
-    tipologia: wine.tipologia || "Bianco fermo", bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
+    tipologia: wine.tipologia || "Bianco fermo", formato: wine.formato || FORMATO_PREDEFINITO,
+    bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
     vitigno: wine.vitigno || "", macerazione: wine.macerazione || "", fermentazione: wine.fermentazione || "",
     malolattica: wine.malolattica || "", note: wine.note || "", note_cantina: wine.note_cantina || "",
   });
@@ -679,7 +680,7 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
           </div>
         </div>
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Dati principali</div>
-        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
+        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("formato", "Formato", "text", { select: true, options: FORMATI.map(f => f.valore) })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
         <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
         <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
         <button onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
@@ -770,6 +771,12 @@ function useCantinaData() {
   const [bevuti, setBevuti] = useState([]);
   const [ratings, setRatings] = useState({});
   const [immagini, setImmagini] = useState({});   // wine_id -> url, per le miniature
+  // P6 fase 3: le righe di `bottiglie` in giacenza, grezze. Servono solo per il
+  // formato — il conteggio resta quello di `wines.bottiglie` fino alla fase 4 —
+  // e si tengono grezze perche' se ne ricavano due cose diverse: il badge in
+  // lista (solo i non-Standard) e il valore di partenza del form di modifica
+  // (il prevalente, Standard compreso).
+  const [giacenze, setGiacenze] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -777,7 +784,7 @@ function useCantinaData() {
     let cancelled = false;
     async function loadData() {
       try {
-        const [fetchedWines, bev, produttori, immagini] = await Promise.all([
+        const [fetchedWines, bev, produttori, immagini, bottiglie] = await Promise.all([
           // P1b: le righe soft-deleted restano in tabella ma fuori dall'app.
           sb.getOrThrow("wines", { order: "id.asc", filtro: "deleted_at=is.null" }),
           sb.getOrThrow("bevuti"),
@@ -787,7 +794,11 @@ function useCantinaData() {
           // scorrere la lista accoderebbe una chiamata Serper per ogni vino
           // senza immagine, e imgQueue le serializza con 2s di pausa.
           sb.getOrThrow("wine_images"),
+          // P6 fase 3: serve solo per il formato. La giacenza resta contata da
+          // `wines.bottiglie` finche' il vecchio modello non sparisce in fase 4.
+          sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" }),
         ]);
+
         if (cancelled) return;
         // P3: prima dei vini — badge Slow Wine e sito produttore leggono da qui.
         setProduttori(produttori);
@@ -805,6 +816,7 @@ function useCantinaData() {
           if (!imgSessionCache.has(r.wine_id)) imgSessionCache.set(r.wine_id, r.image_url);
         }
         setImmagini(mappa);
+        setGiacenze(bottiglie);
         setDbError(null);
       } catch (e) {
         if (cancelled) return;
@@ -818,14 +830,26 @@ function useCantinaData() {
     return () => { cancelled = true; };
   }, []);
 
-  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError };
+  // Dopo una scrittura che tocca le bottiglie, il badge dev'essere vero senza
+  // aspettare un riavvio dell'app. Ricaricare la tabella intera costa una GET
+  // ed e' sempre corretto; ricostruire il conteggio lato client no, perche'
+  // aggiungere un Magnum a un vino che ha gia' tre Standard cambia la stringa.
+  const ricaricaGiacenze = async () => {
+    try {
+      const righe = await sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" });
+      if (Array.isArray(righe)) setGiacenze(righe);
+    } catch { /* il badge resta quello di prima: non vale un messaggio d'errore */ }
+  };
+
+  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
 }
 
 // ─── App principale ───────────────────────────────────────────────────────────
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
-  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError } = useCantinaData();
+  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError } = useCantinaData();
+  const formati = useMemo(() => formatiPerVino(giacenze), [giacenze]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -967,14 +991,17 @@ export default function Cantina() {
       p_vitigno: form.vitigno || "", p_note: form.note || "",
       p_macerazione: opzionale(form.macerazione, "—"), p_fermentazione: opzionale(form.fermentazione, "—"),
       p_malolattica: opzionale(form.malolattica, "—"),
+      p_formato: form.formato || FORMATO_PREDEFINITO,
     });
     if (!result) { setDbError("Errore salvataggio vino"); return; }
     setWines(prev => prev.some(w => w.id === result.id)
       ? prev.map(w => w.id === result.id ? normalizzaWine(result) : w)
       : [...prev, normalizzaWine(result)]);
+    ricaricaGiacenze();
   };
 
-  const handleModifica = (wine) => setPendingModifica(wine);
+  const handleModifica = (wine) =>
+    setPendingModifica({ ...wine, formato: formatoPrevalente(giacenze, wine.id) });
 
   const handleSalvaModifica = async (form) => {
     setDbError(null);
@@ -999,11 +1026,14 @@ export default function Cantina() {
       p_bottiglie: fields.bottiglie, p_prezzo: fields.prezzo, p_vitigno: fields.vitigno || "",
       p_note: fields.note || "", p_note_cantina: fields.note_cantina || "",
       p_macerazione: fields.macerazione, p_fermentazione: fields.fermentazione, p_malolattica: fields.malolattica,
+      p_formato: fields.formato || FORMATO_PREDEFINITO,
     });
     if (!result) {
       setWines(prevWines);
       setDbError("Errore: modifiche non salvate");
+      return;
     }
+    ricaricaGiacenze();
   };
 
   const handleSchedaTecnica = async () => {
@@ -1113,7 +1143,7 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} rev={REV} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} formati={formati} rev={REV} />}
         {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>

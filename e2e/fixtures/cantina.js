@@ -164,7 +164,24 @@ const PRODUTTORI = [
   },
 ];
 
+// P6 fase 3: una riga per bottiglia in giacenza. Il client la legge SOLO per
+// il formato — la giacenza resta contata da `wines.bottiglie` fino alla fase 4
+// — quindi qui basta coprire i due casi che si vedono: tutto Standard (nessun
+// badge) e un formato diverso (badge).
+//
+// Il Soave ha 3 bottiglie: due Standard e una Magnum. E' il caso misto, quello
+// che nasce davvero quando si aggiunge un formato diverso a un vino che c'e'
+// gia', e l'unico in cui la stringa del badge non e' banale.
+const BOTTIGLIE = [
+  { id: 1, wine_id: 1, formato: "Standard", stato: "in_cantina", prezzo_pagato: 12 },
+  { id: 2, wine_id: 1, formato: "Standard", stato: "in_cantina", prezzo_pagato: 12 },
+  { id: 3, wine_id: 1, formato: "Magnum",   stato: "in_cantina", prezzo_pagato: 12 },
+  { id: 4, wine_id: 2, formato: "Standard", stato: "in_cantina", prezzo_pagato: null },
+  { id: 5, wine_id: 2, formato: "Standard", stato: "in_cantina", prezzo_pagato: null },
+  { id: 6, wine_id: 3, formato: "Standard", stato: "in_cantina", prezzo_pagato: 20 },
+];
+
 module.exports = {
-  WINES, BEVUTI, PRODUTTORI, ATTESI,
+  WINES, BEVUTI, PRODUTTORI, BOTTIGLIE, ATTESI,
   VINO_COMPLETO, VINO_MINIMO, VINO_ULTIMA_BOTTIGLIA, VINO_ESAURITO,
 };

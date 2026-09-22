@@ -22,7 +22,7 @@
 //   · hex letterali → token di `theme.js`, che contengono già questa palette
 
 import { T, OCCHIELLO } from "./theme";
-import { TIPO } from "./components";
+import { TIPO, FORMATI } from "./components";
 
 const ETICHETTA = {
   display: "grid", gap: 7, color: T.secondarioAlt, fontSize: 10,
@@ -46,8 +46,24 @@ function Chevron({ size = 15, colore = T.oroTesto }) {
   );
 }
 
+// Il <select> del ridisegno: niente freccia di sistema, la nostra chevron a
+// destra. Nato quando i menu a tendina sono diventati due.
+function Tendina({ value, onChange, opzioni, nome }) {
+  return (
+    <span style={{ position: "relative", display: "block" }}>
+      <select value={value} onChange={e => onChange(e.target.value)} aria-label={nome}
+        style={{ ...CAMPO, appearance: "none", WebkitAppearance: "none", paddingRight: 22, borderRadius: 0 }}>
+        {opzioni.map(o => <option key={o.valore} value={o.valore}>{o.etichetta}</option>)}
+      </select>
+      <span aria-hidden="true" style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%) rotate(90deg)", display: "flex", pointerEvents: "none" }}>
+        <Chevron size={14} />
+      </span>
+    </span>
+  );
+}
+
 export default function AddWineSheet({
-  produttore, vino, tipologia, annata, bottiglie,
+  produttore, vino, tipologia, annata, bottiglie, formato,
   onChange,      // (campo, valore) => void
   onFotografa,   // () => void
   onSalva,       // () => void
@@ -112,15 +128,15 @@ export default function AddWineSheet({
           ma il valore salvato resta uno dei sei del CHECK. Nessun DDL. */}
       <label style={{ ...ETICHETTA, marginTop: 16 }}>
         Tipologia
-        <span style={{ position: "relative", display: "block" }}>
-          <select value={tipologia} onChange={e => onChange("tipologia", e.target.value)}
-            style={{ ...CAMPO, appearance: "none", WebkitAppearance: "none", paddingRight: 22, borderRadius: 0 }}>
-            {Object.keys(TIPO).map(t => <option key={t} value={t}>{TIPO[t].etichetta}</option>)}
-          </select>
-          <span aria-hidden="true" style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%) rotate(90deg)", display: "flex", pointerEvents: "none" }}>
-            <Chevron size={14} />
-          </span>
-        </span>
+        <Tendina value={tipologia} onChange={v => onChange("tipologia", v)} nome="Tipologia"
+          opzioni={Object.keys(TIPO).map(t => ({ valore: t, etichetta: TIPO[t].etichetta }))} />
+      </label>
+
+      {/* P6: il formato sta sulla bottiglia, non sull'etichetta. Qui vale per
+          tutte quelle che si stanno aggiungendo insieme. */}
+      <label style={{ ...ETICHETTA, marginTop: 16 }}>
+        Formato
+        <Tendina value={formato} onChange={v => onChange("formato", v)} nome="Formato" opzioni={FORMATI} />
       </label>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 16 }}>
