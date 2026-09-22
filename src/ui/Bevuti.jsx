@@ -151,13 +151,16 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
             <span style={{ flex: 1, height: 1, background: T.divisoreMedio }} />
             <span style={{ color: T.secondarioAlt, fontSize: 11 }}>{righe.length} {righe.length === 1 ? "bevuta" : "bevute"}</span>
           </div>
+          {/* P5: ogni riga mostra il voto della PROPRIA degustazione. Prima
+              leggeva `ratings[b.id]`, cioe' il voto del vino, e due bevute
+              della stessa etichetta mostravano per forza lo stesso numero. */}
           {righe.map(b => {
             const wine = resolveWine(wineMap, b);
             if (!wine) return null;
             return (
               <RigaBevuta key={b.uid} b={b} wine={wine}
                 immagine={immagini[b.id] || null}
-                voto={ratings[b.id] || 0}
+                voto={b.rating || 0}
                 onOpen={handleOpen(b.uid)}
                 onRiporta={() => onRiporta(b.uid)}
                 renderMiniatura={renderMiniatura} />
@@ -172,8 +175,9 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
         const wine = resolveWine(wineMap, b);
         if (!wine) return null;
         return (
-          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
-            ratings={ratings} onRate={onRate}
+          <WineDetail key={selectedUid} wine={wine}
+            bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota, uid: b.uid, rating: b.rating }}
+            onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             onClose={handleClose}
             renderBottiglia={renderBottiglia}

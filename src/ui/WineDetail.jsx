@@ -120,7 +120,10 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
   const t = TIPO[wine.tipologia];
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
-  const currentRating = ratings[wine.id] || 0;
+  // P5: il voto e' quello della degustazione aperta. `ratings` resta come
+  // prop perche' la Cantina la passa ancora, ma qui non serve piu': lo slider
+  // esiste solo quando `bevutoInfo` c'e', cioe' solo aprendo da Bevuti.
+  const currentRating = bevutoInfo?.rating || 0;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const produttore = produttoreDi(wine.produttore);
@@ -265,7 +268,7 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
         {bevutoInfo && (
           <section style={{ padding: "26px 20px 6px" }}>
             <p style={{ ...OCCHIELLO }}>La tua valutazione</p>
-            <SliderVoto value={currentRating} onChange={(v) => onRate(wine.id, v)} />
+            <SliderVoto value={currentRating} onChange={(v) => onRate(bevutoInfo.uid, v)} />
           </section>
         )}
 

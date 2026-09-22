@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.6";
+const REV = "2.7";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -145,26 +145,28 @@ function annataDaForm(v) {
 // Il rating in DB è PER BEVUTA (decisione aperta Q3), mentre la UI ne mostra
 // uno solo per vino. Prima si prendeva il massimo: ma dopo lo stopgap di P0 la
 // RPC `valuta_vino` scrive sulla bevuta PIÙ RECENTE, quindi leggere il massimo
-// avrebbe fatto "tornare indietro" il voto appena dato. Qui si legge dove si
-// scrive: il voto della bevuta più recente fra quelle valutate.
+// P5 (22/09/2026): la card della Cantina mostra la MEDIA dei voti dati a
+// quell'etichetta, non piu' il voto della degustazione piu' recente. Due
+// bottiglie della stessa etichetta e annata non sono la stessa bevuta —
+// tappo, conservazione, momento — e possono meritare voti diversi: e' la
+// ragione per cui 5 vini avevano gia' voti divergenti in tabella.
 //
-// "fra quelle valutate" e non "la più recente in assoluto": altrimenti una
-// bevuta nuova senza voto nasconderebbe un voto precedente. Dopo una scrittura
-// le due definizioni coincidono comunque, perché la più recente diventa valutata.
-function ratingPerVino(bevute) {
-  const piuRecente = {};
+// Arrotondata a un decimale, come i voti stessi. Le bevute senza voto non
+// entrano nella media: contarle come zero abbasserebbe un'etichetta per il
+// solo fatto di non averla ancora giudicata.
+function mediaPerVino(bevute) {
+  const somma = {};
   for (const b of bevute) {
-    if (b.wine_id == null || b.rating == null) continue;
-    const corrente = piuRecente[b.wine_id];
-    const piuNuova = !corrente ||
-      b.consumed_on > corrente.consumed_on ||
-      // Dalla fase 4a le righe arrivano da `bottiglie`, dove la chiave si
-      // chiama `id`. Il fallback tiene in piedi anche la vecchia forma.
-      (b.consumed_on === corrente.consumed_on && (b.uid ?? b.id) > (corrente.uid ?? corrente.id));
-    if (piuNuova) piuRecente[b.wine_id] = b;
+    // `wine_id` sulle righe grezze del DB, `id` sulla forma che usa il client:
+    // la funzione regge entrambe, cosi' resta pura e usabile da tutte e due.
+    const wineId = b.wine_id ?? b.id;
+    if (wineId == null || b.rating == null) continue;
+    const c = somma[wineId] || (somma[wineId] = { tot: 0, n: 0 });
+    c.tot += Number(b.rating);
+    c.n += 1;
   }
   return Object.fromEntries(
-    Object.entries(piuRecente).map(([wineId, b]) => [wineId, Number(b.rating)])
+    Object.entries(somma).map(([wineId, c]) => [wineId, Math.round((c.tot / c.n) * 10) / 10])
   );
 }
 
@@ -771,7 +773,6 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 function useCantinaData() {
   const [wines, setWines] = useState([]);
   const [bevuti, setBevuti] = useState([]);
-  const [ratings, setRatings] = useState({});
   const [immagini, setImmagini] = useState({});   // wine_id -> url, per le miniature
   // P6 fase 3: le righe di `bottiglie` in giacenza, grezze. Servono solo per il
   // formato — il conteggio resta quello di `wines.bottiglie` fino alla fase 4 —
@@ -820,13 +821,15 @@ function useCantinaData() {
         // F5: 1:N — nessuna deduplica. La chiave della bevuta e' ora
         // `bottiglie.id`: lo storico e' la riga stessa, non piu' una tabella a
         // parte. Il campo si chiama ancora `uid` perche' e' cosi' che lo
-        // conoscono TabBevuti, handleRiporta e ratingPerVino.
+        // conoscono TabBevuti e handleRiporta.
         setBevuti(bevute.map(b => ({
           uid: b.id, id: b.wine_id, consumedOn: b.consumed_on, data: formatDataIt(b.consumed_on),
           nota: b.nota || "", produttore: b.produttore, vino: b.vino,
           annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo_pagato,
+          // P5: il voto viaggia con la bevuta. `ratings` resta, ma ora e' la
+          // media per etichetta e serve solo alla Cantina.
+          rating: b.rating,
         })));
-        setRatings(ratingPerVino(bevute));
         // Le stesse url alimentano la lista e pre-riempiono la cache del
         // dettaglio: per i vini gia' fotografati BottleImage non fa piu' nulla.
         const mappa = {};
@@ -874,15 +877,20 @@ function useCantinaData() {
     } catch { /* i conteggi restano quelli di prima: non vale un messaggio d'errore */ }
   };
 
-  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
+  return { wines, setWines, bevuti, setBevuti, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
 }
 
 // ─── App principale ───────────────────────────────────────────────────────────
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
-  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError } = useCantinaData();
+  const { wines, setWines, bevuti, setBevuti, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError } = useCantinaData();
   const formati = useMemo(() => formatiPerVino(giacenze), [giacenze]);
+  // P5: la media per etichetta e' una VISTA di `bevuti`, non uno stato a
+  // parte. Tenerla separata significherebbe aggiornarla a mano a ogni voto,
+  // a ogni bevuta e a ogni "riporta in cantina" — tre punti che possono
+  // divergere. Derivata, non puo'.
+  const ratings = useMemo(() => mediaPerVino(bevuti), [bevuti]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -974,18 +982,17 @@ export default function Cantina() {
     const tempUid = -Date.now();
     // Snapshot per rollback
     const prevBevuti = bevuti;
-    const prevRatings = ratings;
     const prevWines = wines;
     // Update ottimistico (data apertura scelta nel modale, non necessariamente oggi)
-    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data: formatDataIt(dataIso), consumedOn: dataIso, nota: nota || "", ...snap }]);
-    if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
+    // Il voto entra con la bevuta: la media per etichetta e' derivata, quindi
+    // si aggiorna da se'.
+    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data: formatDataIt(dataIso), consumedOn: dataIso, nota: nota || "", rating: rating > 0 ? rating : null, ...snap }]);
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
     const result = await sb.rpc("bevi_bottiglia", { p_wine_id: wineId, p_nota: nota || "", p_rating: rating || null, p_consumed_on: dataIso });
     if (!result) {
       setBevuti(prevBevuti);
-      setRatings(prevRatings);
       setWines(prevWines);
       setDbError("Errore: bevuta non registrata");
       return;
@@ -1119,18 +1126,19 @@ export default function Cantina() {
     }
   };
 
-  const handleRate = async (wineId, score) => {
+  // P5: la chiave e' la degustazione (`bottiglie.id`), non piu' il vino. Lo
+  // slider esiste solo nella scheda aperta da Bevuti, dove una degustazione
+  // precisa c'e'; dalla Cantina non compare, perche' li' si guarda l'etichetta
+  // e non c'e' niente da votare.
+  const handleRate = async (bottigliaId, score) => {
     setDbError(null);
-    const prevScore = ratings[wineId] ?? 0;
-    setRatings(prev => ({ ...prev, [wineId]: score }));
-    // N3: il rating è per-vino, ma in DB c'è una riga per bevuta.
-    // A3: RPC atomica — aggiorna tutte le bevute del vino in un'unica transazione.
-    if (bevuti.some(b => b.id === wineId)) {
-      const result = await sb.rpc("valuta_vino", { p_wine_id: wineId, p_rating: score });
-      if (!result) {
-        setRatings(prev => ({ ...prev, [wineId]: prevScore }));
-        setDbError("Errore: valutazione non salvata");
-      }
+    const prima = bevuti;
+    setBevuti(prev => prev.map(b => b.uid === bottigliaId ? { ...b, rating: score } : b));
+
+    const result = await sb.rpc("valuta_bottiglia", { p_bottiglia_id: bottigliaId, p_rating: score });
+    if (!result) {
+      setBevuti(prima);
+      setDbError("Errore: valutazione non salvata");
     }
   };
 
