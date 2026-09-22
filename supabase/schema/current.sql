@@ -226,6 +226,7 @@ CREATE TABLE public.bottiglie (
   vino          text,
   annata        smallint,
   tipologia     text,
+  legacy_uid    bigint,     -- ponte verso bevuti.uid, sparisce in fase 4
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT bottiglie_formato_valido CHECK (
@@ -241,6 +242,8 @@ CREATE TABLE public.bottiglie (
 );
 CREATE INDEX idx_bottiglie_wine_id ON public.bottiglie (wine_id);
 CREATE INDEX idx_bottiglie_stato   ON public.bottiglie (stato);
+CREATE UNIQUE INDEX idx_bottiglie_legacy_uid ON public.bottiglie (legacy_uid)
+  WHERE legacy_uid IS NOT NULL;
 CREATE TRIGGER bottiglie_set_updated_at BEFORE UPDATE ON public.bottiglie
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 GRANT SELECT ON public.bottiglie TO anon;
@@ -249,6 +252,16 @@ GRANT SELECT ON public.bottiglie TO anon;
 -- `wines.bottiglie` con generate_series (stato 'in_cantina') = 167 righe.
 -- Verificato dopo: somma dei voti 198,7 identica, costo giacenza 1.578,00 €
 -- identico.
+--
+-- P6 fase 2: sei RPC su nove scrivono ora su ENTRAMBI i modelli, a firma
+-- invariata — bevi_bottiglia, riporta_bottiglia, elimina_bottiglia,
+-- aggiungi_o_incrementa, modifica_vino, valuta_vino. Le altre tre non toccano
+-- le bottiglie. L'overload a 3 parametri di bevi_bottiglia (codice morto di
+-- A3, annotato in P0) e' stato droppato: da questa fase scriverebbe su bevuti
+-- senza toccare bottiglie, cioe' la divergenza che la fase esiste per
+-- impedire. In modifica_vino `p_bottiglie` e' un TOTALE, non un delta, quindi
+-- la giacenza viene riconciliata; lo snapshot sulle righe bevute non si
+-- aggiorna mai, nemmeno se il vino viene rinominato.
 
 -- ─── Permessi ───────────────────────────────────────────────────────────────
 
