@@ -17,9 +17,9 @@ async function eliminaBottiglia(page, nomeVino) {
   await page.getByRole("button", { name: "Sì, elimina" }).click();
 }
 
-/** Input del form di ModalAggiungi: l'etichetta è un div fratello, non un <label>. */
+/** Input del foglio "aggiungi": dal ridisegno del 22/09/2026 sono veri <label>. */
 function campo(page, etichetta) {
-  return page.locator(`div:has(> div:text-is("${etichetta}")) > input`);
+  return page.getByLabel(etichetta, { exact: true });
 }
 
 test.describe("Elimina dalla cantina", () => {
@@ -72,11 +72,10 @@ test.describe("Elimina dalla cantina", () => {
     // Riaggiunta a mano, compilando solo i tre campi che formano la chiave
     // normalizzata. La scheda tecnica NON viene ricompilata di proposito.
     await page.getByRole("button", { name: "Aggiungi un vino" }).click();
-    await page.getByRole("button", { name: /Inserimento manuale/ }).click();
     await campo(page, "Produttore").fill("Cantina Singola");
-    await campo(page, "Nome vino").fill("Orange Unico");
+    await campo(page, "Nome del vino").fill("Orange Unico");
     await campo(page, "Annata").fill("2020");
-    await page.getByRole("button", { name: "Salva in cantina" }).click();
+    await page.getByRole("button", { name: "Continua" }).click();
 
     await expect.poll(() => cantina.rpcCalls("aggiungi_o_incrementa").length).toBe(1);
     await expect(page.getByText("Orange Unico").first()).toBeVisible();

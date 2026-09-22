@@ -99,10 +99,13 @@ test.describe("Caricamento e Lista", () => {
     expect(box.y).toBeGreaterThan(0);
     expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
 
-    // E funziona: apre lo sheet con le due scelte.
+    // E funziona: apre il foglio di inserimento. Dal ridisegno del 22/09/2026
+    // la scelta manuale/foto non e' piu' una schermata a se': il foglio ha i
+    // campi e, in cima, il pulsante per fotografare l'etichetta.
     await piu.click();
-    await expect(page.getByText("Inserimento manuale")).toBeVisible();
-    await expect(page.getByText("Foto etichetta")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Aggiungi alla cantina" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Fotografa l/ })).toBeVisible();
+    await expect(page.getByLabel("Produttore", { exact: true })).toBeVisible();
   });
 
   test("il blocco 117 bottiglie e' centrato nel riepilogo", async ({ page }) => {

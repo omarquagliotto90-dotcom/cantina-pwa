@@ -36,6 +36,11 @@
         background: #FFF8F7;
         /* NON mettere safe-area qui: con overflow:hidden non funziona su Safari */
       }
+      /* Foglio "aggiungi vino": il solo stato non esprimibile inline che vale
+         la pena tenere. Gli :hover del ridisegno sono stati lasciati cadere —
+         su iPhone non si attivano mai — ma il contorno di messa a fuoco serve
+         a chi naviga da tastiera. */
+      .foglio-foto:focus-visible { outline: 2px solid #6B1E2E; outline-offset: 2px; }
     </style>
   </head>
   <body>

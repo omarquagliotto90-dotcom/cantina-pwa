@@ -5,6 +5,7 @@ import { M3, T, OCCHIELLO } from "./ui/theme";
 import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
 import { formatDataIt, setProduttori, riquadroContenuto, scontornaFondo } from "./ui/domain";
+import AddWineSheet from "./ui/AddWineSheet";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.1";
+const REV = "2.2";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -553,44 +554,42 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
     }
   };
 
-  const field = (key, label, type = "text", opts = {}) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
-      {opts.select ? (
-        <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }}>
-          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
-        </select>
-      ) : (
-        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value }))}
-          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
-      )}
-    </div>
-  );
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.45)" }} onClick={onAnnulla}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "90vh", overflowY: "auto", padding: "20px 20px 36px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
-        <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 20 }}>
-          <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
-        </div>
-        {!modo && (
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModo("manuale")} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.edit}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Inserimento manuale</div>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Compila i campi a mano</div>
-            </button>
-            <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.camera}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Foto etichetta</div>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Scatta o carica una foto</div>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoChange} />
-          </div>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: T.superficie, borderRadius: "28px 28px 0 0", maxHeight: "90vh", overflowY: "auto", padding: 0, animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "14px auto 0" }} />
+        {/* Fuori da ogni ramo: il foglio lo clicca via callback in qualunque stato. */}
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoChange} />
+        {/* Ridisegno 22/09/2026: un foglio solo al posto di scelta + form lungo.
+            I campi che non compaiono piu' (prezzo, denominazione, vitigno, note,
+            macerazione, fermentazione, malolattica) restano ai default di `form`
+            e `handleSalva` li passa alla RPC come sempre: nessuna modifica al
+            salvataggio. Si completano dopo con "Modifica". */}
+        {modo !== "analisi" && (
+          <AddWineSheet
+            produttore={form.produttore} vino={form.vino} tipologia={form.tipologia}
+            annata={form.annata} bottiglie={form.bottiglie}
+            onChange={(campo, valore) => setForm(p => ({
+              ...p, [campo]: campo === "bottiglie" ? Math.max(1, Number(valore) || 1) : valore,
+            }))}
+            onFotografa={() => fileRef.current?.click()}
+            onSalva={() => { if (form.produttore.trim() && form.vino.trim()) onSalva(form); }}
+            avviso={imagePreview ? (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", background: aiError ? "#FDECEA" : "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 18 }}>
+                <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: aiError ? "#B3261E" : "#2E7D32", fontFamily: T.sans }}>{aiError ? "Riconoscimento non riuscito" : "Campi compilati dalla foto"}</div>
+                  <div style={{ fontSize: 11, color: aiError ? "#8C1D18" : "#388E3C", fontFamily: T.sans, lineHeight: 1.4, marginTop: 2 }}>{aiError || "Verifica e correggi se serve"}</div>
+                </div>
+              </div>
+            ) : null}
+          />
         )}
         {modo === "analisi" && (
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", padding: "20px 20px 36px" }}>
+            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 20, textAlign: "left" }}>
+              <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
+            </div>
             {imagePreview && (<img src={imagePreview} alt="Etichetta" style={{ maxHeight: 200, maxWidth: "100%", borderRadius: 12, marginBottom: 16, objectFit: "contain" }} />)}
             {!aiLoading ? (
               <>
@@ -611,43 +610,6 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
               </div>
             )}
           </div>
-        )}
-        {modo === "manuale" && (
-          <>
-            {imagePreview && (
-              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
-                <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>{aiError ? "⚠️ Attenzione" : "🤖 Campi pre-compilati da AI"}</div>
-                  <div style={{ fontSize: 11, color: "#388E3C", fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, marginTop: 2 }}>{aiError || "Verifica e correggi i campi se necessario"}</div>
-                </div>
-              </div>
-            )}
-            {field("produttore", "Produttore")}
-            {field("vino", "Nome vino")}
-            {field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}
-            {field("annata", "Annata")}
-            {field("tipologia", "Tipologia", "text", { select: true })}
-            {field("bottiglie", "N. bottiglie", "number")}
-            {field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
-            {field("vitigno", "Vitigno")}
-            {field("macerazione", "Macerazione")}
-            {field("fermentazione", "Fermentazione")}
-            {field("malolattica", "Legno")}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>Note</div>
-              <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} rows={3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.arrowBack} Indietro</span>
-              </button>
-              <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
-                style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                Salva in cantina
-              </button>
-            </div>
-          </>
         )}
       </div>
     </div>
