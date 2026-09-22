@@ -47,7 +47,7 @@ const IconaLente = ({ size = 17, color = "currentColor" }) => (
   </svg>
 );
 
-export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, ratings, onRate, onWineOpen, onWineClose, renderBottiglia, renderMiniatura, immagini = {}, formati = {}, rev = "" }) {
+export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica, compact, onRate, onWineOpen, onWineClose, renderBottiglia, renderMiniatura, immagini = {}, formati = {}, rev = "" }) {
   const [filtro, setFiltro] = useState("Tutti");
   const [search, setSearch] = useState("");
   const [ricercaAperta, setRicercaAperta] = useState(false);
@@ -204,7 +204,7 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
         const w = wines.find(x => x.id === selectedId);
         if (!w) return null;
         return (
-          <WineDetail key={selectedId} wine={w} ratings={ratings} onRate={onRate}
+          <WineDetail key={selectedId} wine={w} onRate={onRate}
             onBevi={onBevi} onElimina={onElimina} onModifica={onModifica} onClose={handleClose}
             renderBottiglia={renderBottiglia}
             />

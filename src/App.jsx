@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.7";
+const REV = "2.8";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -145,31 +145,6 @@ function annataDaForm(v) {
 // Il rating in DB è PER BEVUTA (decisione aperta Q3), mentre la UI ne mostra
 // uno solo per vino. Prima si prendeva il massimo: ma dopo lo stopgap di P0 la
 // RPC `valuta_vino` scrive sulla bevuta PIÙ RECENTE, quindi leggere il massimo
-// P5 (22/09/2026): la card della Cantina mostra la MEDIA dei voti dati a
-// quell'etichetta, non piu' il voto della degustazione piu' recente. Due
-// bottiglie della stessa etichetta e annata non sono la stessa bevuta —
-// tappo, conservazione, momento — e possono meritare voti diversi: e' la
-// ragione per cui 5 vini avevano gia' voti divergenti in tabella.
-//
-// Arrotondata a un decimale, come i voti stessi. Le bevute senza voto non
-// entrano nella media: contarle come zero abbasserebbe un'etichetta per il
-// solo fatto di non averla ancora giudicata.
-function mediaPerVino(bevute) {
-  const somma = {};
-  for (const b of bevute) {
-    // `wine_id` sulle righe grezze del DB, `id` sulla forma che usa il client:
-    // la funzione regge entrambe, cosi' resta pura e usabile da tutte e due.
-    const wineId = b.wine_id ?? b.id;
-    if (wineId == null || b.rating == null) continue;
-    const c = somma[wineId] || (somma[wineId] = { tot: 0, n: 0 });
-    c.tot += Number(b.rating);
-    c.n += 1;
-  }
-  return Object.fromEntries(
-    Object.entries(somma).map(([wineId, c]) => [wineId, Math.round((c.tot / c.n) * 10) / 10])
-  );
-}
-
 // A2b: converte stringa vuota o vecchio placeholder testuale in NULL —
 // un solo modo di dire "non specificato", invece di "—"/"n.d." salvati nel DB.
 function opzionale(v, placeholder) {
@@ -826,8 +801,8 @@ function useCantinaData() {
           uid: b.id, id: b.wine_id, consumedOn: b.consumed_on, data: formatDataIt(b.consumed_on),
           nota: b.nota || "", produttore: b.produttore, vino: b.vino,
           annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo_pagato,
-          // P5: il voto viaggia con la bevuta. `ratings` resta, ma ora e' la
-          // media per etichetta e serve solo alla Cantina.
+          // P5: il voto viaggia con la bevuta, che e' l'unico posto in cui
+          // esiste. Non c'e' piu' nessuna aggregazione per etichetta.
           rating: b.rating,
         })));
         // Le stesse url alimentano la lista e pre-riempiono la cache del
@@ -886,11 +861,6 @@ export default function Cantina() {
   const [tab, setTab] = useState("lista");
   const { wines, setWines, bevuti, setBevuti, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError } = useCantinaData();
   const formati = useMemo(() => formatiPerVino(giacenze), [giacenze]);
-  // P5: la media per etichetta e' una VISTA di `bevuti`, non uno stato a
-  // parte. Tenerla separata significherebbe aggiornarla a mano a ogni voto,
-  // a ogni bevuta e a ogni "riporta in cantina" — tre punti che possono
-  // divergere. Derivata, non puo'.
-  const ratings = useMemo(() => mediaPerVino(bevuti), [bevuti]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -1200,8 +1170,8 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} formati={formati} rev={REV} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} formati={formati} rev={REV} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} onRate={handleRate} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 

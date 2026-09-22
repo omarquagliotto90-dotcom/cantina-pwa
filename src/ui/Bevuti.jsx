@@ -70,7 +70,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatur
   );
 }
 
-export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, renderMiniatura, immagini = {} }) {
+export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, onRate, renderBottiglia, renderMiniatura, immagini = {} }) {
   const [selectedUid, setSelectedUid] = useState(null);
   const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));

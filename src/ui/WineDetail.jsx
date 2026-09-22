@@ -116,13 +116,13 @@ function Prosa({ occhiello, testo }) {
   );
 }
 
-export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose, onInitClose, renderBottiglia }) {
+export default function WineDetail({ wine, bevutoInfo = null, onRate, onBevi, onElimina, onModifica, onClose, onInitClose, renderBottiglia }) {
   const t = TIPO[wine.tipologia];
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
-  // P5: il voto e' quello della degustazione aperta. `ratings` resta come
-  // prop perche' la Cantina la passa ancora, ma qui non serve piu': lo slider
-  // esiste solo quando `bevutoInfo` c'e', cioe' solo aprendo da Bevuti.
+  // P5: il voto e' quello della degustazione aperta, e non esiste un voto
+  // "del vino" da mostrare. Lo slider compare solo quando `bevutoInfo` c'e',
+  // cioe' solo aprendo da Bevuti.
   const currentRating = bevutoInfo?.rating || 0;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
