@@ -131,6 +131,25 @@ test.describe("Caricamento e Lista", () => {
     expect(Math.abs(m.sopra - m.sotto), `sopra ${m.sopra}px, sotto ${m.sotto}px`).toBeLessThanOrEqual(1);
   });
 
+  // Segnalato da Omar il 22/09/2026, subito dopo P6 fase 4b: il vino salvato
+  // non compariva finche' non si chiudeva e riapriva l'app. `wines` non porta
+  // piu' un conteggio, quindi `aggiungi_o_incrementa` non poteva restituirlo e
+  // la riga nuova nasceva con `bottiglie` undefined: il filtro `> 0` della
+  // Lista la scartava. Il test copre il vino NUOVO; quello del vino riaggiunto
+  // sta in elimina.spec.js ed e' l'altro ramo dello stesso punto.
+  test("un vino appena aggiunto compare subito in lista", async ({ page, cantina }) => {
+    await apriApp(page);
+    await page.getByRole("button", { name: "Aggiungi un vino" }).click();
+    await page.getByLabel("Produttore", { exact: true }).fill("Cantina Nuova");
+    await page.getByLabel("Nome del vino", { exact: true }).fill("Vino Appena Nato");
+    await page.getByRole("button", { name: "Continua" }).click();
+
+    // Senza ricaricare la pagina: e' tutto il punto.
+    await expect(page.getByText("Vino Appena Nato")).toBeVisible();
+    // E conta nel riepilogo, che e' la stessa grandezza vista da un'altra parte.
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie + 1));
+  });
+
   test("Annulla chiude il foglio senza salvare", async ({ page, cantina }) => {
     // Fino al 22/09/2026 l'unica uscita era toccare fuori dal foglio: invisibile
     // e, su un foglio alto quanto lo schermo, quasi irraggiungibile.

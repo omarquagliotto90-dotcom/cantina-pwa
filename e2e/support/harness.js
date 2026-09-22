@@ -290,10 +290,13 @@ const DEFAULT_RPC = {
       }
     };
     if (esistente) {
-      esistente.bottiglie = (esistente.bottiglie ?? 0) + args.p_bottiglie;
       esistente.deleted_at = null;
       creaRighe(esistente.id);
-      return { ...esistente };
+      // La riga `wines` non porta piu' un conteggio: la RPC vera restituisce
+      // l'anagrafica e basta. Restituirlo qui nascondeva il difetto per cui
+      // un vino appena salvato non compariva finche' non si riapriva l'app.
+      const { bottiglie, ...anagrafica } = esistente;
+      return anagrafica;
     }
     creaRighe(999);
     return {
@@ -303,7 +306,6 @@ const DEFAULT_RPC = {
     denominazione: args.p_denominazione,
     annata: args.p_annata,
     tipologia: args.p_tipologia,
-    bottiglie: args.p_bottiglie,
     prezzo: args.p_prezzo,
     vitigno: args.p_vitigno,
     note: args.p_note,

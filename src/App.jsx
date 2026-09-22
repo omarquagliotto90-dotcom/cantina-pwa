@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.5";
+const REV = "2.6";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -857,8 +857,21 @@ function useCantinaData() {
   const ricaricaGiacenze = async () => {
     try {
       const righe = await sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" });
-      if (Array.isArray(righe)) setGiacenze(righe);
-    } catch { /* i formati restano quelli di prima: non vale un messaggio d'errore */ }
+      if (!Array.isArray(righe)) return;
+      setGiacenze(righe);
+      // E il conteggio, che e' la stessa cosa contata. Tenerlo allineato qui
+      // chiude in un punto solo una classe di difetti: ogni handler che muta
+      // le bottiglie a mano puo' sbagliare, e in un caso ha sbagliato davvero
+      // — `aggiungi_o_incrementa` restituisce l'anagrafica, che da P6 fase 4b
+      // non porta piu' un conteggio, e il vino appena salvato spariva dalla
+      // lista fino al riavvio.
+      const conta = new Map();
+      for (const b of righe) {
+        if (b.wine_id == null) continue;
+        conta.set(b.wine_id, (conta.get(b.wine_id) || 0) + 1);
+      }
+      setWines(prev => prev.map(w => ({ ...w, bottiglie: conta.get(w.id) || 0 })));
+    } catch { /* i conteggi restano quelli di prima: non vale un messaggio d'errore */ }
   };
 
   return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
@@ -1023,9 +1036,16 @@ export default function Cantina() {
       p_formato: form.formato || FORMATO_PREDEFINITO,
     });
     if (!result) { setDbError("Errore salvataggio vino"); return; }
+    // Il conteggio non arriva dalla RPC: `wines` e' solo anagrafica. Si somma
+    // qui per la reattivita' immediata, e `ricaricaGiacenze` lo riallinea al
+    // valore vero subito dopo.
+    const aggiunte = Math.max(1, Number(form.bottiglie) || 1);
+    const salvato = normalizzaWine(result);
     setWines(prev => prev.some(w => w.id === result.id)
-      ? prev.map(w => w.id === result.id ? normalizzaWine(result) : w)
-      : [...prev, normalizzaWine(result)]);
+      ? prev.map(w => w.id === result.id
+          ? { ...salvato, bottiglie: (w.bottiglie || 0) + aggiunte }
+          : w)
+      : [...prev, { ...salvato, bottiglie: aggiunte }]);
     ricaricaGiacenze();
   };
 
