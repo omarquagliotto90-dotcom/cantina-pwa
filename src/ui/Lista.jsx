@@ -14,7 +14,7 @@
 // `renderBottiglia` arriva da App.jsx e viene solo
 // inoltrata a WineDetail: qui non si sa cosa contenga.
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T, OCCHIELLO } from "./theme";
 import { TIPO, WineCard, CaliceIcon } from "./components";
 import { costoGiacenza, valoreMercatoGiacenza } from "./domain";
@@ -61,6 +61,19 @@ export default function TabLista({ wines, bevuti, onBevi, onElimina, onModifica,
     const w = wines.find(x => x.id === wineId);
     if (w && onWineOpen) onWineOpen(w);
   };
+  // Il vino aperto puo' sparire da sotto: eliminare l'ultima bottiglia lo
+  // toglie da `wines`. Senza questo, il dettaglio smetteva di disegnarsi
+  // (`if (!w) return null` piu' sotto) ma `selectedId` restava valorizzato, e
+  // la guardia in cima a `handleOpen` rifiutava ogni tap successivo: la lista
+  // sembrava morta. Non e' un overlay invisibile, e' uno stato non ripulito.
+  const vinoAperto = selectedId != null && wines.some(w => w.id === selectedId);
+  useEffect(() => {
+    if (selectedId != null && !vinoAperto) {
+      setSelectedId(null);
+      if (onWineClose) onWineClose();   // senza, il FAB resta su "Scheda tecnica"
+    }
+  }, [selectedId, vinoAperto, onWineClose]);
+
   const handleClose = () => {
     setSelectedId(null);
     if (onWineClose) onWineClose();

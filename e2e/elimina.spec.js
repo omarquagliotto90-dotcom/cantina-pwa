@@ -56,6 +56,34 @@ test.describe("Elimina dalla cantina", () => {
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie));
   });
 
+  // Bug trovato da Omar il 22/09/2026: dopo aver eliminato l'ultima bottiglia
+  // la lista non rispondeva piu' ai tap. Il vino spariva da `wines`, quindi il
+  // dettaglio smetteva di disegnarsi, ma `selectedId` in Lista.jsx restava
+  // valorizzato e la guardia `if (selectedId != null) return` di `handleOpen`
+  // rifiutava ogni apertura successiva.
+  test("dopo aver eliminato un vino si possono ancora aprire gli altri", async ({ page, cantina }) => {
+    await apriApp(page);
+    await eliminaBottiglia(page, "Orange Unico");
+    await expect(page.getByText("Orange Unico")).toHaveCount(0);
+
+    // Il dettaglio dev'essere davvero chiuso, non solo invisibile.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // E un altro vino si apre: e' esattamente cio' che non funzionava piu'.
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+
+  test("eliminare una bottiglia fra tante lascia il dettaglio aperto", async ({ page, cantina }) => {
+    // Il rovescio del test sopra: il vino resta in cantina, quindi la sua
+    // scheda NON deve chiudersi. Senza questo, azzerare lo stato a ogni
+    // eliminazione passerebbe inosservato.
+    await apriApp(page);
+    await eliminaBottiglia(page, "Soave Classico La Rocca");
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+
   // P1b, il caso che il soft delete esiste per rendere possibile.
   test("un vino eliminato e riaggiunto torna con il suo storico", async ({ page, cantina }) => {
     await apriApp(page);
