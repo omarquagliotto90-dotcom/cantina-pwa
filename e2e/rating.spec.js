@@ -1,5 +1,5 @@
 const { test, expect, apriApp } = require("./support/harness");
-const { BEVUTI } = require("./fixtures/cantina");
+const { BOTTIGLIE } = require("./fixtures/cantina");
 
 // D5 / P0. Il rating in DB è per bevuta, la UI ne mostra uno solo per vino.
 // Lo stopgap di P0 fa sì che `valuta_vino` scriva sulla bevuta più recente
@@ -44,13 +44,18 @@ test.describe("Rating per vino", () => {
     // Bevuta più recente di tutte, ma senza rating: il voto mostrato resta
     // quello del 2026-09-01. Se si leggesse "la più recente in assoluto",
     // il vino risulterebbe non valutato.
-    cantina.setTable("bevuti", [
-      ...BEVUTI,
+    //
+    // P6 fase 4b: la riga si aggiunge a `bottiglie`, non piu' a `bevuti`, che
+    // non esiste. Finche' scriveva sulla tabella vecchia questo test passava
+    // senza provare niente — il client non la leggeva piu' da 4a.
+    cantina.setTable("bottiglie", [
+      ...BOTTIGLIE,
       {
-        uid: 1789000000009, wine_id: 1, consumed_on: "2026-09-18",
-        created_at: "2026-09-18T20:00:00+00:00", nota: "", rating: null,
+        id: 9001, wine_id: 1, formato: "Standard", stato: "bevuta",
+        prezzo_pagato: 12, consumed_on: "2026-09-18", nota: null, rating: null,
         produttore: "Pieropan", vino: "Soave Classico La Rocca",
-        annata: "2021", tipologia: "Bianco fermo", prezzo: 12,
+        annata: 2021, tipologia: "Bianco fermo",
+        created_at: "2026-09-18T20:00:00+00:00",
       },
     ]);
     await apriApp(page);

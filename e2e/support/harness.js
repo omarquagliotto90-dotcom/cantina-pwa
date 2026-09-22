@@ -12,7 +12,7 @@
 //   test("…", async ({ page, cantina }) => { … });
 
 const base = require("@playwright/test");
-const { WINES, BEVUTI, PRODUTTORI, BOTTIGLIE } = require("../fixtures/cantina");
+const { WINES, PRODUTTORI, BOTTIGLIE } = require("../fixtures/cantina");
 
 const RE_SUPABASE = /supabase\.co/;
 const RE_API = /\/api\//;
@@ -30,9 +30,11 @@ class Cantina {
     /** Contenuto delle tabelle servito sulle GET REST. */
     this.tables = {
       wines: WINES.map(w => ({ ...w })),
-      bevuti: BEVUTI.map(b => ({ ...b })),
       produttori: PRODUTTORI.map(p => ({ ...p })),
       wine_images: [],
+      // P6 fase 4b: `bevuti` non esiste piu'. Lo storico sono le righe con
+      // stato 'bevuta'. Non va rimesso qui nemmeno per comodita': servirla
+      // farebbe credere a un test futuro che la tabella esista ancora.
       bottiglie: BOTTIGLIE.map(b => ({ ...b })),
       // P3: non più letta dal client, resta finché la fase 3 non la elimina.
       wine_websites: [],
