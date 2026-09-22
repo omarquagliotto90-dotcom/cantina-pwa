@@ -1,6 +1,6 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { M3, T, OCCHIELLO } from "./ui/theme";
 import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
@@ -13,7 +13,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.0";
+const REV = "1.1";
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -449,6 +449,43 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
 }
 
 // ─── Modal: Modifica dati vino ────────────────────────────────────────────────
+// C6: stessa traduzione già fatta per ModalBevi (T, OCCHIELLO, niente
+// gradienti, input mai sotto 16px). Textarea che cresce dal contenuto,
+// da 1 riga, con script cross-browser (Safari/Firefox non seguono la
+// tastiera con solo CSS).
+function AutoTextareaModifica({ value, onChange, style, placeholder }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = Math.max(22, el.scrollHeight) + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      style={{ ...style, display: "block", height: "auto", minHeight: 22, resize: "none", overflow: "hidden", lineHeight: 1.35 }}
+    />
+  );
+}
+
+function CampoModifica({ label, first, children }) {
+  return (
+    <label style={{ display: "grid", alignContent: "start", gap: 8, marginTop: first ? 0 : 20, color: T.secondarioAlt, fontFamily: T.sans, fontSize: 10, fontWeight: 600, lineHeight: 1.2, letterSpacing: ".12em", textTransform: "uppercase" }}>
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function RigaModifica({ children }) {
+  return <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", alignItems: "end", columnGap: 18, marginTop: 20 }}>{children}</div>;
+}
+
 function ModalModifica({ wine, onSalva, onAnnulla }) {
   const [form, setForm] = useState({
     produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "n.d.", annata: wine.annata || "",
@@ -484,61 +521,86 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
     }
   };
 
-  const field = (key, label, type = "text", opts = {}) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
-      {opts.select ? (
-        <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface }}>
-          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
-        </select>
-      ) : opts.textarea ? (
-        <textarea value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} rows={opts.rows || 3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical", lineHeight: 1.5 }} />
-      ) : (
-        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
-      )}
-    </div>
-  );
+  const setTxt = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const setNum = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value === "" ? "" : Number(e.target.value) }));
+  const setVal = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+
+  const campo = { width: "100%", boxSizing: "border-box", height: 22, padding: 0, border: 0, borderBottom: `1px solid ${T.divisore}`, borderRadius: 0, background: "transparent", outline: 0, appearance: "none", fontFamily: T.sans, fontSize: 16, fontWeight: 400, lineHeight: 1.2, color: T.testo };
+  const campoSerif = { ...campo, fontFamily: T.serif, fontSize: 16 };
+  const titoloSezione = { margin: "26px 0 0", paddingBottom: 9, borderBottom: `1px solid ${T.testo}`, color: T.accento, fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".18em", textTransform: "uppercase" };
+  const puoSalvare = form.produttore && form.vino;
+
+  const salva = () => {
+    if (!form.produttore || !form.vino) { setFormError("Produttore e nome vino sono obbligatori."); return; }
+    if (form.bottiglie === "" || form.prezzo === "") { setFormError("Bottiglie e prezzo non possono essere vuoti."); return; }
+    setFormError(null);
+    onSalva(form);
+  };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.45)" }} onClick={onAnnulla}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "92vh", overflowY: "auto", padding: "20px 20px 40px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", display:"flex", alignItems:"center", gap:8 }}>{IC.edit} Modifica dati</div>
-            <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 2 }}>{wine.produttore} · {wine.vino}</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Dati principali</div>
-        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
-        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
-        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
-        <button onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: (schedaLoading || !form.produttore || !form.vino) ? M3.surfaceContainerHighest : M3.primaryContainer, color: (schedaLoading || !form.produttore || !form.vino) ? M3.onSurfaceVariant : M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: (schedaLoading || !form.produttore || !form.vino) ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", marginBottom: 14 }}>
-          {schedaLoading
-            ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ display: "inline-flex", animation: "spin 1s linear infinite" }}>{IC.spinner}</span> Ricerca in corso…</span>
-            : <span style={{ display: "flex", alignItems: "center", gap: 8 }}><SchedaTecnicaIcon size={20} /> Inserisci scheda tecnica</span>}
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(31,27,25,.42)" }} onClick={onAnnulla}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxHeight: "88%", overflowY: "auto", background: T.superficie, borderTop: `1px solid ${T.divisore}`, padding: "26px 22px 28px", paddingBottom: "calc(28px + env(safe-area-inset-bottom))", fontFamily: T.sans, color: T.testo, animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <p style={OCCHIELLO}>Modifica dati</p>
+        <h3 style={{ margin: "5px 0 4px", fontFamily: T.serif, fontSize: 27, fontWeight: 400 }}>{form.vino}</h3>
+        <p style={{ margin: 0, color: T.secondarioAlt, fontSize: 12 }}>{[wine.produttore, wine.annata].filter(Boolean).join(" · ")}</p>
+
+        <p style={{ ...titoloSezione, marginTop: 22 }}>Dati principali</p>
+        <CampoModifica label="Produttore" first><input value={form.produttore} onChange={setTxt("produttore")} style={campo} /></CampoModifica>
+        <CampoModifica label="Nome del vino"><input value={form.vino} onChange={setTxt("vino")} style={campo} /></CampoModifica>
+        <RigaModifica>
+          <CampoModifica label="Denominazione" first>
+            <select value={form.denominazione} onChange={setTxt("denominazione")} style={campo}>
+              {DENOMINAZIONI.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </CampoModifica>
+          <CampoModifica label="Annata" first><input value={form.annata} onChange={setTxt("annata")} type="text" inputMode="numeric" style={campo} /></CampoModifica>
+        </RigaModifica>
+        <CampoModifica label="Tipologia">
+          <select value={form.tipologia} onChange={setTxt("tipologia")} style={campo}>
+            {Object.entries(TIPO).map(([chiave, def]) => <option key={chiave} value={chiave}>{def.etichetta}</option>)}
+          </select>
+        </CampoModifica>
+        <RigaModifica>
+          <CampoModifica label="N. bottiglie" first><input value={form.bottiglie} onChange={setNum("bottiglie")} type="text" inputMode="numeric" style={campo} /></CampoModifica>
+          <CampoModifica label="Acquisto €/bot." first><input value={form.prezzo} onChange={setNum("prezzo")} type="text" inputMode="decimal" style={campo} /></CampoModifica>
+        </RigaModifica>
+
+        <p style={titoloSezione}>Scheda tecnica</p>
+        <button type="button" onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
+          style={{ width: "100%", display: "flex", gap: 14, alignItems: "center", marginTop: 16, padding: "15px 16px", textAlign: "left", border: `1px solid ${T.divisore}`, borderRadius: T.raggio, background: T.superficieAlt, cursor: (schedaLoading || !form.produttore || !form.vino) ? "default" : "pointer" }}>
+          <span style={{ flex: "none", width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: "50%", background: T.accento }}>
+            {schedaLoading
+              ? <span style={{ display: "inline-flex", color: T.superficie, animation: "spin 1s linear infinite" }}>{IC.spinner}</span>
+              : <SchedaTecnicaIcon size={19} color={T.superficie} />}
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <strong style={{ display: "block", fontFamily: T.serif, fontSize: 16, fontWeight: 400 }}>Inserisci scheda tecnica</strong>
+            <span style={{ display: "block", marginTop: 2, color: T.secondarioAlt, fontSize: 11 }}>{schedaLoading ? "Ricerca in corso…" : "importa dal PDF del produttore"}</span>
+          </span>
+          <svg style={{ flex: "none", marginLeft: "auto" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.oroTesto} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 5 7 7-7 7" /></svg>
         </button>
         {schedaError && (
-          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>{schedaError}</div>
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: T.sans, marginTop: 12 }}>{schedaError}</div>
         )}
-        {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Legno")}
-        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
-        {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
-        {field("note_cantina", "🏛 Note cantina", "text", { textarea: true, rows: 4 })}
+        <CampoModifica label="Vitigno"><input value={form.vitigno} onChange={setTxt("vitigno")} placeholder="Es. Nebbiolo 100%" style={campo} /></CampoModifica>
+        <CampoModifica label="Macerazione"><AutoTextareaModifica value={form.macerazione} onChange={setVal("macerazione")} style={campo} /></CampoModifica>
+        <CampoModifica label="Fermentazione"><AutoTextareaModifica value={form.fermentazione} onChange={setVal("fermentazione")} style={campo} /></CampoModifica>
+        <CampoModifica label="Legno"><AutoTextareaModifica value={form.malolattica} onChange={setVal("malolattica")} style={campo} /></CampoModifica>
+
+        <p style={titoloSezione}>Note</p>
+        <CampoModifica label="Il vino"><AutoTextareaModifica value={form.note} onChange={setVal("note")} style={campoSerif} /></CampoModifica>
+        <CampoModifica label="La cantina"><AutoTextareaModifica value={form.note_cantina} onChange={setVal("note_cantina")} style={campoSerif} /></CampoModifica>
+
         {formError && (
-          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 10 }}>{formError}</div>
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: T.sans, marginTop: 16 }}>{formError}</div>
         )}
-        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => {
-              if (!form.produttore || !form.vino) { setFormError("Produttore e nome vino sono obbligatori."); return; }
-              if (form.bottiglie === "" || form.prezzo === "") { setFormError("Bottiglie e prezzo non possono essere vuoti."); return; }
-              setFormError(null);
-              onSalva(form);
-            }}
-            style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-            <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.save} Salva modifiche</span>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 12, marginTop: 26 }}>
+          <button type="button" onClick={onAnnulla}
+            style={{ height: 50, border: `1px solid ${T.divisore}`, borderRadius: T.raggio, background: "transparent", color: T.testo, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Annulla</button>
+          <button type="button" onClick={salva}
+            style={{ height: 50, display: "flex", alignItems: "center", justifyContent: "center", gap: 9, border: 0, borderRadius: T.raggio, background: puoSalvare ? T.accento : T.divisoreMedio, color: puoSalvare ? T.superficie : T.testoUnita, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>
+            {IC.save} Salva modifiche
           </button>
         </div>
       </div>
