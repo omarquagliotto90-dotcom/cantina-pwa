@@ -17,9 +17,9 @@ async function eliminaBottiglia(page, nomeVino) {
   await page.getByRole("button", { name: "Sì, elimina" }).click();
 }
 
-/** Input del form di ModalAggiungi: l'etichetta è un div fratello, non un <label>. */
+/** Input del foglio "aggiungi": dal ridisegno del 22/09/2026 sono veri <label>. */
 function campo(page, etichetta) {
-  return page.locator(`div:has(> div:text-is("${etichetta}")) > input`);
+  return page.getByLabel(etichetta, { exact: true });
 }
 
 test.describe("Elimina dalla cantina", () => {
@@ -42,7 +42,7 @@ test.describe("Elimina dalla cantina", () => {
 
     await expect(page.getByText("Orange Unico")).toHaveCount(0);
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie - 1));
-    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo - 20} €`);
+    await expect(page.getByTestId("tot-costo")).toHaveText(`${ATTESI.costo - 20} €`);
   });
 
   test("se la RPC fallisce, la riga torna al suo posto", async ({ page, cantina }) => {
@@ -54,6 +54,34 @@ test.describe("Elimina dalla cantina", () => {
     // Rollback: il vino torna in Lista (e il dettaglio si riapre, da cui .first()).
     await expect(page.getByText("Orange Unico").first()).toBeVisible();
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie));
+  });
+
+  // Bug trovato da Omar il 22/09/2026: dopo aver eliminato l'ultima bottiglia
+  // la lista non rispondeva piu' ai tap. Il vino spariva da `wines`, quindi il
+  // dettaglio smetteva di disegnarsi, ma `selectedId` in Lista.jsx restava
+  // valorizzato e la guardia `if (selectedId != null) return` di `handleOpen`
+  // rifiutava ogni apertura successiva.
+  test("dopo aver eliminato un vino si possono ancora aprire gli altri", async ({ page, cantina }) => {
+    await apriApp(page);
+    await eliminaBottiglia(page, "Orange Unico");
+    await expect(page.getByText("Orange Unico")).toHaveCount(0);
+
+    // Il dettaglio dev'essere davvero chiuso, non solo invisibile.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // E un altro vino si apre: e' esattamente cio' che non funzionava piu'.
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+  });
+
+  test("eliminare una bottiglia fra tante lascia il dettaglio aperto", async ({ page, cantina }) => {
+    // Il rovescio del test sopra: il vino resta in cantina, quindi la sua
+    // scheda NON deve chiudersi. Senza questo, azzerare lo stato a ogni
+    // eliminazione passerebbe inosservato.
+    await apriApp(page);
+    await eliminaBottiglia(page, "Soave Classico La Rocca");
+
+    await expect(page.getByRole("dialog")).toBeVisible();
   });
 
   // P1b, il caso che il soft delete esiste per rendere possibile.
@@ -72,11 +100,10 @@ test.describe("Elimina dalla cantina", () => {
     // Riaggiunta a mano, compilando solo i tre campi che formano la chiave
     // normalizzata. La scheda tecnica NON viene ricompilata di proposito.
     await page.getByRole("button", { name: "Aggiungi un vino" }).click();
-    await page.getByRole("button", { name: /Inserimento manuale/ }).click();
     await campo(page, "Produttore").fill("Cantina Singola");
-    await campo(page, "Nome vino").fill("Orange Unico");
+    await campo(page, "Nome del vino").fill("Orange Unico");
     await campo(page, "Annata").fill("2020");
-    await page.getByRole("button", { name: "Salva in cantina" }).click();
+    await page.getByRole("button", { name: "Continua" }).click();
 
     await expect.poll(() => cantina.rpcCalls("aggiungi_o_incrementa").length).toBe(1);
     await expect(page.getByText("Orange Unico").first()).toBeVisible();

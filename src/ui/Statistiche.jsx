@@ -76,13 +76,13 @@ export default function TabStatistiche({ wines, bevuti }) {
       {/* ── Valore ── */}
       <section style={{ padding: "30px 0 28px", borderBottom: `1px solid ${T.divisoreMedio}` }}>
         <p style={{ ...OCCHIELLO }}>Valore della cantina</p>
-        <strong data-testid="stat-mercato" style={{ display: "block", margin: "10px 0 20px", fontFamily: T.serif, fontSize: 44, fontWeight: 300, lineHeight: 1, letterSpacing: "-.02em" }}>~{totMercato} €</strong>
+        <strong data-testid="stat-mercato" style={{ display: "block", margin: "10px 0 20px", fontFamily: T.serif, fontSize: 44, fontWeight: 300, lineHeight: 1, letterSpacing: "-.02em" }}>{totMercato} €</strong>
         <div style={{ height: 6, background: T.barraFondo }}>
           <span style={{ display: "block", height: "100%", width: `${quotaCosto}%`, background: T.accento }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, color: T.secondarioAlt, fontSize: 11, lineHeight: 1.45 }}>
-          <span>Acquisti<br /><b data-testid="stat-costo" style={{ color: T.testo, fontSize: 13, fontWeight: 600 }}>~{totV} €</b></span>
-          <span style={{ textAlign: "right" }}>Stima attuale<br /><b style={{ color: T.testo, fontSize: 13, fontWeight: 600 }}>~{totMercato} €</b></span>
+          <span>Acquisti<br /><b data-testid="stat-costo" style={{ color: T.testo, fontSize: 13, fontWeight: 600 }}>{totV} €</b></span>
+          <span style={{ textAlign: "right" }}>Stima attuale<br /><b style={{ color: T.testo, fontSize: 13, fontWeight: 600 }}>{totMercato} €</b></span>
         </div>
       </section>
 
@@ -91,7 +91,7 @@ export default function TabStatistiche({ wines, bevuti }) {
         {[
           { id: "stat-bottiglie", v: totB, l: "bottiglie" },
           { id: "stat-referenze", v: cantina.length, l: "referenze" },
-          { id: "stat-bevute",    v: bevuti.length, l: "bevute", sotto: totBevuto ? `~${totBevuto} €` : null },
+          { id: "stat-bevute",    v: bevuti.length, l: "bevute", sotto: totBevuto ? `${totBevuto} €` : null },
         ].map((n, i) => (
           <div key={n.l} style={{ paddingLeft: i === 0 ? 0 : 14, borderLeft: i === 0 ? "none" : `1px solid ${T.divisoreMedio}` }}>
             <strong data-testid={n.id} style={{ display: "block", fontFamily: T.serif, fontSize: 31, fontWeight: 300 }}>{n.v}</strong>

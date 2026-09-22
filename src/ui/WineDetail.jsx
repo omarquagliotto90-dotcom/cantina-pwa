@@ -13,14 +13,53 @@
 // La foto della bottiglia arriva da App.jsx come render prop `renderBottiglia`,
 // perche' cerca e mette in cache: qui non si fa rete.
 //
-// L'hero del design ha una foto di regione come sfondo, con sopra un gradiente.
-// Non e' implementata: `produttori.regione` e' vuota per tutti e 84 i
-// produttori, e i gradienti sono fuori dai vincoli. Resta il fondo pieno.
+// L'hero ha la foto della regione come sfondo, come nel design. Due note:
+// - `produttori.regione` e' stata popolata il 20/09/2026 (77 righe su 84); un
+//   produttore senza regione, o una regione senza foto, ricade sul fondo pieno
+// - il velo sopra la foto e' l'unico gradiente dell'app. E' un'eccezione
+//   decisa il 20/09/2026 e scritta in CLAUDE.md: serve a leggere il titolo,
+//   non a decorare. Non e' un precedente per gradienti altrove.
 
 import { useState, useRef, useEffect } from "react";
 import { T, OCCHIELLO } from "./theme";
 import { TIPO, SliderVoto, CaliceIcon } from "./components";
 import { hasCantina, produttoreDi, getGoogleFallback } from "./domain";
+
+// Le foto stanno in `public/regioni/<slug>.jpg`; `public/regioni/README.md`
+// spiega nomi e formato. Elencare qui la regione e' cio' che accende la foto:
+// una lista esplicita evita una richiesta a vuoto per le regioni che la foto
+// non ce l'hanno, e tiene il controllo in un punto solo. E' esportato
+// perche' un test verifica che a ogni voce corrisponda un file: un nome
+// sbagliato non darebbe errore, la foto semplicemente non apparirebbe.
+export const REGIONI_CON_FOTO = [
+  "Trentino-Alto Adige",
+  "Veneto",
+  "Abruzzo",
+  "Marche",
+  "Umbria",
+  "Lombardia",
+  // Nessun produttore in Valle d'Aosta al 20/09/2026: la foto c'e' ma
+  // resta dormiente finche' non entra in cantina un vino valdostano.
+  "Valle d'Aosta",
+];
+
+// "Trentino-Alto Adige" -> "trentino-alto-adige"
+const slugRegione = (r) => r.toLowerCase().normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+const fotoRegione = (regione) =>
+  regione && REGIONI_CON_FOTO.includes(regione) ? `/regioni/${slugRegione(regione)}.jpg` : null;
+
+// Il velo segue il token del fondo invece di ricopiarne il valore: se
+// `superficieAlt` cambia, la foto continua a sfumare nel colore giusto.
+const rgbDi = (hex) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(",");
+// Tutto il contenuto dell'hero sta sopra foto e velo. Senza, la foto lo copre.
+const sopraFoto = { position: "relative", zIndex: 2 };
+
+const VELO = (() => {
+  const c = rgbDi(T.superficieAlt);
+  return `linear-gradient(to bottom, rgba(${c},.15) 0%, rgba(${c},.30) 45%, rgba(${c},.93) 62%, rgba(${c},.97) 100%)`;
+})();
 
 const IconaIndietro = ({ size = 17 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -77,15 +116,19 @@ function Prosa({ occhiello, testo }) {
   );
 }
 
-export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRate, onBevi, onElimina, onModifica, onClose, onInitClose, renderBottiglia }) {
+export default function WineDetail({ wine, bevutoInfo = null, onRate, onBevi, onElimina, onModifica, onClose, onInitClose, renderBottiglia }) {
   const t = TIPO[wine.tipologia];
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
-  const currentRating = ratings[wine.id] || 0;
+  // P5: il voto e' quello della degustazione aperta, e non esiste un voto
+  // "del vino" da mostrare. Lo slider compare solo quando `bevutoInfo` c'e',
+  // cioe' solo aprendo da Bevuti.
+  const currentRating = bevutoInfo?.rating || 0;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const produttore = produttoreDi(wine.produttore);
   const sito = produttore?.sito || getGoogleFallback(wine.produttore, wine.vino);
+  const foto = fotoRegione(produttore?.regione);
   const origine = [wine.annata, wine.denominazione !== "n.d." ? wine.denominazione : null].filter(Boolean).join(" · ");
   const giacenza = wine.prezzo != null ? wine.prezzo * wine.bottiglie : null;
 
@@ -132,17 +175,25 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
           </a>
         </div>
 
-        {/* ── Hero ── */}
-        <section style={{ padding: "70px 22px 26px", background: T.superficieAlt, textAlign: "center" }}>
-          <div style={{ height: 264, display: "grid", placeItems: "center", marginBottom: 6 }}>
+        {/* ── Hero. Con la foto della regione dietro, quando c'e'. ── */}
+        <section style={{ position: "relative", padding: "70px 22px 26px", background: T.superficieAlt, textAlign: "center", overflow: "hidden" }}>
+          {foto && (
+            <>
+              {/* Decorative: il nome della regione e' gia' scritto qui sotto, quindi
+                  per un lettore di schermo la foto non aggiunge nulla. */}
+              <div aria-hidden="true" data-testid="hero-foto" style={{ position: "absolute", inset: 0, zIndex: 0, backgroundImage: `url(${foto})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+              <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 1, background: VELO, pointerEvents: "none" }} />
+            </>
+          )}
+          <div style={{ ...sopraFoto, height: 264, display: "grid", placeItems: "center", marginBottom: 6 }}>
             {renderBottiglia ? renderBottiglia(wine, true) : null}
           </div>
-          <p style={{ margin: 0, color: T.accento, fontSize: 15, fontWeight: 600, letterSpacing: ".14em", textTransform: "uppercase" }}>{wine.produttore}</p>
-          <h2 style={{ margin: "8px auto 0", maxWidth: 320, fontFamily: T.serif, fontSize: 25, fontWeight: 300, lineHeight: 1.02, letterSpacing: "-.02em" }}>{wine.vino}</h2>
-          {origine && <p style={{ margin: "10px 0 0", color: T.testoOrigine, fontSize: 13 }}>{origine}</p>}
-          {produttore?.regione && <p style={{ margin: "8px 0 0", color: T.oroCaldo, fontSize: 10, fontWeight: 600, letterSpacing: ".16em", textTransform: "uppercase" }}>{produttore.regione}</p>}
+          <p style={{ ...sopraFoto, margin: 0, color: T.accento, fontSize: 15, fontWeight: 600, letterSpacing: ".14em", textTransform: "uppercase" }}>{wine.produttore}</p>
+          <h2 style={{ ...sopraFoto, margin: "8px auto 0", maxWidth: 320, fontFamily: T.serif, fontSize: 25, fontWeight: 300, lineHeight: 1.02, letterSpacing: "-.02em" }}>{wine.vino}</h2>
+          {origine && <p style={{ ...sopraFoto, margin: "10px 0 0", color: T.testoOrigine, fontSize: 13 }}>{origine}</p>}
+          {produttore?.regione && <p style={{ ...sopraFoto, margin: "8px 0 0", color: T.oroCaldo, fontSize: 10, fontWeight: 600, letterSpacing: ".16em", textTransform: "uppercase" }}>{produttore.regione}</p>}
           {bevutoInfo && (
-            <p style={{ margin: "12px 0 0", color: T.secondarioAlt, fontSize: 12 }}>Bottiglia aperta il <b style={{ color: T.testo }}>{bevutoInfo.data}</b></p>
+            <p style={{ ...sopraFoto, margin: "12px 0 0", color: T.secondarioAlt, fontSize: 12 }}>Bottiglia aperta il <b style={{ color: T.testo }}>{bevutoInfo.data}</b></p>
           )}
         </section>
 
@@ -196,10 +247,10 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
         {/* ── I quattro numeri ── */}
         <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", marginTop: 22, borderTop: `1px solid ${T.divisoreMedio}`, borderBottom: `1px solid ${T.divisoreMedio}` }}>
           {[
-            [{ l: "Acquisto", v: wine.prezzo != null ? `~${wine.prezzo} €` : "—", forte: false },
-             { l: "Valore",   v: wine.valore != null ? `~${wine.valore} €` : "—", forte: true }],
+            [{ l: "Acquisto", v: wine.prezzo != null ? `${wine.prezzo} €` : "—", forte: false },
+             { l: "Valore",   v: wine.valore != null ? `${wine.valore} €` : "—", forte: true }],
             [{ l: "Bottiglie", v: bevutoInfo ? "—" : wine.bottiglie, forte: false },
-             { l: "Giacenza",  v: bevutoInfo || giacenza == null ? "—" : `~${giacenza} €`, forte: true }],
+             { l: "Giacenza",  v: bevutoInfo || giacenza == null ? "—" : `${giacenza} €`, forte: true }],
           ].map((colonna, c) => (
             <div key={c} style={{ display: "grid", gridTemplateRows: "1fr 1fr", padding: "6px 0", borderLeft: c === 1 ? `1px solid ${T.divisoreMedio}` : "none" }}>
               {colonna.map((n, r) => (
@@ -217,7 +268,7 @@ export default function WineDetail({ wine, bevutoInfo = null, ratings = {}, onRa
         {bevutoInfo && (
           <section style={{ padding: "26px 20px 6px" }}>
             <p style={{ ...OCCHIELLO }}>La tua valutazione</p>
-            <SliderVoto value={currentRating} onChange={(v) => onRate(wine.id, v)} />
+            <SliderVoto value={currentRating} onChange={(v) => onRate(bevutoInfo.uid, v)} />
           </section>
         )}
 

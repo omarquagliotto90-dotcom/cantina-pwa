@@ -41,7 +41,7 @@ test.describe("Segna come bevuto", () => {
 
     // 6 → 5 bottiglie; il costo scende di un Soave (12 €).
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie - 1));
-    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo - 12} €`);
+    await expect(page.getByTestId("tot-costo")).toHaveText(`${ATTESI.costo - 12} €`);
   });
 
   test("se la RPC fallisce, la UI torna indietro e avvisa", async ({ page, cantina }) => {
@@ -54,7 +54,7 @@ test.describe("Segna come bevuto", () => {
     await expect(page.getByText("Errore: bevuta non registrata")).toBeVisible();
     // Rollback completo: la bottiglia non deve risultare consumata.
     await expect(page.getByTestId("tot-bottiglie")).toHaveText(String(ATTESI.bottiglie));
-    await expect(page.getByTestId("tot-costo")).toHaveText(`~${ATTESI.costo} €`);
+    await expect(page.getByTestId("tot-costo")).toHaveText(`${ATTESI.costo} €`);
   });
 
   test("la data apertura non può essere nel futuro", async ({ page, cantina }) => {

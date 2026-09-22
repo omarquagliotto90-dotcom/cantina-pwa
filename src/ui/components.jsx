@@ -187,6 +187,28 @@ export const SchedaTecnicaIcon = ({ size = 20, color = "currentColor", style = {
 // del design non coincidono con i valori del database — "Bollicine" e' uno
 // Spumante, "Rose'" e' uno Spumante rosso — e l'ordine qui sotto e' quello in
 // cui compaiono i chip.
+// I sei formati ammessi, stessa lista chiusa del CHECK su `bottiglie.formato`
+// (P6). `valore` e' cio' che finisce nel database, `etichetta` cio' che si
+// legge nei form. In lista si mostra il solo `valore`, e soltanto quando non
+// e' Standard: una cantina di bottiglie normali non ha bisogno di dirlo.
+// La lente della ricerca. Sta qui e non in Lista.jsx da quando la usano due
+// schermate: Cantina e Bevuti.
+export const IconaLente = ({ size = 17, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round">
+    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+  </svg>
+);
+
+export const FORMATI = [
+  { valore: "Mezza",    etichetta: "Mezza (0,37 l)" },
+  { valore: "Medium",   etichetta: "Medium (0,5 l)" },
+  { valore: "Standard", etichetta: "Standard (0,75 l)" },
+  { valore: "Litro",    etichetta: "Litro (1 l)" },
+  { valore: "Magnum",   etichetta: "Magnum (1,5 l)" },
+  { valore: "Jeroboam", etichetta: "Jeroboam (3 l)" },
+];
+export const FORMATO_PREDEFINITO = "Standard";
+
 export const TIPO = {
   "Rosso fermo":    { etichetta: "Rosso",     colore: "#6B1E2E", container: "#FFDAD6", onContainer: "#410002", indicator: "#6D0B0B", label: <RossoIcon /> },
   "Bianco fermo":   { etichetta: "Bianco",    colore: "#CBAE6A", container: "#FBDFA6", onContainer: "#261A00", indicator: "#C8B44A", label: <BiancoIcon /> },
@@ -265,7 +287,7 @@ export function RigaPremibile({ onClick, children }) {
   );
 }
 
-export function WineCard({ wine, onOpen, immagine = null }) {
+export function WineCard({ wine, onOpen, immagine = null, renderMiniatura = null, formato = null }) {
   const cantinaSW = hasCantina(wine.produttore);
   const vinoSW = !!wine.slowVinoBott;
   // Riga della Cantina — ridisegno 2026. La miniatura arriva gia' risolta in
@@ -276,8 +298,14 @@ export function WineCard({ wine, onOpen, immagine = null }) {
     <RigaPremibile onClick={onOpen}>
       <span style={{ position: "absolute", top: 14, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
       <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
+        {/* `contain` e non `cover`: `cover` riempie il riquadro TAGLIANDO, e su
+            uno scatto prodotto quadrato o orizzontale mangiava i lati della
+            bottiglia. Con `contain` la bottiglia si vede sempre intera e tutte
+            stanno nello stesso riquadro. */}
         {immagine ? (
-          <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />
+          renderMiniatura
+            ? renderMiniatura(immagine)
+            : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 7, color: T.tenueAlt }}>
             <CaliceIcon size={20} />
@@ -297,12 +325,20 @@ export function WineCard({ wine, onOpen, immagine = null }) {
           <span style={{ display: "flex", alignItems: "baseline", gap: 5, color: T.testo }}>
             <b style={{ fontFamily: T.serif, fontSize: 17, fontWeight: 500, lineHeight: 1 }}>{wine.bottiglie}</b>
             <span style={{ fontSize: 11, color: T.testoUnita }}>{wine.bottiglie === 1 ? "bottiglia" : "bottiglie"}</span>
+            {/* P6: compare solo per i formati diversi da Standard. Sta qui,
+                accanto al numero, perche' e' la stessa informazione: quante
+                bottiglie e di che taglia. */}
+            {formato && (
+              <span style={{ marginLeft: 2, padding: "2px 6px", border: `1px solid ${T.divisore}`, borderRadius: T.pillola, color: T.oroCaldo, fontSize: 9, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{formato}</span>
+            )}
           </span>
-          {/* Due righe invece di una: il design mostrava solo la stima, ma il
-              prezzo pagato non va perso. La stima compare solo se esiste. */}
+          {/* Due righe invece di una: il design mostrava solo il valore, ma il
+              prezzo pagato non va perso. La seconda riga compare solo se esiste.
+              Le due cifre sono spesso uguali, quindi ciascuna porta la sua
+              etichetta: senza, non si capisce quale sia quale. */}
           <span style={{ textAlign: "right", color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>
-            {wine.prezzo != null ? `~${wine.prezzo} € / bott.` : "prezzo non noto"}
-            {wine.valore != null && <><br />stima ~{wine.valore} €</>}
+            {wine.prezzo != null ? `costo ${wine.prezzo} €` : "prezzo non noto"}
+            {wine.valore != null && <><br />valore {wine.valore} €</>}
           </span>
         </div>
       </div>

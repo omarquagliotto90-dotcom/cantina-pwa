@@ -2,14 +2,14 @@
 // fa fetch, non conosce Supabase, non muta nulla.
 //
 // Ridisegno 2026 (C3), da `design/La Mia Cantina.dc.html`: intestazione
-// editoriale, riepilogo, e un diario diviso per anno.
+// editoriale, riepilogo, e i Bevuti divisi per anno.
 //
 // `renderBottiglia` arriva da App.jsx e viene solo
 // inoltrata a WineDetail: qui non si sa cosa contenga.
 
 import { useState, useRef } from "react";
 import { T, OCCHIELLO } from "./theme";
-import { CaliceIcon } from "./components";
+import { CaliceIcon, IconaLente } from "./components";
 import { resolveWine, valoreBottiglia, formatDataIt, produttoreDi } from "./domain";
 import WineDetail from "./WineDetail";
 
@@ -19,9 +19,9 @@ const IconaRiporta = ({ size = 13 }) => (
   </svg>
 );
 
-// Una riga del diario. Il bottone apre il dettaglio; voto e "riporta" stanno
+// Una riga dei Bevuti. Il bottone apre il dettaglio; voto e "riporta" stanno
 // sotto, fuori dal bottone, perche' sono azioni e letture separate.
-function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
+function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatura }) {
   const [hover, setHover] = useState(false);
   const regione = produttoreDi(wine.produttore)?.regione;
   const meta = [wine.annata, wine.denominazione !== "n.d." ? wine.denominazione : null].filter(Boolean).join(" · ");
@@ -36,7 +36,9 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
         <span style={{ position: "absolute", top: 0, right: 0, zIndex: 2, ...OCCHIELLO, fontSize: 9, letterSpacing: ".12em" }}>{regione || ""}</span>
         <div style={{ width: 62, height: 84, display: "grid", placeItems: "center", overflow: "hidden", background: T.slotImmagine, borderRadius: T.raggioFoto }}>
           {immagine
-            ? <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", mixBlendMode: "multiply" }} />
+            ? (renderMiniatura
+                ? renderMiniatura(immagine)
+                : <img src={immagine} alt="" loading="lazy" style={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />)
             : <CaliceIcon size={18} color={T.tenueAlt} />}
         </div>
         <div style={{ minWidth: 0 }}>
@@ -45,7 +47,7 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
           <p style={{ margin: "6px 0 0", color: T.secondarioAlt, fontSize: 10, lineHeight: 1.35 }}>{meta}</p>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginTop: 13, paddingTop: 9, borderTop: `1px solid ${T.divisoreTenue}` }}>
             <span style={{ color: T.secondarioAlt, fontSize: 11, lineHeight: 1.25 }}>{formatDataIt(b.consumedOn) || b.data}</span>
-            <span style={{ fontSize: 11, color: T.secondarioAlt }}>Valore · ~{valore} €</span>
+            <span style={{ fontSize: 11, color: T.secondarioAlt }}>Valore · {valore} €</span>
           </div>
         </div>
       </button>
@@ -68,8 +70,10 @@ function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta }) {
   );
 }
 
-export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, ratings, onRate, renderBottiglia, immagini = {} }) {
+export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onModifica, onRate, renderBottiglia, renderMiniatura, immagini = {} }) {
   const [selectedUid, setSelectedUid] = useState(null);
+  const [search, setSearch] = useState("");
+  const [ricercaAperta, setRicercaAperta] = useState(false);
   const lastFocusedRef = useRef(null);
   const wineMap = Object.fromEntries(allWines.map(w => [w.id, w]));
 
@@ -84,9 +88,26 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
     if (el) requestAnimationFrame(() => el.focus?.());
   };
 
+  // Chiudere la ricerca azzera anche il testo, come in Cantina: una query
+  // attiva ma invisibile farebbe sembrare che manchino delle bevute.
+  const chiudiRicerca = () => { setRicercaAperta(false); setSearch(""); };
+
+  // Gli stessi quattro campi della Cantina piu' la NOTA, scelta di Omar del
+  // 22/09/2026: nei Bevuti la nota e' spesso l'unica cosa che distingue due
+  // degustazioni dello stesso vino, quindi e' il campo che si cerca davvero.
+  // Il vitigno non sta nello snapshot della bevuta: arriva dal vino risolto.
+  const trovate = bevuti.filter(b => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const w = resolveWine(wineMap, b) || {};
+    return [b.produttore, b.vino, b.annata, w.vitigno, b.nota]
+      .some(campo => String(campo ?? "").toLowerCase().includes(q));
+  });
+
   // F23: valore di mercato se valorizzato, altrimenti prezzo d'acquisto
-  // (live, poi snapshot storico per i vini non più in wines).
-  const totalSpeso = bevuti.reduce((a, b) => a + valoreBottiglia(resolveWine(wineMap, b)), 0);
+  // (live, poi snapshot storico per i vini non più in wines). Segue la
+  // ricerca, come il riepilogo della Cantina segue i filtri.
+  const totalSpeso = trovate.reduce((a, b) => a + valoreBottiglia(resolveWine(wineMap, b)), 0);
 
   if (bevuti.length === 0) {
     return (
@@ -102,9 +123,9 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
 
   // Diario: dal più recente al più vecchio, raggruppato per anno. Prima
   // l'ordine era quello di inserimento invertito; qui è la data di consumo,
-  // che è ciò che il lettore si aspetta da un diario e ciò che rende i
+  // che è ciò che il lettore si aspetta dai Bevuti e ciò che rende i
   // divisori d'anno sensati.
-  const ordinate = [...bevuti].sort((x, y) => {
+  const ordinate = [...trovate].sort((x, y) => {
     const dx = x.consumedOn || "", dy = y.consumedOn || "";
     if (dx !== dy) return dy.localeCompare(dx);
     return (y.uid || 0) - (x.uid || 0);
@@ -121,9 +142,9 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
     <div style={{ padding: "0 20px 24px", fontFamily: T.sans, color: T.testo }}>
 
       {/* ── Intestazione editoriale ── */}
-      <header style={{ padding: "30px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
+      <header style={{ padding: "16px 0 16px", borderBottom: `1px solid ${T.testo}` }}>
         <p style={{ ...OCCHIELLO }}>Memoria personale</p>
-        <h2 style={{ margin: "3px 0 10px", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>Bevuti</h2>
+        <h2 style={{ margin: "9px 0 10px", fontFamily: T.serif, fontSize: 27, fontWeight: 400, lineHeight: 1, letterSpacing: "-.01em" }}>Bevuti</h2>
         <p style={{ margin: 0, maxWidth: 280, color: T.secondario, fontFamily: T.serif, fontSize: 16, lineHeight: 1.45 }}>
           I vini, le persone e i momenti che vale la pena ricordare.
         </p>
@@ -132,16 +153,57 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
       {/* ── Riepilogo ── */}
       <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1.15fr) minmax(132px,.85fr)", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${T.divisoreMedio}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span data-testid="tot-bevute" style={{ fontFamily: T.serif, fontSize: 34, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{bevuti.length}</span>
+          <span data-testid="tot-bevute" style={{ fontFamily: T.serif, fontSize: 34, lineHeight: 1, fontWeight: 300, color: T.accento, letterSpacing: "-.03em" }}>{trovate.length}</span>
           <span style={{ maxWidth: 72, color: T.secondario, fontSize: 11, lineHeight: 1.25 }}>bottiglie<br />bevute</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 30, padding: "0 0 0 14px", borderLeft: `1px solid ${T.divisoreMedio}` }}>
           <span style={{ color: T.secondario, fontSize: 11 }}>valore</span>
-          <b data-testid="tot-consumato" style={{ fontFamily: T.serif, color: T.accento, fontSize: 11, fontWeight: 500 }}>~{totalSpeso} €</b>
+          <b data-testid="tot-consumato" style={{ fontFamily: T.serif, color: T.accento, fontSize: 11, fontWeight: 500 }}>{totalSpeso} €</b>
         </div>
       </section>
 
-      {/* ── Il diario, per anno ── */}
+      {/* ── Ricerca, appiccicata in alto ── */}
+      <section style={{ position: "sticky", top: 0, zIndex: 20, margin: "0 -20px", padding: "14px 20px 8px", background: "rgba(255,252,247,.94)", backdropFilter: "blur(12px)" }}>
+        {ricercaAperta ? (
+          <div style={{ height: 46, display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${T.testo}` }}>
+            <IconaLente color={T.accento} />
+            {/* 16px: sotto, Safari su iOS zooma al tap. */}
+            <input value={search} onChange={e => setSearch(e.target.value)} autoFocus
+              placeholder="Produttore, vino, annata, uva, nota" aria-label="Cerca nei bevuti"
+              style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", fontFamily: T.sans, fontSize: 16, color: T.testo }} />
+            <button type="button" onClick={chiudiRicerca} aria-label="Chiudi ricerca"
+              style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: 0, background: "transparent", color: T.secondarioAlt, cursor: "pointer" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
+          </div>
+        ) : (
+          <div style={{ height: 46, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <h3 style={{ margin: 0, fontFamily: T.serif, fontSize: 21, fontWeight: 400 }}>Le tue degustazioni</h3>
+            <button type="button" onClick={() => setRicercaAperta(true)} aria-label="Cerca"
+              style={{ width: 66, height: 31, display: "grid", placeItems: "center", border: `1px solid ${T.divisore}`, borderRadius: T.pillola, background: "transparent", color: T.accento, cursor: "pointer" }}>
+              <IconaLente size={16} />
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Ricerca senza esiti: senza questo resterebbe il vuoto sotto la barra,
+          indistinguibile da un caricamento a metà. */}
+      {anni.length === 0 && (
+        <div style={{ padding: "48px 4px", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><CaliceIcon size={26} color={T.tenueAlt} /></div>
+          <h4 style={{ margin: 0, fontFamily: T.serif, fontSize: 23, fontWeight: 400 }}>Nessuna degustazione</h4>
+          <p style={{ margin: "8px auto 20px", maxWidth: 230, color: T.secondarioAlt, fontSize: 13, lineHeight: 1.55 }}>
+            Nessuna bevuta corrisponde a questa ricerca.
+          </p>
+          <button type="button" onClick={chiudiRicerca}
+            style={{ height: 42, padding: "0 20px", border: `1px solid ${T.accento}`, background: "transparent", color: T.accento, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }}>
+            Azzera ricerca
+          </button>
+        </div>
+      )}
+
+      {/* ── I Bevuti, per anno ── */}
       {anni.map(({ anno, righe }) => (
         <section key={anno}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "14px 0 0" }}>
@@ -149,15 +211,19 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
             <span style={{ flex: 1, height: 1, background: T.divisoreMedio }} />
             <span style={{ color: T.secondarioAlt, fontSize: 11 }}>{righe.length} {righe.length === 1 ? "bevuta" : "bevute"}</span>
           </div>
+          {/* P5: ogni riga mostra il voto della PROPRIA degustazione. Prima
+              leggeva `ratings[b.id]`, cioe' il voto del vino, e due bevute
+              della stessa etichetta mostravano per forza lo stesso numero. */}
           {righe.map(b => {
             const wine = resolveWine(wineMap, b);
             if (!wine) return null;
             return (
               <RigaBevuta key={b.uid} b={b} wine={wine}
                 immagine={immagini[b.id] || null}
-                voto={ratings[b.id] || 0}
+                voto={b.rating || 0}
                 onOpen={handleOpen(b.uid)}
-                onRiporta={() => onRiporta(b.uid)} />
+                onRiporta={() => onRiporta(b.uid)}
+                renderMiniatura={renderMiniatura} />
             );
           })}
         </section>
@@ -169,8 +235,9 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
         const wine = resolveWine(wineMap, b);
         if (!wine) return null;
         return (
-          <WineDetail key={selectedUid} wine={wine} bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota }}
-            ratings={ratings} onRate={onRate}
+          <WineDetail key={selectedUid} wine={wine}
+            bevutoInfo={{ data: formatDataIt(b.consumedOn) || b.data, nota: b.nota, uid: b.uid, rating: b.rating }}
+            onRate={onRate}
             onBevi={() => {}} onElimina={() => onRiporta(b.uid)} onModifica={onModifica}
             onClose={handleClose}
             renderBottiglia={renderBottiglia}

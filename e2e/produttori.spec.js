@@ -1,4 +1,4 @@
-const { test, expect, apriApp } = require("./support/harness");
+const { test, expect, apriApp, regioniConFoto } = require("./support/harness");
 const { PRODUTTORI } = require("./fixtures/cantina");
 
 // P3 / D3. Slow Wine e sito produttore vivevano in due posti sbagliati: un Set
@@ -61,5 +61,49 @@ test.describe("Anagrafica produttori", () => {
       .toHaveAttribute("href", /^https:\/\/www\.google\.com\/search\?q=/);
     expect(cantina.calls.filter(c => c.name === "search-website")).toHaveLength(0);
     expect(cantina.rpcCalls("salva_sito_produttore")).toHaveLength(0);
+  });
+
+  // ── Foto di regione nell'hero ─────────────────────────────────────────────
+  // Lo sfondo lo sceglie la regione del PRODUTTORE, non il vino, e si accende
+  // solo per le regioni elencate in `REGIONI_CON_FOTO` (vedi
+  // `public/regioni/README.md`). Il punto fragile e' l'aggancio nome-file:
+  // aggiungere una foto significa mettere il file e scrivere la regione
+  // nell'elenco, e uno slug sbagliato non fa rumore, semplicemente non appare.
+
+  test("l'hero prende la foto della regione del produttore", async ({ page, cantina }) => {
+    cantina.setTable("produttori", [{
+      id: 1, nome: "Pieropan", nome_norm: "pieropan",
+      sito: null, sito_source: null, slow_chiocciola: false,
+      regione: "Trentino-Alto Adige",
+    }]);
+    await apriApp(page);
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+
+    await expect(page.getByTestId("hero-foto")).toHaveCSS(
+      "background-image", /\/regioni\/trentino-alto-adige\.jpg/);
+  });
+
+  test("una regione senza foto lascia l'hero a fondo pieno", async ({ page, cantina }) => {
+    // Serve una regione che una foto NON ce l'abbia. La prima versione usava
+    // il Veneto e si e' rotta appena il Veneto l'ha avuta: qui la premessa e'
+    // verificata, cosi' il giorno che tocca al Molise il test dice cosa fare
+    // invece di fallire sull'asserzione vera.
+    const SENZA_FOTO = "Molise";
+    expect(regioniConFoto(),
+      `"${SENZA_FOTO}" ha ora una foto: scegli un'altra regione per questo test`)
+      .not.toContain(SENZA_FOTO);
+
+    cantina.setTable("produttori", [{
+      id: 1, nome: "Pieropan", nome_norm: "pieropan",
+      sito: null, sito_source: null, slow_chiocciola: false, regione: SENZA_FOTO,
+    }]);
+    await apriApp(page);
+    await page.getByRole("button", { name: /Soave Classico La Rocca/ }).first().click();
+
+    // Nel dialogo, non nella riga di Lista che resta dietro: il nome del vino
+    // sta in tutte e due e senza `getByRole("dialog")` ne trova due.
+    const dettaglio = page.getByRole("dialog");
+    await expect(dettaglio.getByRole("heading", { name: "Soave Classico La Rocca" })).toBeVisible();
+    await expect(page.getByTestId("hero-foto")).toHaveCount(0);
   });
 });

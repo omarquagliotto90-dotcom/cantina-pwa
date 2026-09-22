@@ -164,7 +164,44 @@ const PRODUTTORI = [
   },
 ];
 
+// P6 fase 4a: `bottiglie` e' la fonte di verita' del client. La giacenza e'
+// il NUMERO di righe in cantina, lo storico sono le righe bevute: `wines.bottiglie`
+// e `bevuti` esistono ancora in tabella, ma nessuno li legge piu'.
+//
+// Le righe si generano da WINES e BEVUTI invece di scriverle a mano, cosi'
+// non possono divergere da ATTESI quando un fixture cambia. L'unica eccezione
+// scritta a mano e' la Magnum del Soave: e' il caso misto — due Standard e una
+// Magnum sullo stesso vino — che serve al badge dei formati.
+const FORMATO_DI = { 1: ["Standard", "Standard", "Magnum"] };
+
+const BOTTIGLIE = [];
+let _seqBott = 1;
+for (const w of WINES) {
+  if (w.deleted_at != null) continue;
+  for (let i = 0; i < (w.bottiglie ?? 0); i++) {
+    BOTTIGLIE.push({
+      id: _seqBott++, wine_id: w.id,
+      formato: FORMATO_DI[w.id]?.[i] ?? "Standard",
+      stato: "in_cantina", prezzo_pagato: w.prezzo ?? null,
+      acquistata_il: null, posizione: null,
+      consumed_on: null, nota: null, rating: null,
+      produttore: null, vino: null, annata: null, tipologia: null,
+      legacy_uid: null, created_at: w.created_at,
+    });
+  }
+}
+for (const b of BEVUTI) {
+  BOTTIGLIE.push({
+    id: _seqBott++, wine_id: b.wine_id, formato: "Standard", stato: "bevuta",
+    prezzo_pagato: b.prezzo ?? null, acquistata_il: null, posizione: null,
+    consumed_on: b.consumed_on, nota: b.nota || null, rating: b.rating,
+    produttore: b.produttore, vino: b.vino,
+    annata: /^\d{4}$/.test(String(b.annata)) ? Number(b.annata) : null,
+    tipologia: b.tipologia, legacy_uid: b.uid, created_at: b.created_at,
+  });
+}
+
 module.exports = {
-  WINES, BEVUTI, PRODUTTORI, ATTESI,
+  WINES, BEVUTI, PRODUTTORI, BOTTIGLIE, ATTESI,
   VINO_COMPLETO, VINO_MINIMO, VINO_ULTIMA_BOTTIGLIA, VINO_ESAURITO,
 };

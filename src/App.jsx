@@ -1,10 +1,12 @@
 // La Mia Cantina — controller. La revisione è in REV, qui sotto: un solo
 // numero in tutto il progetto, così non può tornare a divergere.
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { M3, T, OCCHIELLO } from "./ui/theme";
-import { TIPO, IC, SliderVoto, SchedaTecnicaIcon,
+import { TIPO, IC, SliderVoto, SchedaTecnicaIcon, FORMATI, FORMATO_PREDEFINITO,
          NavCantinaIcon, NavBevutiIcon, NavStatisticheIcon } from "./ui/components";
-import { formatDataIt, setProduttori } from "./ui/domain";
+import { formatDataIt, setProduttori, riquadroContenuto, scontornaFondo, formatiPerVino, formatoPrevalente } from "./ui/domain";
+import AddWineSheet from "./ui/AddWineSheet";
 import TabLista from "./ui/Lista";
 import TabStatistiche from "./ui/Statistiche";
 import TabBevuti from "./ui/Bevuti";
@@ -13,7 +15,15 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "1.0";
+const REV = "3.1";
+
+// PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
+// il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
+// volta sola. `navigator.standalone` e' la variante iOS, non standard.
+const STANDALONE = typeof window !== "undefined" && (
+  window.matchMedia?.("(display-mode: standalone)").matches === true ||
+  window.navigator.standalone === true
+);
 
 // ─── Supabase client (no dipendenze esterne — REST API diretta) ───────────────
 const SB_URL = "https://etbrgdldduadgbulasmy.supabase.co";
@@ -136,27 +146,6 @@ function annataDaForm(v) {
 // Il rating in DB è PER BEVUTA (decisione aperta Q3), mentre la UI ne mostra
 // uno solo per vino. Prima si prendeva il massimo: ma dopo lo stopgap di P0 la
 // RPC `valuta_vino` scrive sulla bevuta PIÙ RECENTE, quindi leggere il massimo
-// avrebbe fatto "tornare indietro" il voto appena dato. Qui si legge dove si
-// scrive: il voto della bevuta più recente fra quelle valutate.
-//
-// "fra quelle valutate" e non "la più recente in assoluto": altrimenti una
-// bevuta nuova senza voto nasconderebbe un voto precedente. Dopo una scrittura
-// le due definizioni coincidono comunque, perché la più recente diventa valutata.
-function ratingPerVino(bevute) {
-  const piuRecente = {};
-  for (const b of bevute) {
-    if (b.wine_id == null || b.rating == null) continue;
-    const corrente = piuRecente[b.wine_id];
-    const piuNuova = !corrente ||
-      b.consumed_on > corrente.consumed_on ||
-      (b.consumed_on === corrente.consumed_on && b.uid > corrente.uid);
-    if (piuNuova) piuRecente[b.wine_id] = b;
-  }
-  return Object.fromEntries(
-    Object.entries(piuRecente).map(([wineId, b]) => [wineId, Number(b.rating)])
-  );
-}
-
 // A2b: converte stringa vuota o vecchio placeholder testuale in NULL —
 // un solo modo di dire "non specificato", invece di "—"/"n.d." salvati nel DB.
 function opzionale(v, placeholder) {
@@ -200,26 +189,217 @@ const imgQueue = {
 const DENOMINAZIONI = ["DOC", "DOCG", "IGT", "AOC", "IGP", "QbA", "QmP", "AVA", "n.d."];
 
 // ─── Lightbox fullscreen ──────────────────────────────────────────────────────
+// Va in un portale su `document.body`, e non e' un dettaglio: viene montato
+// dentro `BottleImage`, che nell'hero della scheda sta dentro `sopraFoto`
+// (`position: relative; z-index: 2` in WineDetail.jsx). Un elemento posizionato
+// con `z-index` crea uno stacking context, quindi da li' dentro il `z-index`
+// del lightbox compete solo coi fratelli: il nome del vino, che sta nello
+// stesso contesto piu' avanti nel DOM, restava dipinto SOPRA la foto
+// ingrandita (visto da Omar il 22/09/2026, misurato con `elementFromPoint`).
+// E' la stessa trappola gia' registrata in CLAUDE.md per `mix-blend-mode`.
+// Il portale lo porta fuori da qualunque contesto: "clicco sulla foto, compare
+// solo la foto". Se un giorno rientrasse nell'albero, il difetto torna.
 function Lightbox({ url, onClose }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
-  return (
+  return createPortal((
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.18s ease", cursor: "zoom-out" }}>
       <img src={url} alt="Bottiglia ingrandita" onClick={e => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.6)", cursor: "default" }} />
       <button onClick={onClose} style={{ position: "absolute", top: 18, right: 18, width: 40, height: 40, borderRadius: 20, border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
         <span style={{display:"flex"}}>{IC.close}</span>
       </button>
     </div>
-  );
+  ), document.body);
 }
 
 // ─── BottleImage ──────────────────────────────────────────────────────────────
+// ─── Rifilo del margine ───────────────────────────────────────────────────────
+// Obiettivo: bottiglie tutte della stessa altezza. `contain` da solo non basta,
+// perche' uno scatto con molto bianco attorno rende la bottiglia piccola e uno
+// inquadrato stretto la rende grande. Togliendo il margine il problema sparisce
+// alla fonte, e come effetto collaterale si ottiene anche lo scontorno dei
+// fondi pieni.
+//
+// Il lavoro e' nel browser: farlo sul server vorrebbe dire una libreria di
+// image processing, e le dipendenze nuove sono fuori dai vincoli.
+
+const rifilateCache = new Map();  // url originale -> dataURL | "NIENTE_DA_FARE"
+
+// Le immagini sono hotlinkate: cross-origin contamina il canvas e getImageData
+// lancia SecurityError. `data:` e percorsi nostri non ne hanno bisogno.
+export function sorgenteLeggibile(url) {
+  if (!url) return null;
+  if (url.startsWith("data:") || url.startsWith("/")) return url;
+  return `/api/immagine?url=${encodeURIComponent(url)}`;
+}
+
+const LATO_MAX = 900;  // oltre non serve: la bottiglia si vede a 190x264
+
+/** Scarica, rifila e restituisce un dataURL. `null` se non c'e' niente da fare. */
+async function rifila(url) {
+  const sorgente = sorgenteLeggibile(url);
+  if (!sorgente) return null;
+
+  const img = new Image();
+  img.src = sorgente;
+  await img.decode();
+
+  const scala = Math.min(1, LATO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scala));
+  const h = Math.max(1, Math.round(img.naturalHeight * scala));
+
+  const tela = document.createElement("canvas");
+  tela.width = w; tela.height = h;
+  const ctx = tela.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // Prima lo scontorno vero: i pixel di fondo diventano trasparenti. Senza,
+  // il ritaglio lascia comunque il rettangolo di fondo attorno alla bottiglia.
+  const dati = ctx.getImageData(0, 0, w, h);
+  const tolti = scontornaFondo(dati.data, w, h);
+  if (tolti > 0) ctx.putImageData(dati, 0, 0);
+
+  // Poi il riquadro, calcolato su cio' che resta opaco: dopo lo scontorno e'
+  // la sagoma della bottiglia, non piu' il rettangolo del soggetto.
+  const riquadro = riquadroContenuto(dati.data, w, h);
+  if (!riquadro && tolti === 0) return null;
+
+  // Se lo scontorno ha tolto qualcosa ma non c'e' margine da rifilare, si tiene
+  // comunque l'immagine intera: e' gia' migliore dell'originale.
+  const box = riquadro || { sx: 0, su: 0, larghezza: w, altezza: h };
+
+  // Un filo d'aria attorno: una bottiglia a filo del bordo sembra tagliata.
+  const aria = Math.round(Math.max(box.larghezza, box.altezza) * 0.02);
+  const out = document.createElement("canvas");
+  out.width = box.larghezza + aria * 2;
+  out.height = box.altezza + aria * 2;
+  const octx = out.getContext("2d");
+  octx.drawImage(tela, box.sx, box.su, box.larghezza, box.altezza,
+                 aria, aria, box.larghezza, box.altezza);
+  return out.toDataURL("image/png");
+}
+
+// Perche' una foto non e' stata rifilata. In memoria e per sessione: non e' un
+// log, e' un modo per rispondere a "perche' questa bottiglia ha il riquadro
+// bianco?" senza doverlo dedurre.
+//
+// Serve perche' tutte le strade che falliscono — 403 dell'origine, timeout,
+// angoli non concordi, canvas contaminato — producono lo stesso identico
+// risultato sullo schermo. Il 21/09/2026 per sapere che rossopastrengo.com
+// rispondeva 403 ho dovuto interrogare il proxy a mano.
+export const motiviRifilo = new Map();   // url originale -> motivo leggibile
+if (typeof window !== "undefined") window.motiviRifilo = motiviRifilo;
+
+/**
+ * Traduce un fallimento in una frase. Fa una richiesta in piu', ma solo quando
+ * qualcosa e' gia' andato storto, e il risultato resta in cache: una volta per
+ * URL per sessione.
+ */
+async function motivoDelFallimento(url, err) {
+  const sorgente = sorgenteLeggibile(url);
+  if (!sorgente?.startsWith("/api/")) return err?.name || "errore sconosciuto";
+  try {
+    const r = await fetch(sorgente);
+    // I byte ci sono: allora il guaio e' a valle, nella decodifica o nel canvas.
+    if (r.ok) return `immagine scaricata ma non elaborabile (${err?.name || "errore"})`;
+    const corpo = await r.json().catch(() => ({}));
+    return `proxy ${r.status}: ${corpo.error || "nessun dettaglio"}`;
+  } catch {
+    return "proxy irraggiungibile";
+  }
+}
+
+/** Versione con cache e senza eccezioni: in caso di guaio si tiene l'originale. */
+export async function immagineRifilata(url) {
+  if (!url) return null;
+  if (rifilateCache.has(url)) {
+    const v = rifilateCache.get(url);
+    return v === "NIENTE_DA_FARE" ? null : v;
+  }
+  try {
+    const dataUrl = await rifila(url);
+    rifilateCache.set(url, dataUrl || "NIENTE_DA_FARE");
+    if (!dataUrl) motiviRifilo.set(url, "fondo non uniforme, o niente da togliere");
+    return dataUrl;
+  } catch (err) {
+    // Proxy giu', origine morta, canvas contaminato: si mostra l'originale.
+    rifilateCache.set(url, "NIENTE_DA_FARE");
+    motiviRifilo.set(url, "in accertamento…");
+    motivoDelFallimento(url, err).then(m => motiviRifilo.set(url, m));
+    return null;
+  }
+}
+
+// ─── Miniatura con rifilo pigro ───────────────────────────────────────────────
+// La lista ha 91 righe: rifilarle tutte all'apertura vorrebbe dire 82 richieste
+// al proxy per immagini che magari non scorri nemmeno. Quindi il rifilo parte
+// solo quando la riga entra davvero nello schermo, e il risultato resta in
+// `rifilateCache`, condivisa con la scheda: aprire un vino e poi tornare in
+// lista non ricalcola niente.
+//
+// Sta qui e non in `ui/` perche' fa rete, come `BottleImage`: scende alle
+// schermate come render prop, lo stesso schema gia' usato per `renderBottiglia`.
+
+// Coda a parte da `imgQueue`, che e' seriale con 2s di pausa perche' parla con
+// Serper. Qui si parla col nostro proxy: niente pause, ma nemmeno 82 richieste
+// in parallelo addosso a una connessione mobile.
+const rifiloQueue = {
+  _attivi: 0,
+  _coda: [],
+  MAX: 3,
+  add(fn) {
+    return new Promise((resolve) => {
+      this._coda.push({ fn, resolve });
+      this._avvia();
+    });
+  },
+  async _avvia() {
+    if (this._attivi >= this.MAX || this._coda.length === 0) return;
+    this._attivi++;
+    const { fn, resolve } = this._coda.shift();
+    try { resolve(await fn()); } catch { resolve(null); }
+    finally { this._attivi--; this._avvia(); }
+  },
+};
+
+function Miniatura({ immagine, stile }) {
+  const [rifilata, setRifilata] = useState(null);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setRifilata(null);
+    if (!immagine) return;
+    const el = ref.current;
+    if (!el) return;
+
+    let annullato = false;
+    const parti = () => {
+      rifiloQueue.add(() => immagineRifilata(immagine))
+        .then(d => { if (!annullato && d) setRifilata(d); });
+    };
+
+    // Senza IntersectionObserver (browser vecchi, jsdom) si rifila e basta:
+    // meglio qualche richiesta in piu' che una funzione che non parte mai.
+    if (typeof IntersectionObserver !== "function") { parti(); return () => { annullato = true; }; }
+
+    const osservatore = new IntersectionObserver((voci) => {
+      if (voci.some(v => v.isIntersecting)) { osservatore.disconnect(); parti(); }
+    }, { rootMargin: "200px" });   // un po' di anticipo: arriva gia' pronta
+    osservatore.observe(el);
+
+    return () => { annullato = true; osservatore.disconnect(); };
+  }, [immagine]);
+
+  return <img ref={ref} src={rifilata || immagine} alt="" loading="lazy" style={stile} />;
+}
+
 function BottleImage({ wine, active }) {
   const [status, setStatus] = useState("idle");
   const [url, setUrl]       = useState(null);
+  const [rifilata, setRifilata] = useState(null);
   const [lightbox, setLightbox] = useState(false);
 
   useEffect(() => {
@@ -269,6 +449,19 @@ function BottleImage({ wine, active }) {
     return () => { cancelled = true; };
   }, [wine.id, active]);
 
+  // Rifilo del margine: toglie il bianco attorno alla bottiglia, cosi' tutte
+  // occupano la stessa altezza invece di dipendere da come e' stato inquadrato
+  // lo scatto. Se fallisce — proxy giu', fondo non uniforme, niente da togliere
+  // — `rifilata` resta null e si mostra l'originale: non si perde mai la foto.
+  useEffect(() => {
+    if (!url) { setRifilata(null); return; }
+    let annullato = false;
+    immagineRifilata(url).then(d => { if (!annullato && d) setRifilata(d); });
+    return () => { annullato = true; };
+  }, [url]);
+
+  const mostrata = rifilata || url;
+
   // C5: misure e resa dell'hero del ridisegno (190x264, mix-blend multiply
   // sul fondo caldo). La ricerca e la cache restano qui sopra: e' la ragione
   // per cui questo componente non e' mai sceso in ui/.
@@ -286,11 +479,15 @@ function BottleImage({ wine, active }) {
 
   return (
     <>
+      {/* Nel lightbox l'originale: li' si vuole vedere la foto com'e'. */}
       {lightbox && <Lightbox url={url} onClose={() => setLightbox(false)} />}
-      <img src={url} alt={wine.produttore + " " + wine.vino}
+      <img src={mostrata} alt={wine.produttore + " " + wine.vino}
         onClick={() => setLightbox(true)}
         onError={() => { setStatus("error"); imgSessionCache.set(wine.id, "NOT_FOUND"); }}
-        style={{ width: 190, height: 264, objectFit: "cover", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
+        style={{ width: 190, height: 264, objectFit: "contain", borderRadius: T.raggio, mixBlendMode: "multiply", cursor: "zoom-in" }} />
+        {/* `contain`: vedi il commento gemello in WineCard. Il rifilo del
+            margine bianco, che rendera' le bottiglie tutte della stessa
+            altezza, e' il passo successivo e richiede una route proxy. */}
     </>
   );
 }
@@ -298,7 +495,7 @@ function BottleImage({ wine, active }) {
 // ─── Modal: Aggiungi Vino ─────────────────────────────────────────────────────
 function ModalAggiungi({ onSalva, onAnnulla }) {
   const [modo, setModo] = useState(null);
-  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "n.d.", annata: "", tipologia: "Rosso fermo", bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
+  const [form, setForm] = useState({ produttore: "", vino: "", denominazione: "n.d.", annata: "", tipologia: "Rosso fermo", formato: FORMATO_PREDEFINITO, bottiglie: 1, prezzo: 0, vitigno: "", macerazione: "", fermentazione: "", malolattica: "", note: "" });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMime, setImageMime] = useState("image/jpeg");
@@ -347,44 +544,43 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
     }
   };
 
-  const field = (key, label, type = "text", opts = {}) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
-      {opts.select ? (
-        <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }}>
-          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
-        </select>
-      ) : (
-        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? Number(e.target.value) : e.target.value }))}
-          style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
-      )}
-    </div>
-  );
-
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.45)" }} onClick={onAnnulla}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "90vh", overflowY: "auto", padding: "20px 20px 36px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
-        <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 20 }}>
-          <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
-        </div>
-        {!modo && (
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={() => setModo("manuale")} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.edit}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Inserimento manuale</div>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Compila i campi a mano</div>
-            </button>
-            <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: "24px 12px", borderRadius: 16, border: `1px solid ${M3.outlineVariant}`, background: M3.surfaceContainer, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ marginBottom: 8, color: M3.onSurface }}>{IC.camera}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif" }}>Foto etichetta</div>
-              <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 4 }}>Scatta o carica una foto</div>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoChange} />
-          </div>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: T.superficie, borderRadius: "28px 28px 0 0", maxHeight: "90vh", overflowY: "auto", padding: 0, animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "14px auto 0" }} />
+        {/* Fuori da ogni ramo: il foglio lo clicca via callback in qualunque stato. */}
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFotoChange} />
+        {/* Ridisegno 22/09/2026: un foglio solo al posto di scelta + form lungo.
+            I campi che non compaiono piu' (prezzo, denominazione, vitigno, note,
+            macerazione, fermentazione, malolattica) restano ai default di `form`
+            e `handleSalva` li passa alla RPC come sempre: nessuna modifica al
+            salvataggio. Si completano dopo con "Modifica". */}
+        {modo !== "analisi" && (
+          <AddWineSheet
+            produttore={form.produttore} vino={form.vino} tipologia={form.tipologia}
+            formato={form.formato} annata={form.annata} bottiglie={form.bottiglie}
+            onChange={(campo, valore) => setForm(p => ({
+              ...p, [campo]: campo === "bottiglie" ? Math.max(1, Number(valore) || 1) : valore,
+            }))}
+            onFotografa={() => fileRef.current?.click()}
+            onSalva={() => { if (form.produttore.trim() && form.vino.trim()) onSalva(form); }}
+            onAnnulla={onAnnulla}
+            avviso={imagePreview ? (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", background: aiError ? "#FDECEA" : "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 18 }}>
+                <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: aiError ? "#B3261E" : "#2E7D32", fontFamily: T.sans }}>{aiError ? "Riconoscimento non riuscito" : "Campi compilati dalla foto"}</div>
+                  <div style={{ fontSize: 11, color: aiError ? "#8C1D18" : "#388E3C", fontFamily: T.sans, lineHeight: 1.4, marginTop: 2 }}>{aiError || "Verifica e correggi se serve"}</div>
+                </div>
+              </div>
+            ) : null}
+          />
         )}
         {modo === "analisi" && (
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", padding: "20px 20px 36px" }}>
+            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", marginBottom: 20, textAlign: "left" }}>
+              <span style={{display:"flex",alignItems:"center",gap:8}}>{IC.add} Aggiungi vino</span>
+            </div>
             {imagePreview && (<img src={imagePreview} alt="Etichetta" style={{ maxHeight: 200, maxWidth: "100%", borderRadius: 12, marginBottom: 16, objectFit: "contain" }} />)}
             {!aiLoading ? (
               <>
@@ -406,53 +602,54 @@ function ModalAggiungi({ onSalva, onAnnulla }) {
             )}
           </div>
         )}
-        {modo === "manuale" && (
-          <>
-            {imagePreview && (
-              <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#E8F5E9", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
-                <img src={imagePreview} alt="" style={{ width: 40, height: 48, objectFit: "cover", borderRadius: 6 }} />
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#2E7D32", fontFamily: "'Roboto', sans-serif" }}>{aiError ? "⚠️ Attenzione" : "🤖 Campi pre-compilati da AI"}</div>
-                  <div style={{ fontSize: 11, color: "#388E3C", fontFamily: "'Roboto', sans-serif", lineHeight: 1.4, marginTop: 2 }}>{aiError || "Verifica e correggi i campi se necessario"}</div>
-                </div>
-              </div>
-            )}
-            {field("produttore", "Produttore")}
-            {field("vino", "Nome vino")}
-            {field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}
-            {field("annata", "Annata")}
-            {field("tipologia", "Tipologia", "text", { select: true })}
-            {field("bottiglie", "N. bottiglie", "number")}
-            {field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
-            {field("vitigno", "Vitigno")}
-            {field("macerazione", "Macerazione")}
-            {field("fermentazione", "Fermentazione")}
-            {field("malolattica", "Legno")}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>Note</div>
-              <textarea value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))} rows={3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical" }} />
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setModo(null); setImagePreview(null); setImageBase64(null); setAiError(null); }} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.arrowBack} Indietro</span>
-              </button>
-              <button onClick={() => { if (form.produttore && form.vino) onSalva(form); }}
-                style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-                Salva in cantina
-              </button>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
 }
 
 // ─── Modal: Modifica dati vino ────────────────────────────────────────────────
+// C6: stessa traduzione già fatta per ModalBevi (T, OCCHIELLO da
+// src/ui/theme.js, niente gradienti, input mai sotto 16px). Textarea che
+// cresce dal contenuto, da 1 riga, con script cross-browser (Safari/Firefox
+// non seguono la tastiera con solo CSS).
+function AutoTextareaModifica({ value, onChange, style, placeholder }) {
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = Math.max(22, el.scrollHeight) + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      style={{ ...style, display: "block", height: "auto", minHeight: 22, resize: "none", overflow: "hidden", lineHeight: 1.35 }}
+    />
+  );
+}
+
+function CampoModifica({ label, first, children }) {
+  return (
+    <label style={{ display: "grid", alignContent: "start", gap: 8, marginTop: first ? 0 : 20, color: T.secondarioAlt, fontFamily: T.sans, fontSize: 10, fontWeight: 600, lineHeight: 1.2, letterSpacing: ".12em", textTransform: "uppercase" }}>
+      {label}
+      {children}
+    </label>
+  );
+}
+
+function RigaModifica({ children }) {
+  return <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", alignItems: "end", columnGap: 18, marginTop: 20 }}>{children}</div>;
+}
+
 function ModalModifica({ wine, onSalva, onAnnulla }) {
   const [form, setForm] = useState({
     produttore: wine.produttore || "", vino: wine.vino || "", denominazione: wine.denominazione || "n.d.", annata: wine.annata || "",
-    tipologia: wine.tipologia || "Bianco fermo", bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
+    tipologia: wine.tipologia || "Bianco fermo", formato: wine.formato || FORMATO_PREDEFINITO,
+    bottiglie: wine.bottiglie ?? 1, prezzo: wine.prezzo ?? 0,
     vitigno: wine.vitigno || "", macerazione: wine.macerazione || "", fermentazione: wine.fermentazione || "",
     malolattica: wine.malolattica || "", note: wine.note || "", note_cantina: wine.note_cantina || "",
   });
@@ -484,61 +681,93 @@ function ModalModifica({ wine, onSalva, onAnnulla }) {
     }
   };
 
-  const field = (key, label, type = "text", opts = {}) => (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, color: M3.onSurfaceVariant, textTransform: "uppercase", letterSpacing: 0.4, fontFamily: "'Roboto', sans-serif", marginBottom: 4 }}>{label}</div>
-      {opts.select ? (
-        <select value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface }}>
-          {(opts.options || Object.keys(TIPO)).map(t => <option key={t}>{t}</option>)}
-        </select>
-      ) : opts.textarea ? (
-        <textarea value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} rows={opts.rows || 3} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none", resize: "vertical", lineHeight: 1.5 }} />
-      ) : (
-        <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value }))} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: `1px solid ${M3.outline}`, background: M3.surfaceContainerHighest, fontSize: 16, fontFamily: "'Roboto', sans-serif", color: M3.onSurface, outline: "none" }} />
-      )}
-    </div>
-  );
+  const setTxt = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const setNum = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value === "" ? "" : Number(e.target.value) }));
+  const setVal = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+
+  const campo = { width: "100%", boxSizing: "border-box", height: 22, padding: 0, border: 0, borderBottom: `1px solid ${T.divisore}`, borderRadius: 0, background: "transparent", outline: 0, appearance: "none", fontFamily: T.sans, fontSize: 16, fontWeight: 400, lineHeight: 1.2, color: T.testo };
+  const campoSerif = { ...campo, fontFamily: T.serif, fontSize: 16 };
+  const titoloSezione = { margin: "26px 0 0", paddingBottom: 9, borderBottom: `1px solid ${T.testo}`, color: T.accento, fontFamily: T.sans, fontSize: 10, fontWeight: 600, letterSpacing: ".18em", textTransform: "uppercase" };
+  const puoSalvare = form.produttore && form.vino;
+
+  const salva = () => {
+    if (!form.produttore || !form.vino) { setFormError("Produttore e nome vino sono obbligatori."); return; }
+    if (form.bottiglie === "" || form.prezzo === "") { setFormError("Bottiglie e prezzo non possono essere vuoti."); return; }
+    setFormError(null);
+    onSalva(form);
+  };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(0,0,0,0.45)" }} onClick={onAnnulla}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", background: M3.surface, borderRadius: "28px 28px 0 0", maxHeight: "92vh", overflowY: "auto", padding: "20px 20px 40px", animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
-        <div style={{ width: 32, height: 4, background: M3.outlineVariant, borderRadius: 2, margin: "0 auto 18px" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 20, fontWeight: 500, color: M3.onSurface, fontFamily: "'Roboto', sans-serif", display:"flex", alignItems:"center", gap:8 }}>{IC.edit} Modifica dati</div>
-            <div style={{ fontSize: 12, color: M3.onSurfaceVariant, fontFamily: "'Roboto', sans-serif", marginTop: 2 }}>{wine.produttore} · {wine.vino}</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Dati principali</div>
-        {field("produttore", "Produttore")}{field("vino", "Nome vino")}{field("denominazione", "Denominazione", "text", { select: true, options: DENOMINAZIONI })}{field("annata", "Annata")}{field("tipologia", "Tipologia", "text", { select: true })}{field("bottiglie", "N. bottiglie", "number")}{field("prezzo", "Prezzo di acquisto (€/bot.)", "number")}
-        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
-        <div style={{ fontSize: 11, fontWeight: 600, color: M3.primary, textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>Scheda tecnica</div>
-        <button onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: (schedaLoading || !form.produttore || !form.vino) ? M3.surfaceContainerHighest : M3.primaryContainer, color: (schedaLoading || !form.produttore || !form.vino) ? M3.onSurfaceVariant : M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: (schedaLoading || !form.produttore || !form.vino) ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", marginBottom: 14 }}>
-          {schedaLoading
-            ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ display: "inline-flex", animation: "spin 1s linear infinite" }}>{IC.spinner}</span> Ricerca in corso…</span>
-            : <span style={{ display: "flex", alignItems: "center", gap: 8 }}><SchedaTecnicaIcon size={20} /> Inserisci scheda tecnica</span>}
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "flex-end", background: "rgba(31,27,25,.42)" }} onClick={onAnnulla}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxHeight: "88%", overflowY: "auto", background: T.superficie, borderTop: `1px solid ${T.divisore}`, padding: "26px 22px 28px", paddingBottom: "calc(28px + env(safe-area-inset-bottom))", fontFamily: T.sans, color: T.testo, animation: "slideUp 0.3s cubic-bezier(0.2,0,0,1)" }}>
+        <p style={OCCHIELLO}>Modifica dati</p>
+        <h3 style={{ margin: "5px 0 4px", fontFamily: T.serif, fontSize: 27, fontWeight: 400 }}>{form.vino}</h3>
+        <p style={{ margin: 0, color: T.secondarioAlt, fontSize: 12 }}>{[wine.produttore, wine.annata].filter(Boolean).join(" · ")}</p>
+
+        <p style={{ ...titoloSezione, marginTop: 22 }}>Dati principali</p>
+        <CampoModifica label="Produttore" first><input value={form.produttore} onChange={setTxt("produttore")} style={campo} /></CampoModifica>
+        <CampoModifica label="Nome del vino"><input value={form.vino} onChange={setTxt("vino")} style={campo} /></CampoModifica>
+        <RigaModifica>
+          <CampoModifica label="Denominazione" first>
+            <select value={form.denominazione} onChange={setTxt("denominazione")} style={campo}>
+              {DENOMINAZIONI.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </CampoModifica>
+          <CampoModifica label="Annata" first><input value={form.annata} onChange={setTxt("annata")} type="text" inputMode="numeric" style={campo} /></CampoModifica>
+        </RigaModifica>
+        <RigaModifica>
+          <CampoModifica label="Tipologia" first>
+            <select value={form.tipologia} onChange={setTxt("tipologia")} style={campo}>
+              {Object.entries(TIPO).map(([chiave, def]) => <option key={chiave} value={chiave}>{def.etichetta}</option>)}
+            </select>
+          </CampoModifica>
+          <CampoModifica label="Formato" first>
+            <select value={form.formato} onChange={setTxt("formato")} style={campo}>
+              {FORMATI.map(f => <option key={f.valore} value={f.valore}>{f.etichetta}</option>)}
+            </select>
+          </CampoModifica>
+        </RigaModifica>
+        <RigaModifica>
+          <CampoModifica label="N. bottiglie" first><input value={form.bottiglie} onChange={setNum("bottiglie")} type="text" inputMode="numeric" style={campo} /></CampoModifica>
+          <CampoModifica label="Acquisto €/bot." first><input value={form.prezzo} onChange={setNum("prezzo")} type="text" inputMode="decimal" style={campo} /></CampoModifica>
+        </RigaModifica>
+
+        <p style={titoloSezione}>Scheda tecnica</p>
+        <button type="button" onClick={handleInserisciScheda} disabled={schedaLoading || !form.produttore || !form.vino}
+          style={{ width: "100%", display: "flex", gap: 14, alignItems: "center", marginTop: 16, padding: "15px 16px", textAlign: "left", border: `1px solid ${T.divisore}`, borderRadius: T.raggio, background: T.superficieAlt, cursor: (schedaLoading || !form.produttore || !form.vino) ? "default" : "pointer" }}>
+          <span style={{ flex: "none", width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: "50%", background: T.accento }}>
+            {schedaLoading
+              ? <span style={{ display: "inline-flex", color: T.superficie, animation: "spin 1s linear infinite" }}>{IC.spinner}</span>
+              : <SchedaTecnicaIcon size={19} color={T.superficie} />}
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <strong style={{ display: "block", fontFamily: T.serif, fontSize: 16, fontWeight: 400 }}>Inserisci scheda tecnica</strong>
+            <span style={{ display: "block", marginTop: 2, color: T.secondarioAlt, fontSize: 11 }}>{schedaLoading ? "Ricerca in corso…" : "importa dal PDF del produttore"}</span>
+          </span>
+          <svg style={{ flex: "none", marginLeft: "auto" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={T.oroTesto} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 5 7 7-7 7" /></svg>
         </button>
         {schedaError && (
-          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 12 }}>{schedaError}</div>
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: T.sans, marginTop: 12 }}>{schedaError}</div>
         )}
-        {field("vitigno", "🍇 Vitigno")}{field("macerazione", "⏱ Macerazione", "text", { textarea: true, rows: 2 })}{field("fermentazione", "🧪 Fermentazione", "text", { textarea: true, rows: 2 })}{field("malolattica", "🔄 Legno")}
-        <div style={{ height: 1, background: M3.outlineVariant, margin: "8px 0 16px" }} />
-        {field("note", "📝 Note", "text", { textarea: true, rows: 4 })}
-        {field("note_cantina", "🏛 Note cantina", "text", { textarea: true, rows: 4 })}
+        <CampoModifica label="Vitigno"><input value={form.vitigno} onChange={setTxt("vitigno")} placeholder="Es. Nebbiolo 100%" style={campo} /></CampoModifica>
+        <CampoModifica label="Macerazione"><AutoTextareaModifica value={form.macerazione} onChange={setVal("macerazione")} style={campo} /></CampoModifica>
+        <CampoModifica label="Fermentazione"><AutoTextareaModifica value={form.fermentazione} onChange={setVal("fermentazione")} style={campo} /></CampoModifica>
+        <CampoModifica label="Legno"><AutoTextareaModifica value={form.malolattica} onChange={setVal("malolattica")} style={campo} /></CampoModifica>
+
+        <p style={titoloSezione}>Note</p>
+        <CampoModifica label="Il vino"><AutoTextareaModifica value={form.note} onChange={setVal("note")} style={campoSerif} /></CampoModifica>
+        <CampoModifica label="La cantina"><AutoTextareaModifica value={form.note_cantina} onChange={setVal("note_cantina")} style={campoSerif} /></CampoModifica>
+
         {formError && (
-          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: "'Roboto', sans-serif", marginBottom: 10 }}>{formError}</div>
+          <div style={{ background: "#FDECEA", color: "#B71C1C", borderRadius: 8, padding: "9px 12px", fontSize: 12, fontFamily: T.sans, marginTop: 16 }}>{formError}</div>
         )}
-        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-          <button onClick={onAnnulla} style={{ flex: 1, padding: "11px", borderRadius: 20, border: `1px solid ${M3.outline}`, background: "transparent", color: M3.onSurface, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>Annulla</button>
-          <button onClick={() => {
-              if (!form.produttore || !form.vino) { setFormError("Produttore e nome vino sono obbligatori."); return; }
-              if (form.bottiglie === "" || form.prezzo === "") { setFormError("Bottiglie e prezzo non possono essere vuoti."); return; }
-              setFormError(null);
-              onSalva(form);
-            }}
-            style={{ flex: 2, padding: "11px", borderRadius: 20, border: "none", background: form.produttore && form.vino ? M3.primary : M3.surfaceContainerHighest, color: form.produttore && form.vino ? M3.onPrimary : M3.onSurfaceVariant, fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: "pointer" }}>
-            <span style={{display:"flex",alignItems:"center",gap:6}}>{IC.save} Salva modifiche</span>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.25fr", gap: 12, marginTop: 26 }}>
+          <button type="button" onClick={onAnnulla}
+            style={{ height: 50, border: `1px solid ${T.divisore}`, borderRadius: T.raggio, background: "transparent", color: T.testo, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>Annulla</button>
+          <button type="button" onClick={salva}
+            style={{ height: 50, display: "flex", alignItems: "center", justifyContent: "center", gap: 9, border: 0, borderRadius: T.raggio, background: puoSalvare ? T.accento : T.divisoreMedio, color: puoSalvare ? T.superficie : T.testoUnita, fontFamily: T.sans, fontSize: 12, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase", cursor: "pointer" }}>
+            {IC.save} Salva modifiche
           </button>
         </div>
       </div>
@@ -599,8 +828,13 @@ function ModalBevi({ wine, onConferma, onAnnulla }) {
 function useCantinaData() {
   const [wines, setWines] = useState([]);
   const [bevuti, setBevuti] = useState([]);
-  const [ratings, setRatings] = useState({});
   const [immagini, setImmagini] = useState({});   // wine_id -> url, per le miniature
+  // P6 fase 3: le righe di `bottiglie` in giacenza, grezze. Servono solo per il
+  // formato — il conteggio resta quello di `wines.bottiglie` fino alla fase 4 —
+  // e si tengono grezze perche' se ne ricavano due cose diverse: il badge in
+  // lista (solo i non-Standard) e il valore di partenza del form di modifica
+  // (il prevalente, Standard compreso).
+  const [giacenze, setGiacenze] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
@@ -608,10 +842,13 @@ function useCantinaData() {
     let cancelled = false;
     async function loadData() {
       try {
-        const [fetchedWines, bev, produttori, immagini] = await Promise.all([
+        const [fetchedWines, bottiglie, produttori, immagini] = await Promise.all([
           // P1b: le righe soft-deleted restano in tabella ma fuori dall'app.
           sb.getOrThrow("wines", { order: "id.asc", filtro: "deleted_at=is.null" }),
-          sb.getOrThrow("bevuti"),
+          // P6 fase 4a: lo storico non viene piu' da `bevuti` ma dalle righe
+          // bevute di `bottiglie`. La tabella vecchia esiste ancora e le RPC
+          // la tengono allineata, ma nessuno la legge piu'.
+          sb.getOrThrow("bottiglie", { order: "id.asc" }),
           sb.getOrThrow("produttori", { order: "nome.asc" }),
           // C2: il ridisegno mette una miniatura in ogni riga della lista. Una
           // GET sola all'avvio invece di una ricerca per vino: senza questa,
@@ -619,14 +856,35 @@ function useCantinaData() {
           // senza immagine, e imgQueue le serializza con 2s di pausa.
           sb.getOrThrow("wine_images"),
         ]);
+
         if (cancelled) return;
         // P3: prima dei vini — badge Slow Wine e sito produttore leggono da qui.
         setProduttori(produttori);
-        setWines(fetchedWines.map(normalizzaWine));
-        // F5: 1:N — nessuna deduplica, uid è chiave univoca
-        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
-        setBevuti(bevFromDb);
-        setRatings(ratingPerVino(bev));
+        // P6 fase 4a: la giacenza e' il numero di righe-bottiglia in cantina,
+        // non piu' la colonna `wines.bottiglie`. Cambia la fonte, non la forma:
+        // il resto del client continua a leggere `wine.bottiglie` e nessuna
+        // formula a valle — costoGiacenza, Statistiche, le card — e' stata
+        // toccata.
+        const bevute = bottiglie.filter(b => b.stato === "bevuta");
+        const inCantina = bottiglie.filter(b => b.stato === "in_cantina");
+        const contaPerVino = new Map();
+        for (const b of inCantina) {
+          if (b.wine_id == null) continue;
+          contaPerVino.set(b.wine_id, (contaPerVino.get(b.wine_id) || 0) + 1);
+        }
+        setWines(fetchedWines.map(w => normalizzaWine({ ...w, bottiglie: contaPerVino.get(w.id) || 0 })));
+        // F5: 1:N — nessuna deduplica. La chiave della bevuta e' ora
+        // `bottiglie.id`: lo storico e' la riga stessa, non piu' una tabella a
+        // parte. Il campo si chiama ancora `uid` perche' e' cosi' che lo
+        // conoscono TabBevuti e handleRiporta.
+        setBevuti(bevute.map(b => ({
+          uid: b.id, id: b.wine_id, consumedOn: b.consumed_on, data: formatDataIt(b.consumed_on),
+          nota: b.nota || "", produttore: b.produttore, vino: b.vino,
+          annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo_pagato,
+          // P5: il voto viaggia con la bevuta, che e' l'unico posto in cui
+          // esiste. Non c'e' piu' nessuna aggregazione per etichetta.
+          rating: b.rating,
+        })));
         // Le stesse url alimentano la lista e pre-riempiono la cache del
         // dettaglio: per i vini gia' fotografati BottleImage non fa piu' nulla.
         const mappa = {};
@@ -636,6 +894,7 @@ function useCantinaData() {
           if (!imgSessionCache.has(r.wine_id)) imgSessionCache.set(r.wine_id, r.image_url);
         }
         setImmagini(mappa);
+        setGiacenze(inCantina);
         setDbError(null);
       } catch (e) {
         if (cancelled) return;
@@ -649,14 +908,39 @@ function useCantinaData() {
     return () => { cancelled = true; };
   }, []);
 
-  return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError };
+  // Dopo una scrittura che tocca le bottiglie, il badge dev'essere vero senza
+  // aspettare un riavvio dell'app. Ricaricare la tabella intera costa una GET
+  // ed e' sempre corretto; ricostruire il conteggio lato client no, perche'
+  // aggiungere un Magnum a un vino che ha gia' tre Standard cambia la stringa.
+  const ricaricaGiacenze = async () => {
+    try {
+      const righe = await sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" });
+      if (!Array.isArray(righe)) return;
+      setGiacenze(righe);
+      // E il conteggio, che e' la stessa cosa contata. Tenerlo allineato qui
+      // chiude in un punto solo una classe di difetti: ogni handler che muta
+      // le bottiglie a mano puo' sbagliare, e in un caso ha sbagliato davvero
+      // — `aggiungi_o_incrementa` restituisce l'anagrafica, che da P6 fase 4b
+      // non porta piu' un conteggio, e il vino appena salvato spariva dalla
+      // lista fino al riavvio.
+      const conta = new Map();
+      for (const b of righe) {
+        if (b.wine_id == null) continue;
+        conta.set(b.wine_id, (conta.get(b.wine_id) || 0) + 1);
+      }
+      setWines(prev => prev.map(w => ({ ...w, bottiglie: conta.get(w.id) || 0 })));
+    } catch { /* i conteggi restano quelli di prima: non vale un messaggio d'errore */ }
+  };
+
+  return { wines, setWines, bevuti, setBevuti, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
 }
 
 // ─── App principale ───────────────────────────────────────────────────────────
 
 export default function Cantina() {
   const [tab, setTab] = useState("lista");
-  const { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, loading, dbError, setDbError } = useCantinaData();
+  const { wines, setWines, bevuti, setBevuti, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError } = useCantinaData();
+  const formati = useMemo(() => formatiPerVino(giacenze), [giacenze]);
   const [pendingBevi, setPendingBevi] = useState(null);
   const [showAggiungi, setShowAggiungi] = useState(false);
   const [pendingModifica, setPendingModifica] = useState(null);
@@ -684,6 +968,21 @@ export default function Cantina() {
   // BottleImage e WebsiteView fanno rete e cache: restano qui e scendono a
   // WineDetail come render prop, attraverso le schermate che lo montano.
   const renderBottiglia = (w, attiva) => <BottleImage wine={w} active={attiva} />;
+  // `minWidth/minHeight: 0` non sono decorazione. Il contenitore e' un grid, e
+  // un grid item ha una DIMENSIONE MINIMA AUTOMATICA che gli impedisce di
+  // rimpicciolirsi sotto il proprio contenuto: la riga si allargava fino
+  // all'altezza naturale dell'immagine (misurato `grid-template-rows: 278px`
+  // dentro un riquadro alto 84), quindi `height: 100%` valeva 278px e
+  // `overflow: hidden` mostrava solo il tappo della bottiglia.
+  //
+  // Prima del rifilo non si vedeva, perche' le immagini erano quasi quadrate.
+  // Col rifilo diventano strette e alte e il difetto taglia tutto. Non era
+  // `object-fit: contain` a sbagliare: non aveva mai la possibilita' di agire,
+  // perche' l'elemento era gia' della misura sbagliata.
+  const renderMiniatura = (immagine) => (
+    <Miniatura immagine={immagine}
+      stile={{ width: "100%", height: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", mixBlendMode: "multiply" }} />
+  );
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -715,7 +1014,9 @@ export default function Cantina() {
     if (!result) {
       setWines(prevWines);
       setDbError(qty > 1 ? "Errore: rimozione bottiglia non riuscita" : "Errore: eliminazione non riuscita");
+      return;
     }
+    ricaricaGiacenze();   // una riga in meno: il badge puo' cambiare
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
@@ -731,24 +1032,28 @@ export default function Cantina() {
     const tempUid = -Date.now();
     // Snapshot per rollback
     const prevBevuti = bevuti;
-    const prevRatings = ratings;
     const prevWines = wines;
     // Update ottimistico (data apertura scelta nel modale, non necessariamente oggi)
-    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data: formatDataIt(dataIso), consumedOn: dataIso, nota: nota || "", ...snap }]);
-    if (rating > 0) setRatings(prev => ({ ...prev, [wineId]: rating }));
+    // Il voto entra con la bevuta: la media per etichetta e' derivata, quindi
+    // si aggiorna da se'.
+    setBevuti(prev => [...prev, { uid: tempUid, id: wineId, data: formatDataIt(dataIso), consumedOn: dataIso, nota: nota || "", rating: rating > 0 ? rating : null, ...snap }]);
     // F4: decrementa bottiglie nello state locale
     setWines(prev => prev.map(w => w.id === wineId ? { ...w, bottiglie: Math.max(0, (w.bottiglie || 1) - 1) } : w));
     setPendingBevi(null);
     const result = await sb.rpc("bevi_bottiglia", { p_wine_id: wineId, p_nota: nota || "", p_rating: rating || null, p_consumed_on: dataIso });
     if (!result) {
       setBevuti(prevBevuti);
-      setRatings(prevRatings);
       setWines(prevWines);
       setDbError("Errore: bevuta non registrata");
       return;
     }
-    // Riallinea l'entry ottimistica con uid e consumed_on reali assegnati dal DB
-    setBevuti(prev => prev.map(b => b.uid === tempUid ? { ...b, uid: result.uid, consumedOn: result.consumed_on } : b));
+    // Riallinea l'entry ottimistica con la chiave e la data reali assegnate dal
+    // DB. Dalla fase 4a la chiave e' `bottiglia_id`, non piu' `bevuti.uid`:
+    // e' quella che "Riporta in cantina" rimandera' indietro.
+    setBevuti(prev => prev.map(b => b.uid === tempUid
+      ? { ...b, uid: result.bottiglia_id ?? result.uid, consumedOn: result.consumed_on }
+      : b));
+    ricaricaGiacenze();   // una bottiglia ha lasciato la giacenza: il badge puo' cambiare
   };
 
   const handleRiporta = async (uid) => {
@@ -762,12 +1067,14 @@ export default function Cantina() {
     setBevuti(prev => prev.filter(b => b.uid !== uid));
     setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: (w.bottiglie || 0) + 1 } : w));
     // A3: RPC atomica — elimina bevuta + riaccredito bottiglia in un'unica transazione
-    const result = await sb.rpc("riporta_bottiglia", { p_uid: uid });
+    const result = await sb.rpc("riporta_bottiglia_per_id", { p_bottiglia_id: uid });
     if (!result) {
       setBevuti(prevBevuti);
       setWines(prevWines);
       setDbError("Errore: ripristino non riuscito");
+      return;
     }
+    ricaricaGiacenze();   // la bottiglia e' tornata in giacenza
   };
 
   const handleSalva = async (form) => {
@@ -783,14 +1090,24 @@ export default function Cantina() {
       p_vitigno: form.vitigno || "", p_note: form.note || "",
       p_macerazione: opzionale(form.macerazione, "—"), p_fermentazione: opzionale(form.fermentazione, "—"),
       p_malolattica: opzionale(form.malolattica, "—"),
+      p_formato: form.formato || FORMATO_PREDEFINITO,
     });
     if (!result) { setDbError("Errore salvataggio vino"); return; }
+    // Il conteggio non arriva dalla RPC: `wines` e' solo anagrafica. Si somma
+    // qui per la reattivita' immediata, e `ricaricaGiacenze` lo riallinea al
+    // valore vero subito dopo.
+    const aggiunte = Math.max(1, Number(form.bottiglie) || 1);
+    const salvato = normalizzaWine(result);
     setWines(prev => prev.some(w => w.id === result.id)
-      ? prev.map(w => w.id === result.id ? normalizzaWine(result) : w)
-      : [...prev, normalizzaWine(result)]);
+      ? prev.map(w => w.id === result.id
+          ? { ...salvato, bottiglie: (w.bottiglie || 0) + aggiunte }
+          : w)
+      : [...prev, { ...salvato, bottiglie: aggiunte }]);
+    ricaricaGiacenze();
   };
 
-  const handleModifica = (wine) => setPendingModifica(wine);
+  const handleModifica = (wine) =>
+    setPendingModifica({ ...wine, formato: formatoPrevalente(giacenze, wine.id) });
 
   const handleSalvaModifica = async (form) => {
     setDbError(null);
@@ -815,11 +1132,14 @@ export default function Cantina() {
       p_bottiglie: fields.bottiglie, p_prezzo: fields.prezzo, p_vitigno: fields.vitigno || "",
       p_note: fields.note || "", p_note_cantina: fields.note_cantina || "",
       p_macerazione: fields.macerazione, p_fermentazione: fields.fermentazione, p_malolattica: fields.malolattica,
+      p_formato: fields.formato || FORMATO_PREDEFINITO,
     });
     if (!result) {
       setWines(prevWines);
       setDbError("Errore: modifiche non salvate");
+      return;
     }
+    ricaricaGiacenze();
   };
 
   const handleSchedaTecnica = async () => {
@@ -856,18 +1176,19 @@ export default function Cantina() {
     }
   };
 
-  const handleRate = async (wineId, score) => {
+  // P5: la chiave e' la degustazione (`bottiglie.id`), non piu' il vino. Lo
+  // slider esiste solo nella scheda aperta da Bevuti, dove una degustazione
+  // precisa c'e'; dalla Cantina non compare, perche' li' si guarda l'etichetta
+  // e non c'e' niente da votare.
+  const handleRate = async (bottigliaId, score) => {
     setDbError(null);
-    const prevScore = ratings[wineId] ?? 0;
-    setRatings(prev => ({ ...prev, [wineId]: score }));
-    // N3: il rating è per-vino, ma in DB c'è una riga per bevuta.
-    // A3: RPC atomica — aggiorna tutte le bevute del vino in un'unica transazione.
-    if (bevuti.some(b => b.id === wineId)) {
-      const result = await sb.rpc("valuta_vino", { p_wine_id: wineId, p_rating: score });
-      if (!result) {
-        setRatings(prev => ({ ...prev, [wineId]: prevScore }));
-        setDbError("Errore: valutazione non salvata");
-      }
+    const prima = bevuti;
+    setBevuti(prev => prev.map(b => b.uid === bottigliaId ? { ...b, rating: score } : b));
+
+    const result = await sb.rpc("valuta_bottiglia", { p_bottiglia_id: bottigliaId, p_rating: score });
+    if (!result) {
+      setBevuti(prima);
+      setDbError("Errore: valutazione non salvata");
     }
   };
 
@@ -887,8 +1208,15 @@ export default function Cantina() {
     { id: "statistiche", Icona: NavStatisticheIcon, label: "Statistiche" },
   ];
 
+  // Il guscio riempie il viewport riportato, e basta. Provato e scartato il
+  // 21/09/2026: allungarlo di `env(safe-area-inset-top)` in standalone, per
+  // recuperare i 59px che iOS non conta, TAGLIA la barra di navigazione. La
+  // webview si ferma davvero al viewport riportato e scarta quel che c'e'
+  // sotto, quindi li' il CSS non arriva. La banda residua sull'iPhone si
+  // chiude solo cambiando `apple-mobile-web-app-status-bar-style`.
   return (
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100%",
+      display: "flex", flexDirection: "column", background: T.superficie, fontFamily: T.sans, overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
         /* C1: le due famiglie del ridisegno. Roboto resta finché le schermate
@@ -922,14 +1250,36 @@ export default function Cantina() {
 
       {/* ── Scrollable content ── */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} onAggiungi={() => setShowAggiungi(true)} compact={compact} ratings={ratings} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} immagini={immagini} rev={REV} />}
-        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} ratings={ratings} onRate={handleRate} renderBottiglia={renderBottiglia} immagini={immagini} />}
+        {tab === "lista" && <TabLista wines={allWines} bevuti={bevuti} onBevi={handleBevi} onElimina={handleElimina} onModifica={handleModifica} compact={compact} onRate={handleRate} onWineOpen={w => setSelectedWineForScheda(w)} onWineClose={() => setSelectedWineForScheda(null)} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} formati={formati} rev={REV} />}
+        {tab === "bevuti" && <TabBevuti bevuti={bevuti} allWines={winesForBevuti} onRiporta={handleRiporta} onElimina={handleElimina} onModifica={handleModifica} onRate={handleRate} renderBottiglia={renderBottiglia} renderMiniatura={renderMiniatura} immagini={immagini} />}
         {tab === "statistiche" && <TabStatistiche wines={allWines} bevuti={bevuti} />}
       </div>
 
-      {/* ── Extended FAB ── */}
+      {/* ── "+" flottante: l'azione primaria della Cantina ──
+          Sta qui e non nell'intestazione di Lista perche' quella scorre via:
+          il "+" spariva dopo poche decine di pixel e non tornava piu'. In
+          basso a destra e' sempre a portata di pollice mentre si scorre.
+          Sparisce quando e' aperta la scheda di un vino, che e' un overlay a
+          tutto schermo: li' la slot ospita gia' "Scheda tecnica". Che la slot
+          abbia ancora due significati resta il bug noto, e si chiude nello
+          step B, quando "Scheda tecnica" entra nel dettaglio. */}
+      {tab === "lista" && !selectedWineForScheda && (
+        <button type="button" onClick={() => setShowAggiungi(true)} aria-label="Aggiungi un vino"
+          style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", right: 16, zIndex: 50,
+            width: 56, height: 56, display: "grid", placeItems: "center",
+            border: `1px solid ${T.accento}`, borderRadius: "50%", background: T.accento, color: T.superficie,
+            cursor: "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)",
+            opacity: fabVisible ? 1 : 0,
+            transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)",
+            transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)",
+            pointerEvents: fabVisible ? "auto" : "none" }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+        </button>
+      )}
+
+      {/* ── Extended FAB "Scheda tecnica" ── */}
       {tab === "lista" && (
-        <div style={{ position: "fixed", bottom: 88, right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
+        <div style={{ position: "fixed", bottom: "calc(88px + env(safe-area-inset-bottom))", right: 16, zIndex: 50, opacity: fabVisible ? 1 : 0, transform: fabVisible ? "translateY(0) scale(1)" : "translateY(10px) scale(0.92)", transition: "opacity 0.2s, transform 0.2s cubic-bezier(0.2,0,0,1)", pointerEvents: fabVisible ? "auto" : "none" }}>
           {selectedWineForScheda && (
             <button onClick={handleSchedaTecnica} disabled={schedaFabLoading} style={{ display: "flex", alignItems: "center", gap: 8, background: M3.primaryContainer, color: M3.onPrimaryContainer, border: "none", borderRadius: 16, padding: "14px 20px", fontSize: 14, fontWeight: 500, fontFamily: "'Roboto', sans-serif", cursor: schedaFabLoading ? "default" : "pointer", boxShadow: "0 3px 8px rgba(0,0,0,0.14)", opacity: schedaFabLoading ? 0.7 : 1 }}>
               {schedaFabLoading
@@ -942,9 +1292,16 @@ export default function Cantina() {
 
       {/* ── Navigation Bar — ridisegno 2026 ── */}
       {/* La pastiglia M3 lascia il posto a un trattino di 2px sopra la voce
-          attiva. Il padding in basso somma i 4px del design al safe-area
-          dell'iPhone, che il prototipo non doveva gestire. */}
-      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", height: 72, paddingBottom: "calc(4px + env(safe-area-inset-bottom))", borderTop: `1px solid ${T.divisoreMedio}`, background: "rgba(255,252,247,.96)", backdropFilter: "blur(14px)", zIndex: 10 }}>
+          attiva.
+
+          Il design e' `height:72px; padding-bottom:4px`, cioe' 68px di
+          contenuto. Con `box-sizing: border-box` il safe-area dell'iPhone,
+          che il prototipo non doveva gestire, andava SOTTRATTO da quei 72:
+          su un telefono con home indicator il contenuto scendeva a 33px
+          mentre i bottoni ne chiedono 37, e la barra si schiacciava.
+          Ora il safe-area si somma all'altezza, quindi il contenuto resta
+          68px su qualunque dispositivo. */}
+      <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", height: "calc(72px + env(safe-area-inset-bottom))", paddingBottom: "calc(4px + env(safe-area-inset-bottom))", borderTop: `1px solid ${T.divisoreMedio}`, background: "rgba(255,252,247,.96)", backdropFilter: "blur(14px)", zIndex: 10 }}>
         {NAV.map(({ id, Icona, label }) => {
           const attiva = tab === id;
           return (

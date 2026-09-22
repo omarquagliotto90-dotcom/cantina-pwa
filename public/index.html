@@ -6,7 +6,13 @@
 
     <!-- PWA / iPhone -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- `default` e non `black-translucent`: quest'ultimo chiede a iOS una
+         webview a tutto schermo ancorata in alto, ma iOS gliene dà una alta
+         quanto lo schermo MENO il safe-area superiore, e i 59px di ammanco
+         restano come banda vuota in fondo (misurato 21/09/2026: viewport 873,
+         schermo 932). Con `default` la webview parte sotto la status bar e
+         arriva al fondo vero. Vedi CLAUDE.md per le tre strade già escluse. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Cantina" />
     <meta name="theme-color" content="#9B3535" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -30,6 +36,11 @@
         background: #FFF8F7;
         /* NON mettere safe-area qui: con overflow:hidden non funziona su Safari */
       }
+      /* Foglio "aggiungi vino": il solo stato non esprimibile inline che vale
+         la pena tenere. Gli :hover del ridisegno sono stati lasciati cadere —
+         su iPhone non si attivano mai — ma il contorno di messa a fuoco serve
+         a chi naviga da tastiera. */
+      .foglio-foto:focus-visible { outline: 2px solid #6B1E2E; outline-offset: 2px; }
     </style>
   </head>
   <body>
