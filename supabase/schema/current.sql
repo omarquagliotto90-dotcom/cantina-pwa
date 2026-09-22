@@ -200,6 +200,56 @@ REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.audit_log FROM anon, authentic
 -- EXECUTE revocata a public/anon/authenticated: un log falsificabile non serve.
 
 
+-- ── bottiglie (P6 fase 1) ───────────────────────────────────────────────────
+-- Una riga per bottiglia fisica. `wines` resta anagrafica dell'etichetta.
+-- Popolata dai dati esistenti ma ANCORA NON LETTA da nessuno: in questa fase
+-- l'app continua a usare `wines.bottiglie` e `bevuti`. Le RPC arrivano in
+-- fase 2, il client in fase 3, il drop del vecchio in fase 4.
+--
+-- `wine_id` nullable con ON DELETE SET NULL, come `bevuti`: c'e' una bevuta
+-- orfana (il Raina Grechetto, vino 76 cancellato prima delle FK di A2a) e lo
+-- storico e' immutabile. Lo snapshot produttore/vino/annata/tipologia e'
+-- valorizzato solo sulle righe bevute, che per vincolo non cambiano piu'; le
+-- giacenze si leggono via join, e da P1b `wines` non si cancella piu' davvero.
+CREATE TABLE public.bottiglie (
+  id            bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  wine_id       integer     REFERENCES public.wines(id) ON DELETE SET NULL,
+  formato       text        NOT NULL DEFAULT 'Standard',
+  stato         text        NOT NULL DEFAULT 'in_cantina',
+  acquistata_il date,
+  prezzo_pagato numeric,
+  posizione     text,
+  consumed_on   date,
+  nota          text,
+  rating        numeric(2,1),
+  produttore    text,       -- snapshot: solo sulle bevute
+  vino          text,
+  annata        smallint,
+  tipologia     text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT bottiglie_formato_valido CHECK (
+    formato IN ('Mezza','Medium','Standard','Litro','Magnum','Jeroboam')),
+  CONSTRAINT bottiglie_stato_valido CHECK (stato IN ('in_cantina','bevuta')),
+  CONSTRAINT bottiglie_coerenza_consumo CHECK (
+    (stato = 'bevuta'     AND consumed_on IS NOT NULL) OR
+    (stato = 'in_cantina' AND consumed_on IS NULL AND rating IS NULL)),
+  CONSTRAINT bottiglie_rating_valido CHECK (
+    rating IS NULL OR (rating >= 1 AND rating <= 5)),
+  CONSTRAINT bottiglie_prezzo_valido CHECK (
+    prezzo_pagato IS NULL OR prezzo_pagato >= 0)
+);
+CREATE INDEX idx_bottiglie_wine_id ON public.bottiglie (wine_id);
+CREATE INDEX idx_bottiglie_stato   ON public.bottiglie (stato);
+CREATE TRIGGER bottiglie_set_updated_at BEFORE UPDATE ON public.bottiglie
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+GRANT SELECT ON public.bottiglie TO anon;
+
+-- Migrazione: 50 righe da `bevuti` (stato 'bevuta') + 117 generate da
+-- `wines.bottiglie` con generate_series (stato 'in_cantina') = 167 righe.
+-- Verificato dopo: somma dei voti 198,7 identica, costo giacenza 1.578,00 €
+-- identico.
+
 -- ─── Permessi ───────────────────────────────────────────────────────────────
 
 -- A3 ha revocato le scritture dirette ad anon:
