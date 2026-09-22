@@ -16,7 +16,7 @@ const { BOTTIGLIE } = require("./fixtures/cantina");
 // Lo slider vive solo nella scheda aperta da Bevuti: dalla Cantina si guarda
 // l'etichetta e non c'e' una degustazione da votare. Le asserzioni sulla
 // scheda restano circoscritte al dialog, perche' lo stesso numero compare
-// anche nella riga del diario.
+// anche nella riga di Bevuti.
 //
 // APERTO: la media per etichetta si calcola (`mediaPerVino`) ma non ha ancora
 // un posto dove mostrarsi — `WineCard` non ha mai portato un voto. Finche' non

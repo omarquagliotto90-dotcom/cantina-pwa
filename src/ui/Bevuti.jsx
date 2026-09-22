@@ -2,7 +2,7 @@
 // fa fetch, non conosce Supabase, non muta nulla.
 //
 // Ridisegno 2026 (C3), da `design/La Mia Cantina.dc.html`: intestazione
-// editoriale, riepilogo, e un diario diviso per anno.
+// editoriale, riepilogo, e i Bevuti divisi per anno.
 //
 // `renderBottiglia` arriva da App.jsx e viene solo
 // inoltrata a WineDetail: qui non si sa cosa contenga.
@@ -19,7 +19,7 @@ const IconaRiporta = ({ size = 13 }) => (
   </svg>
 );
 
-// Una riga del diario. Il bottone apre il dettaglio; voto e "riporta" stanno
+// Una riga dei Bevuti. Il bottone apre il dettaglio; voto e "riporta" stanno
 // sotto, fuori dal bottone, perche' sono azioni e letture separate.
 function RigaBevuta({ b, wine, immagine, voto, onOpen, onRiporta, renderMiniatura }) {
   const [hover, setHover] = useState(false);
@@ -104,7 +104,7 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
 
   // Diario: dal più recente al più vecchio, raggruppato per anno. Prima
   // l'ordine era quello di inserimento invertito; qui è la data di consumo,
-  // che è ciò che il lettore si aspetta da un diario e ciò che rende i
+  // che è ciò che il lettore si aspetta dai Bevuti e ciò che rende i
   // divisori d'anno sensati.
   const ordinate = [...bevuti].sort((x, y) => {
     const dx = x.consumedOn || "", dy = y.consumedOn || "";
@@ -143,7 +143,7 @@ export default function TabBevuti({ bevuti, allWines, onRiporta, onElimina, onMo
         </div>
       </section>
 
-      {/* ── Il diario, per anno ── */}
+      {/* ── I Bevuti, per anno ── */}
       {anni.map(({ anno, righe }) => (
         <section key={anno}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "14px 0 0" }}>
