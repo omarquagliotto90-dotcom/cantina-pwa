@@ -62,3 +62,47 @@ test.describe("Formato bottiglia", () => {
     expect(cantina.lastRpcArgs("aggiungi_o_incrementa").p_formato).toBe("Standard");
   });
 });
+
+// P6 fase 4a — `bottiglie` e' la fonte di verita'.
+test.describe("Giacenza dalle righe", () => {
+  test("il conteggio viene dalle righe, non da wines.bottiglie", async ({ page, cantina }) => {
+    // Si fa mentire di proposito la colonna vecchia: dice 99, le righe sono 2.
+    // Se il client leggesse ancora `wines.bottiglie` mostrerebbe 99. E' l'unico
+    // modo di distinguere le due fonti, che nei dati veri coincidono sempre.
+    cantina.setTable("wines", [{
+      id: 1, produttore: "Cantina Prova", produttore_id: 1, vino: "Vino Prova",
+      annata: 2020, tipologia: "Rosso fermo", bottiglie: 99, prezzo: 10, valore: null,
+      denominazione: null, vitigno: null, macerazione: null, fermentazione: null,
+      malolattica: null, note: null, note_cantina: null, slow_vino_bott: false,
+      created_at: "2026-01-10T10:00:00+00:00", deleted_at: null,
+    }]);
+    cantina.setTable("bottiglie", [
+      { id: 1, wine_id: 1, formato: "Standard", stato: "in_cantina", prezzo_pagato: 10 },
+      { id: 2, wine_id: 1, formato: "Standard", stato: "in_cantina", prezzo_pagato: 10 },
+      // Una bevuta: non deve finire nella giacenza.
+      { id: 3, wine_id: 1, formato: "Standard", stato: "bevuta", prezzo_pagato: 10,
+        consumed_on: "2026-05-05", rating: 4, produttore: "Cantina Prova",
+        vino: "Vino Prova", annata: 2020, tipologia: "Rosso fermo", legacy_uid: null },
+    ]);
+    await apriApp(page);
+
+    await expect(page.getByTestId("tot-bottiglie")).toHaveText("2");
+    // E il costo segue: 2 righe da 10 €, non 99.
+    await expect(page.getByTestId("tot-costo")).toHaveText("20 €");
+  });
+
+  test("lo storico viene dalle righe bevute", async ({ page, cantina }) => {
+    await apriApp(page);
+    await page.getByRole("button", { name: "Bevuti" }).click();
+
+    // Le 4 bevute dei fixture, ora lette da `bottiglie` e non piu' da `bevuti`.
+    await expect(page.getByText("Verdicchio Cambrugiano").first()).toBeVisible();
+    // La data in italiano prova che `consumed_on` arriva dalla riga-bottiglia:
+    // e' l'unico campo che il client deriva, e nei fixture vale 10/09/2026.
+    await expect(page.getByText("10 settembre 2026").first()).toBeVisible();
+
+    // La nota vive nel dettaglio, non nella riga: si apre per verificarla.
+    await page.getByRole("button", { name: /Verdicchio Cambrugiano/ }).first().click();
+    await expect(page.getByText("Ottimo")).toBeVisible();
+  });
+});

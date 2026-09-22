@@ -49,6 +49,11 @@ class Cantina {
   /** Sostituisce il contenuto di una tabella prima del caricamento pagina. */
   setTable(name, rows) {
     this.tables[name] = rows.map(r => ({ ...r }));
+    // P6 fase 4a: il client conta le righe di `bottiglie`, non legge piu'
+    // `wines.bottiglie`. Un test che imposta solo `wines` si ritroverebbe una
+    // cantina vuota senza capire perche', quindi le righe si generano qui.
+    // Un `setTable("bottiglie", ...)` successivo le sovrascrive.
+    if (name === "wines") this._generaBottiglie();
     return this;
   }
 
@@ -185,26 +190,75 @@ class Cantina {
   nextUid() {
     return this._nextUid++;
   }
+
+  /** Una riga `bottiglie` in cantina per ogni bottiglia dichiarata in `wines`. */
+  _generaBottiglie() {
+    let seq = 1;
+    this.tables.bottiglie = [];
+    for (const w of this.tables.wines) {
+      if (w.deleted_at != null) continue;
+      for (let i = 0; i < (w.bottiglie ?? 0); i++) {
+        this.tables.bottiglie.push({
+          id: seq++, wine_id: w.id, formato: "Standard", stato: "in_cantina",
+          prezzo_pagato: w.prezzo ?? null, acquistata_il: null, posizione: null,
+          consumed_on: null, nota: null, rating: null, produttore: null,
+          vino: null, annata: null, tipologia: null, legacy_uid: null,
+          created_at: w.created_at,
+        });
+      }
+    }
+  }
 }
 
 // Risposte predefinite delle 9 RPC, con la stessa forma di quelle reali
 // (lette da pg_get_functiondef il 19/09/2026).
 const DEFAULT_RPC = {
+  // P6 fase 4a: gli stub mutano `bottiglie`, che e' cio' che il client legge.
+  // `wines.bottiglie` viene tenuto allineato come fa la RPC vera, cosi' un
+  // eventuale ritorno al vecchio modello resta verificabile.
   bevi_bottiglia: (args, c) => {
     const wine = c.tables.wines.find(w => w.id === args.p_wine_id);
+    const consumed_on = args.p_consumed_on || "2026-09-19";
+    const uid = c.nextUid();
+    const riga = c.tables.bottiglie.find(b => b.wine_id === args.p_wine_id && b.stato === "in_cantina");
+    if (riga) {
+      Object.assign(riga, {
+        stato: "bevuta", consumed_on, nota: args.p_nota || null,
+        rating: args.p_rating ?? null, legacy_uid: uid,
+        produttore: wine?.produttore ?? null, vino: wine?.vino ?? null,
+        annata: wine?.annata ?? null, tipologia: wine?.tipologia ?? null,
+      });
+    }
+    if (wine) wine.bottiglie = Math.max((wine.bottiglie ?? 1) - 1, 0);
     return {
-      uid: c.nextUid(),
-      consumed_on: args.p_consumed_on || "2026-09-19",
-      bottiglie_residue: Math.max((wine?.bottiglie ?? 1) - 1, 0),
+      uid, bottiglia_id: riga?.id ?? null, consumed_on,
+      bottiglie_residue: wine?.bottiglie ?? 0,
     };
   },
-  riporta_bottiglia: () => ({ bottiglie_residue: 1 }),
+  riporta_bottiglia_per_id: (args, c) => {
+    const riga = c.tables.bottiglie.find(b => b.id === args.p_bottiglia_id);
+    if (riga) {
+      Object.assign(riga, {
+        stato: "in_cantina", consumed_on: null, nota: null, rating: null,
+        legacy_uid: null, produttore: null, vino: null, annata: null, tipologia: null,
+      });
+      const wine = c.tables.wines.find(w => w.id === riga.wine_id);
+      if (wine) wine.bottiglie = (wine.bottiglie ?? 0) + 1;
+      return { bottiglie_residue: wine?.bottiglie ?? 1 };
+    }
+    return { bottiglie_residue: 1 };
+  },
   // P1b: l'ultima bottiglia non cancella più la riga, la marca `deleted_at`.
   // Lo stub muta la tabella come fa la RPC vera, così un ricaricamento nel
   // test vede quello che vedrebbe l'app.
   elimina_bottiglia: (args, c) => {
     const wine = c.tables.wines.find(w => w.id === args.p_wine_id);
     const n = wine?.bottiglie ?? 0;
+    // Come la RPC vera: una giacenza in meno, la piu' recente. Le righe gia'
+    // bevute non si toccano mai.
+    const inC = c.tables.bottiglie.filter(b => b.wine_id === args.p_wine_id && b.stato === "in_cantina");
+    const ultima = inC[inC.length - 1];
+    if (ultima) c.tables.bottiglie.splice(c.tables.bottiglie.indexOf(ultima), 1);
     if (n > 1) {
       if (wine) wine.bottiglie = n - 1;
       return { eliminato: false, bottiglie_residue: n - 1 };
@@ -221,11 +275,25 @@ const DEFAULT_RPC = {
       norm(w.produttore) === norm(args.p_produttore) &&
       norm(w.vino) === norm(args.p_vino) &&
       (w.annata ?? null) === (args.p_annata ?? null));
+    const creaRighe = (wineId) => {
+      const prossimo = () => 1 + c.tables.bottiglie.reduce((m, b) => Math.max(m, b.id), 0);
+      for (let i = 0; i < (args.p_bottiglie ?? 0); i++) {
+        c.tables.bottiglie.push({
+          id: prossimo(), wine_id: wineId, formato: args.p_formato || "Standard",
+          stato: "in_cantina", prezzo_pagato: args.p_prezzo ?? null,
+          acquistata_il: null, posizione: null, consumed_on: null, nota: null,
+          rating: null, produttore: null, vino: null, annata: null,
+          tipologia: null, legacy_uid: null, created_at: "2026-09-22T10:00:00+00:00",
+        });
+      }
+    };
     if (esistente) {
       esistente.bottiglie = (esistente.bottiglie ?? 0) + args.p_bottiglie;
       esistente.deleted_at = null;
+      creaRighe(esistente.id);
       return { ...esistente };
     }
+    creaRighe(999);
     return {
     id: 999,
     produttore: args.p_produttore,
@@ -246,7 +314,38 @@ const DEFAULT_RPC = {
     created_at: "2026-09-19T12:00:00+00:00",
     };
   },
-  modifica_vino: args => ({ id: args.p_id }),
+  // Come la RPC vera: `p_bottiglie` e' un TOTALE, quindi la giacenza si
+  // riconcilia in entrambe le direzioni, e il formato si riscrive solo se e'
+  // stato davvero chiesto.
+  modifica_vino: (args, c) => {
+    const inC = c.tables.bottiglie.filter(b => b.wine_id === args.p_id && b.stato === "in_cantina");
+    const diff = (args.p_bottiglie ?? 0) - inC.length;
+    if (diff > 0) {
+      const prossimo = () => 1 + c.tables.bottiglie.reduce((m, b) => Math.max(m, b.id), 0);
+      const formato = args.p_formato || inC[0]?.formato || "Standard";
+      for (let i = 0; i < diff; i++) {
+        c.tables.bottiglie.push({
+          id: prossimo(), wine_id: args.p_id, formato, stato: "in_cantina",
+          prezzo_pagato: args.p_prezzo ?? null, acquistata_il: null, posizione: null,
+          consumed_on: null, nota: null, rating: null, produttore: null,
+          vino: null, annata: null, tipologia: null, legacy_uid: null,
+          created_at: "2026-09-22T10:00:00+00:00",
+        });
+      }
+    } else if (diff < 0) {
+      for (const riga of inC.slice(diff)) {
+        c.tables.bottiglie.splice(c.tables.bottiglie.indexOf(riga), 1);
+      }
+    }
+    for (const riga of c.tables.bottiglie) {
+      if (riga.wine_id !== args.p_id || riga.stato !== "in_cantina") continue;
+      riga.prezzo_pagato = args.p_prezzo ?? null;
+      if (args.p_formato != null) riga.formato = args.p_formato;
+    }
+    const wine = c.tables.wines.find(w => w.id === args.p_id);
+    if (wine) wine.bottiglie = args.p_bottiglie ?? wine.bottiglie;
+    return { id: args.p_id };
+  },
   aggiorna_scheda_tecnica: args => ({ id: args.p_id }),
   valuta_vino: () => true,
   salva_immagine_vino: () => true,

@@ -14,7 +14,7 @@ import TabBevuti from "./ui/Bevuti";
 // modifica del file e compare accanto al titolo nell'app bar. Sostituisce il
 // vecchio marcatore fisso "b2" e, da 0.5, anche src/version.js, che era
 // fermo a 0.3 e non veniva importato da nessuno.
-const REV = "2.4";
+const REV = "2.5";
 
 // PWA aggiunta alla schermata Home: cambia come iOS misura il viewport (vedi
 // il commento sul guscio in Cantina()). Non cambia a runtime, si legge una
@@ -158,7 +158,9 @@ function ratingPerVino(bevute) {
     const corrente = piuRecente[b.wine_id];
     const piuNuova = !corrente ||
       b.consumed_on > corrente.consumed_on ||
-      (b.consumed_on === corrente.consumed_on && b.uid > corrente.uid);
+      // Dalla fase 4a le righe arrivano da `bottiglie`, dove la chiave si
+      // chiama `id`. Il fallback tiene in piedi anche la vecchia forma.
+      (b.consumed_on === corrente.consumed_on && (b.uid ?? b.id) > (corrente.uid ?? corrente.id));
     if (piuNuova) piuRecente[b.wine_id] = b;
   }
   return Object.fromEntries(
@@ -784,29 +786,47 @@ function useCantinaData() {
     let cancelled = false;
     async function loadData() {
       try {
-        const [fetchedWines, bev, produttori, immagini, bottiglie] = await Promise.all([
+        const [fetchedWines, bottiglie, produttori, immagini] = await Promise.all([
           // P1b: le righe soft-deleted restano in tabella ma fuori dall'app.
           sb.getOrThrow("wines", { order: "id.asc", filtro: "deleted_at=is.null" }),
-          sb.getOrThrow("bevuti"),
+          // P6 fase 4a: lo storico non viene piu' da `bevuti` ma dalle righe
+          // bevute di `bottiglie`. La tabella vecchia esiste ancora e le RPC
+          // la tengono allineata, ma nessuno la legge piu'.
+          sb.getOrThrow("bottiglie", { order: "id.asc" }),
           sb.getOrThrow("produttori", { order: "nome.asc" }),
           // C2: il ridisegno mette una miniatura in ogni riga della lista. Una
           // GET sola all'avvio invece di una ricerca per vino: senza questa,
           // scorrere la lista accoderebbe una chiamata Serper per ogni vino
           // senza immagine, e imgQueue le serializza con 2s di pausa.
           sb.getOrThrow("wine_images"),
-          // P6 fase 3: serve solo per il formato. La giacenza resta contata da
-          // `wines.bottiglie` finche' il vecchio modello non sparisce in fase 4.
-          sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" }),
         ]);
 
         if (cancelled) return;
         // P3: prima dei vini — badge Slow Wine e sito produttore leggono da qui.
         setProduttori(produttori);
-        setWines(fetchedWines.map(normalizzaWine));
-        // F5: 1:N — nessuna deduplica, uid è chiave univoca
-        const bevFromDb = bev.map(b => ({ uid: b.uid, id: b.wine_id, data: b.data, consumedOn: b.consumed_on, nota: b.nota || "", produttore: b.produttore, vino: b.vino, annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo }));
-        setBevuti(bevFromDb);
-        setRatings(ratingPerVino(bev));
+        // P6 fase 4a: la giacenza e' il numero di righe-bottiglia in cantina,
+        // non piu' la colonna `wines.bottiglie`. Cambia la fonte, non la forma:
+        // il resto del client continua a leggere `wine.bottiglie` e nessuna
+        // formula a valle — costoGiacenza, Statistiche, le card — e' stata
+        // toccata.
+        const bevute = bottiglie.filter(b => b.stato === "bevuta");
+        const inCantina = bottiglie.filter(b => b.stato === "in_cantina");
+        const contaPerVino = new Map();
+        for (const b of inCantina) {
+          if (b.wine_id == null) continue;
+          contaPerVino.set(b.wine_id, (contaPerVino.get(b.wine_id) || 0) + 1);
+        }
+        setWines(fetchedWines.map(w => normalizzaWine({ ...w, bottiglie: contaPerVino.get(w.id) || 0 })));
+        // F5: 1:N — nessuna deduplica. La chiave della bevuta e' ora
+        // `bottiglie.id`: lo storico e' la riga stessa, non piu' una tabella a
+        // parte. Il campo si chiama ancora `uid` perche' e' cosi' che lo
+        // conoscono TabBevuti, handleRiporta e ratingPerVino.
+        setBevuti(bevute.map(b => ({
+          uid: b.id, id: b.wine_id, consumedOn: b.consumed_on, data: formatDataIt(b.consumed_on),
+          nota: b.nota || "", produttore: b.produttore, vino: b.vino,
+          annata: b.annata, tipologia: b.tipologia, prezzo: b.prezzo_pagato,
+        })));
+        setRatings(ratingPerVino(bevute));
         // Le stesse url alimentano la lista e pre-riempiono la cache del
         // dettaglio: per i vini gia' fotografati BottleImage non fa piu' nulla.
         const mappa = {};
@@ -816,7 +836,7 @@ function useCantinaData() {
           if (!imgSessionCache.has(r.wine_id)) imgSessionCache.set(r.wine_id, r.image_url);
         }
         setImmagini(mappa);
-        setGiacenze(bottiglie);
+        setGiacenze(inCantina);
         setDbError(null);
       } catch (e) {
         if (cancelled) return;
@@ -838,7 +858,7 @@ function useCantinaData() {
     try {
       const righe = await sb.getOrThrow("bottiglie", { order: "id.asc", filtro: "stato=eq.in_cantina" });
       if (Array.isArray(righe)) setGiacenze(righe);
-    } catch { /* il badge resta quello di prima: non vale un messaggio d'errore */ }
+    } catch { /* i formati restano quelli di prima: non vale un messaggio d'errore */ }
   };
 
   return { wines, setWines, bevuti, setBevuti, ratings, setRatings, immagini, giacenze, ricaricaGiacenze, loading, dbError, setDbError };
@@ -923,7 +943,9 @@ export default function Cantina() {
     if (!result) {
       setWines(prevWines);
       setDbError(qty > 1 ? "Errore: rimozione bottiglia non riuscita" : "Errore: eliminazione non riuscita");
+      return;
     }
+    ricaricaGiacenze();   // una riga in meno: il badge puo' cambiare
   };
 
   const handleBevi = (wineId) => setPendingBevi(allWines.find(w => w.id === wineId));
@@ -955,8 +977,13 @@ export default function Cantina() {
       setDbError("Errore: bevuta non registrata");
       return;
     }
-    // Riallinea l'entry ottimistica con uid e consumed_on reali assegnati dal DB
-    setBevuti(prev => prev.map(b => b.uid === tempUid ? { ...b, uid: result.uid, consumedOn: result.consumed_on } : b));
+    // Riallinea l'entry ottimistica con la chiave e la data reali assegnate dal
+    // DB. Dalla fase 4a la chiave e' `bottiglia_id`, non piu' `bevuti.uid`:
+    // e' quella che "Riporta in cantina" rimandera' indietro.
+    setBevuti(prev => prev.map(b => b.uid === tempUid
+      ? { ...b, uid: result.bottiglia_id ?? result.uid, consumedOn: result.consumed_on }
+      : b));
+    ricaricaGiacenze();   // una bottiglia ha lasciato la giacenza: il badge puo' cambiare
   };
 
   const handleRiporta = async (uid) => {
@@ -970,12 +997,14 @@ export default function Cantina() {
     setBevuti(prev => prev.filter(b => b.uid !== uid));
     setWines(prev => prev.map(w => w.id === entry.id ? { ...w, bottiglie: (w.bottiglie || 0) + 1 } : w));
     // A3: RPC atomica — elimina bevuta + riaccredito bottiglia in un'unica transazione
-    const result = await sb.rpc("riporta_bottiglia", { p_uid: uid });
+    const result = await sb.rpc("riporta_bottiglia_per_id", { p_bottiglia_id: uid });
     if (!result) {
       setBevuti(prevBevuti);
       setWines(prevWines);
       setDbError("Errore: ripristino non riuscito");
+      return;
     }
+    ricaricaGiacenze();   // la bottiglia e' tornata in giacenza
   };
 
   const handleSalva = async (form) => {
